@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OptiKey Dynamic Keyboard - English AAC: Basic Needs
+-->
+<Keyboard>
+  <Name>English AAC - Basic Needs</Name>
+  <HideFromKeyboardMenu>False</HideFromKeyboardMenu>
+  <WindowState>Maximised</WindowState>
+  <Height>100</Height>
+  <ShowOutputPanel>True</ShowOutputPanel>
+  <Grid>
+    <Rows>8</Rows>
+    <Cols>2</Cols>
+  </Grid>
+  <Content>
+
+    <DynamicKey Row="0" Col="0" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>I'd like some water.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'd like some water.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="0" Col="1" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>I'm hungry.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'm hungry.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="0" Width="1" Height="1"
+                BackgroundColor="#21618C" ForegroundColor="#FFFFFF">
+      <Label>I need the toilet.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I need the toilet.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="1" Width="1" Height="1"
+                BackgroundColor="#21618C" ForegroundColor="#FFFFFF">
+      <Label>I'm cold.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'm cold.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="0" Width="1" Height="1"
+                BackgroundColor="#2471A3" ForegroundColor="#FFFFFF">
+      <Label>I'm hot.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'm hot.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="1" Width="1" Height="1"
+                BackgroundColor="#2471A3" ForegroundColor="#FFFFFF">
+      <Label>Could you turn the light on?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you turn the light on?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="3" Col="0" Width="1" Height="1"
+                BackgroundColor="#1B4F72" ForegroundColor="#FFFFFF">
+      <Label>Could you turn the light off?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you turn the light off?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="3" Col="1" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>I'd like something to eat.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'd like something to eat.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="0" Width="1" Height="1"
+                BackgroundColor="#21618C" ForegroundColor="#FFFFFF">
+      <Label>Another sip, please.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Another sip, please.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="1" Width="1" Height="1"
+                BackgroundColor="#2471A3" ForegroundColor="#FFFFFF">
+      <Label>That's enough, thank you.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>That's enough, thank you.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="0" Width="1" Height="1"
+                BackgroundColor="#1B4F72" ForegroundColor="#FFFFFF">
+      <Label>I'd like to drink through a straw.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'd like to drink through a straw.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="1" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>Could you wipe my mouth?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you wipe my mouth?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="0" Width="1" Height="1"
+                BackgroundColor="#21618C" ForegroundColor="#FFFFFF">
+      <Label>Could you get me a blanket?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you get me a blanket?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="1" Width="1" Height="1"
+                BackgroundColor="#2471A3" ForegroundColor="#FFFFFF">
+      <Label>I need help with the toilet.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I need help with the toilet.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+<DynamicKey Row="7" Col="0" Width="1" Height="1"
+                BackgroundColor="#1C2833" ForegroundColor="#FFFFFF">
+      <Label>Back / Main Menu</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-pack</ChangeKeyboard>
+    </DynamicKey>
+
+  </Content>
+</Keyboard>

@@ -1,0 +1,28 @@
+Face images for the deep gaze model tests (tests/test_deep_onnx.py) and for
+tools/derin_onnx_cevir.py. All three are PUBLIC DOMAIN: official NASA crew
+portraits (works of the U.S. federal government, Wikimedia Commons license
+"Public domain", author NASA). Fetched 2026-10-20 as Wikimedia's 960 px
+thumbnails, then cropped around the face to 4:3 and resized to 640x480
+(webcam-like framing), re-encoded as JPEG quality 88.
+
+chawla.jpg
+  https://commons.wikimedia.org/wiki/File:Kalpana_Chawla,_NASA_photo_portrait_in_orange_suit.jpg
+  original: http://science.ksc.nasa.gov/shuttle/missions/sts-107/images/high/KSC-02PD-1127.jpg
+  license: Public domain (NASA)
+
+clark.jpg
+  https://commons.wikimedia.org/wiki/File:Laurel_Clark,_NASA_photo_portrait_in_blue_suit.jpg
+  original: http://science.ksc.nasa.gov/shuttle/missions/sts-107/images/high/KSC-02PD-1055.jpg
+  license: Public domain (NASA)
+
+ramon.jpg
+  https://commons.wikimedia.org/wiki/File:Ilan_Ramon,_NASA_photo_portrait_in_orange_suit.jpg
+  original: http://science.ksc.nasa.gov/shuttle/missions/sts-107/images/high/KSC-02PP-0490.jpg
+  license: Public domain (NASA)
+
+reference.json: MediaPipe FaceLandmarker landmarks of each image (468 points,
+normalised, rounded to 6 decimals) and the torch + ptgaze CPU gaze output
+(DeepGaze(device="cpu").estimate_from_landmarks) for exactly those landmarks.
+It lets the ONNX path be checked against torch on machines without torch
+(the Linux Docker suite). Regenerate with:
+  CUDA_VISIBLE_DEVICES="" python tools/derin_onnx_cevir.py --referans

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OptiKey Dynamic Keyboard - Türkçe AAC: Acil / Sağlık Kategorisi
+  Büyük hedef alanlar, yüksek kontrast renkler
+-->
+<Keyboard>
+  <Name>Türkçe AAC - Acil Sağlık</Name>
+  <HideFromKeyboardMenu>False</HideFromKeyboardMenu>
+  <WindowState>Maximised</WindowState>
+  <Height>100</Height>
+  <ShowOutputPanel>True</ShowOutputPanel>
+  <Grid>
+    <Rows>8</Rows>
+    <Cols>2</Cols>
+  </Grid>
+  <Content>
+
+    <DynamicKey Row="0" Col="0" Width="2" Height="1"
+                BackgroundColor="#E74C3C" ForegroundColor="#FFFFFF">
+      <Label>Ağrım var.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Ağrım var.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="0" Col="1" Width="2" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>İyi değilim, yardım edin.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>İyi değilim, yardım edin.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="0" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>İlacımı istiyorum.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>İlacımı istiyorum.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="1" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>Pozisyonumu değiştirir misiniz?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Pozisyonumu değiştirir misiniz?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="0" Width="1" Height="1"
+                BackgroundColor="#922B21" ForegroundColor="#FFFFFF">
+      <Label>Doktoru arayın.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Doktoru arayın.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="2" Col="1" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>Nefes almakta zorlanıyorum.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Nefes almakta zorlanıyorum.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="3" Col="0" Width="1" Height="1"
+                BackgroundColor="#922B21" ForegroundColor="#FFFFFF">
+      <Label>Aspiratör gerekiyor.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Aspiratör gerekiyor.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="3" Col="1" Width="1" Height="1"
+                BackgroundColor="#E74C3C" ForegroundColor="#FFFFFF">
+      <Label>Ağrım çok şiddetli.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Ağrım çok şiddetli.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>Ağrı kesici istiyorum.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Ağrı kesici istiyorum.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="1" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>Başım dönüyor.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Başım dönüyor.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="0" Width="1" Height="1"
+                BackgroundColor="#922B21" ForegroundColor="#FFFFFF">
+      <Label>Midem bulanıyor.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Midem bulanıyor.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="1" Width="1" Height="1"
+                BackgroundColor="#E74C3C" ForegroundColor="#FFFFFF">
+      <Label>Nefes cihazımı takar mısınız?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Nefes cihazımı takar mısınız?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>Kendimi kötü hissediyorum, birini çağırın.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Kendimi kötü hissediyorum, birini çağırın.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="1" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>Acil durum, 112'yi arayın.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Acil durum, 112'yi arayın.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+<DynamicKey Row="7" Col="0" Width="1" Height="1"
+                BackgroundColor="#1C2833" ForegroundColor="#FFFFFF">
+      <Label>Geri / Ana Menü</Label>
+      <ChangeKeyboard BackReturnsHere="False">turkce-aac-paketi</ChangeKeyboard>
+    </DynamicKey>
+
+  </Content>
+</Keyboard>

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OptiKey Dynamic Keyboard - Türkçe AAC Paketi
+  Hedef kullanıcı: ALS/MND tanılı, göz izleme ile iletişim kuran bireyler
+  Tek bakış + onay (parmak basışı) ile tam Türkçe cümle yazma ve seslendirme
+  Oluşturulma: 2026-06-22
+  Şema: OptiKey Dynamic Keyboard XML (https://github.com/OptiKey/OptiKey/wiki/Creating-and-Using-Dynamic-Keyboards)
+  Not: Her tuş <Text> ile çıktıyı scratchpad'e yazar, ardından <Action>Speak</Action> ile seslendirir.
+-->
+<Keyboard>
+  <Name>Türkçe AAC - Ana Menü</Name>
+  <HideFromKeyboardMenu>False</HideFromKeyboardMenu>
+  <WindowState>Maximised</WindowState>
+  <Height>100</Height>
+  <ShowOutputPanel>True</ShowOutputPanel>
+  <Grid>
+    <Rows>8</Rows>
+    <Cols>3</Cols>
+  </Grid>
+  <Content>
+
+    <DynamicKey Row="0" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>ACIL / SAGLIK</Label>
+      <ChangeKeyboard BackReturnsHere="False">turkce-aac-acil-saglik</ChangeKeyboard>
+    </DynamicKey>
+
+    <DynamicKey Row="0" Col="1" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>TEMEL IHTIYAC</Label>
+      <ChangeKeyboard BackReturnsHere="False">turkce-aac-temel-ihtiyac</ChangeKeyboard>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="0" Width="1" Height="1"
+                BackgroundColor="#117A65" ForegroundColor="#FFFFFF">
+      <Label>KONFOR / BAKIM</Label>
+      <ChangeKeyboard BackReturnsHere="False">turkce-aac-konfor-bakim</ChangeKeyboard>
+    </DynamicKey>
+
+        <DynamicKey Row="1" Col="1" Width="1" Height="1"
+                BackgroundColor="#6C3483" ForegroundColor="#FFFFFF">
+      <Label>SOSYAL / DUYGU</Label>
+      <ChangeKeyboard BackReturnsHere="False">turkce-aac-sosyal-duygu</ChangeKeyboard>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="0" Width="1" Height="1"
+                BackgroundColor="#784212" ForegroundColor="#FFFFFF">
+      <Label>KISISEL</Label>
+      <ChangeKeyboard BackReturnsHere="False">turkce-aac-kisisel</ChangeKeyboard>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="1" Width="1" Height="1"
+                BackgroundColor="#212121" ForegroundColor="#FFFFFF">
+      <Label>KLAVYE</Label>
+      <Action>Alpha1Keyboard</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="3" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>Evet.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Evet.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="3" Col="1" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>Hayır.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Hayır.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>Lütfen bekleyin.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Lütfen bekleyin.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="1" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>Teşekkür ederim.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Teşekkür ederim.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="0" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>Yardım edin lütfen!</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Yardım edin lütfen!</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="1" Width="1" Height="1"
+                BackgroundColor="#212121" ForegroundColor="#FFFFFF">
+      <Label>Ana Menü</Label>
+      <Action>MenuKeyboard</Action>
+    </DynamicKey>
+
+      <DynamicKey Row="6" Col="0" Width="1" Height="1"
+                BackgroundColor="#212121" ForegroundColor="#FFFFFF">
+      <Label>Bilmiyorum.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Bilmiyorum.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="1" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>Belki.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Belki.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="7" Col="0" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>Bir dakika lütfen.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Bir dakika lütfen.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="7" Col="1" Width="1" Height="1"
+                BackgroundColor="#212121" ForegroundColor="#FFFFFF">
+      <Label>Anlamadım.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Anlamadım.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+  </Content>
+</Keyboard>

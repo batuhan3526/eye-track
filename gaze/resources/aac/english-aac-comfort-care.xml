@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OptiKey Dynamic Keyboard - English AAC: Comfort / Care
+-->
+<Keyboard>
+  <Name>English AAC - Comfort / Care</Name>
+  <HideFromKeyboardMenu>False</HideFromKeyboardMenu>
+  <WindowState>Maximised</WindowState>
+  <Height>100</Height>
+  <ShowOutputPanel>True</ShowOutputPanel>
+  <Grid>
+    <Rows>8</Rows>
+    <Cols>2</Cols>
+  </Grid>
+  <Content>
+
+    <DynamicKey Row="0" Col="0" Width="1" Height="1"
+                BackgroundColor="#117A65" ForegroundColor="#FFFFFF">
+      <Label>Could you fix my pillow?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you fix my pillow?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="0" Col="1" Width="1" Height="1"
+                BackgroundColor="#117A65" ForegroundColor="#FFFFFF">
+      <Label>Could you give me my glasses?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you give me my glasses?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="0" Width="1" Height="1"
+                BackgroundColor="#148F77" ForegroundColor="#FFFFFF">
+      <Label>Could you move the screen closer?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you move the screen closer?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="1" Width="1" Height="1"
+                BackgroundColor="#148F77" ForegroundColor="#FFFFFF">
+      <Label>I'd like to rest for a while.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'd like to rest for a while.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="0" Width="1" Height="1"
+                BackgroundColor="#1ABC9C" ForegroundColor="#1C2833">
+      <Label>Could you put some music on?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you put some music on?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="1" Width="1" Height="1"
+                BackgroundColor="#1ABC9C" ForegroundColor="#1C2833">
+      <Label>Could you turn on the TV?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you turn on the TV?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="3" Col="0" Width="1" Height="1"
+                BackgroundColor="#0E6655" ForegroundColor="#FFFFFF">
+      <Label>Could you open the curtains?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you open the curtains?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="3" Col="1" Width="1" Height="1"
+                BackgroundColor="#117A65" ForegroundColor="#FFFFFF">
+      <Label>Could you raise my bed?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you raise my bed?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="0" Width="1" Height="1"
+                BackgroundColor="#148F77" ForegroundColor="#FFFFFF">
+      <Label>Could you lower my bed?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you lower my bed?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="1" Width="1" Height="1"
+                BackgroundColor="#1ABC9C" ForegroundColor="#FFFFFF">
+      <Label>Could you adjust my feet?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you adjust my feet?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="0" Width="1" Height="1"
+                BackgroundColor="#0E6655" ForegroundColor="#FFFFFF">
+      <Label>I'm itchy, could you scratch it?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'm itchy, could you scratch it?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="1" Width="1" Height="1"
+                BackgroundColor="#117A65" ForegroundColor="#FFFFFF">
+      <Label>Could you turn the volume up?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you turn the volume up?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="0" Width="1" Height="1"
+                BackgroundColor="#148F77" ForegroundColor="#FFFFFF">
+      <Label>Could you turn the volume down?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you turn the volume down?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="1" Width="1" Height="1"
+                BackgroundColor="#1ABC9C" ForegroundColor="#FFFFFF">
+      <Label>Could you open the window?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you open the window?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+<DynamicKey Row="7" Col="0" Width="1" Height="1"
+                BackgroundColor="#1C2833" ForegroundColor="#FFFFFF">
+      <Label>Back / Main Menu</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-pack</ChangeKeyboard>
+    </DynamicKey>
+
+  </Content>
+</Keyboard>

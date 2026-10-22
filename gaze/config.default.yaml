@@ -1,0 +1,199 @@
+# Webcam goz-bakisi imlec surucusu ayarlari
+#
+# YEDEK DOSYALAR (elle silmeyin):
+#   config.son-iyi.yaml       : bu dosya en son SORUNSUZ acildiginda alinan kopya.
+#                               config.yaml bozulursa program bu kopyayla acilir ve
+#                               konsolda "ESKI AYARLARLA CALISIYOR" uyarisi verir.
+#                               O uyariyi gorurseniz config.yaml'i duzeltin -
+#                               yaptiginiz son degisiklik YURURLUKTE DEGIL demektir.
+#   calibration.json.11.bak   : kalibrasyon yedegi (sayi = ozellik sayisi). Ayarlar
+#   calibration.json.9.bak      degisip kalibrasyon uymadiginda program UYAN yedegi
+#                               kendisi geri yukler; yeniden kalibrasyon gerekmez.
+camera_index: "auto"     # webcam numarasi (0, 1, ...). "auto" = program kamerayi kendisi bulur
+camera_width: "auto"     # kamera cozunurlugu. "auto" = kameranin GERCEKTE verdigi en iyi mod secilir. Kalibrasyon bu cozunurlukte yapilir:
+camera_height: "auto"    #   sonradan degistirirseniz (or. 1280x720) goruntu orani degisir ve YENIDEN KALIBRASYON gerekir
+camera_fps: "auto"       # kare hizi. Karanlik odada kameranin otomatik pozlamasi hizi 15-20 fps'e dusurebilir (isik ekleyin)
+freq: 30.0               # tahmini kare hizi (1-Euro icin)
+mincutoff: 0.2           # 1-Euro: DUSUK = daha cok yumusatma (imlec sakinler). Hala cok hizliysa 0.15, gec kaliyorsa 0.4
+beta: 0.002              # 1-Euro: DUSUK = daha az zipla/sicrama. Imlec gec kaliyorsa 0.01'e cikarin
+dcutoff: 1.0             # 1-Euro turev kesim
+max_cursor_speed: 1200   # imlec azami hizi (px/sn): isinlanmak yerine bakilan yere KAYAR. Daha yavas: 800, kapali: 0
+deadzone: 20             # fiksasyon sabitleyici (px): bakis sabitken imlec TASTAN OYNAMAZ; buyuk hedeflerde 30, kapali: 0
+calibration_mode: "pursuit"  # "pursuit" = ekranda suzulen TOPU gozle takip et (cok daha fazla veri, daha az yorucu). "dots" = klasik sabit noktalar
+pursuit_speed: 480       # topun hizi (px/sn); takip zorlaniyorsa 380, cok uzun geliyorsa 600
+pursuit_latency: "auto"  # goz tepki gecikmesi: "auto" = kalibrasyonda kisiye ozel OGRENILIR (onerilen); sabit sayi da yazilabilir (or. 0.15)
+calibration_points: 16   # (dots modu) 16 = sik 4x4 izgara; 9 = eski hizli mod
+calibration_poly2: true  # egrisel (quadratic) kalibrasyon: kenar/kose isabetini artirir. Sorun olursa false
+calibration_passes: 2    # 2 = noktalar iki tur gosterilir, turlar arasi hafif pozisyon degistirin (yaslanma telafisi OGRENILIR). Hizli: 1
+per_eye_features: true   # sol/sag goz FARKI da ozellik olur (goz kapagi dusuklugu/asimetri telafisi). Degistirince yeniden kalibrasyon
+screen_margin: 0         # kenar guvenlik payi (px)
+recalibrate_key: "f9"    # YENIDEN KALIBRASYON: 1 sn icinde 2 KEZ bas (pencere secili olmasa da calisir). 'c' de yazabilirsin
+quit_key: "f10"          # CIKIS: 1 sn icinde 2 KEZ bas. 'q' de yazabilirsin
+hotkey_double_interval: 1.0  # cift-basis icin azami sure (saniye)
+suppress_keys: true      # surucunun tuslari (Space, F2-F12, ScrLk) ONDEKI PROGRAMA GITMEZ: Space bosluk yazmaz,
+                         # F5 tarayiciyi yenilemez, F3 bul cubugunu acmaz. DURAKLATINCA (F8 x2) tuslar normale doner -
+                         # bakim veren klavyeyle yazacaksa once duraklatsin. false = eski davranis (tuslar programa da gider)
+                         # ISTISNA: alarm tusu (f12) duraklatilmisken de yutulur (tarayicinin F12'si calismaz).
+                         # BIR TUS TEK IS YAPAR: alarm_key / click_menu_key / speech_stop_key baska bir tusla AYNIYSA o yeni tus
+                         # acilista KAPATILIR ve konsola uyari yazilir (oncelik: eski tuslar > alarm > tik menusu > konusma durdur)
+ignore_injected_keys: true  # ekran klavyesinin (OSK) / OptiKey'in GONDERDIGI tuslar surucu tusu SAYILMAZ, programa gider (OSK'de Space bosluk yazar, tiklama dongusu olmaz). Switch'iniz tuslari bir YAZILIMLA gonderiyorsa false yapin
+reach_margin: 0.25       # ekran kenarlarina ulasmak icin kalibrasyon araligi disina tasma payi (0=kapali, 0.25 onerilir)
+use_head_pose: true      # bas-pozu (donme) telafisi (kafasi oynayabilen kullanici icin onemli). Sorun cikarsa false yapin
+head_translation: true   # kafa KAYMASI/mesafe telafisi (istemsiz kayan/sallanan kafa icin). Degistirince yeniden kalibrasyon gerekir
+gaze_median_window: 7    # canli medyan filtre (gozluk/titreme sicramalarini keser); artirmak daha sakin ama daha gec (titrekse 9)
+calibration_samples: 25  # her kalibrasyon noktasinda toplanan ornek sayisi (medyani alinir)
+
+# --- TIKLAMA (parmak switch: klavye tusu ve/veya XInput gamepad) ---
+left_click_key: "space"  # bu tusa basinca SOL TIK. Parmak switch'ini buna ata. Bos "" = kapali
+right_click_key: ""      # SAG TIK tusu (bos = kapali)
+double_click_key: ""     # CIFT TIK tusu (bos = kapali)
+drag_key: ""             # SURUKLE baslat/bitir - ayni tusa tekrar bas (toggle). Bos = kapali
+gamepad_enabled: true    # USB gamepad dugmeleriyle de tiklama (XInput)
+gamepad_left: "A"        # gamepad SOL TIK dugmesi
+gamepad_right: "B"       # gamepad SAG TIK
+gamepad_double: "Y"      # gamepad CIFT TIK
+gamepad_drag: "X"        # gamepad SURUKLE (toggle)
+
+# --- DURAKLAT/DEVAM ---
+pause_key: "f8"          # imleci DONDUR/devam: 1 sn icinde 2 KEZ bas (okurken/dinlenirken)
+
+# --- HIZLI DUZELTME (tek nokta - isabet zamanla kayarsa) ---
+drift_key: "f7"          # 1 sn icinde 2 KEZ bas: ortada TEK nokta cikar, 2 sn bak, isabet duzelir (tam kalibrasyon gerekmez)
+
+# --- KALIBRASYONU KAYDET/YUKLE ---
+save_calibration: true   # basarili kalibrasyonu kaydet; sonraki acilista otomatik yukle (F9 ile yeniden)
+calibration_file: "calibration.json"
+
+# --- GOZLE KAYDIRMA (scroll) ---
+gaze_scroll: false       # true: ekranin ust/alt kenarina bakinca sayfa kaydir
+scroll_zone: 0.08        # ust/alt %8 bolge kaydirma tetikler
+scroll_speed: 1          # kaydirma hizi (centik)
+
+# --- GOZ KIRPMA ILE TIKLAMA (parmak yoksa) ---
+blink_click: false       # true: uzun goz kirpma = SOL TIK
+blink_closed_threshold: 0.18  # bu degerin altinda goz "kapali" sayilir
+blink_hold_seconds: 0.5  # bu kadar kapali tutulursa tikla (kisa/dogal kirpma tetiklemez)
+
+# --- BAKARAK TIKLAMA (dwell - parmak yoksa en rahat secenek) ---
+dwell_click: false       # true: imlec bir noktada sabit kalinca otomatik SOL TIK
+dwell_radius: 40         # "sabit" sayilan alan yaricapi (px); titrekse artirin
+dwell_seconds: 1.0       # bu kadar sabit kalinca tikla
+dwell_repeat: false      # true: ayni noktada durmaya devam edilirse tekrar tekrar tiklar
+
+# --- COKLU MONITOR ---
+snap_to_targets: true    # HEDEFE YAPISMA: imlec baktiginiz yere en yakin dugme/baglanti/klasor/sekme/kutunun UZERINE oturur
+                         #   (Windows UI Automation). Kucuk hedefleri isabetle vurmak kolaylasir. Imlec istemediginiz yere yapisiyorsa false
+snap_radius: 120         # px; bakistan bu kadar uzaktaki hedefe kadar yapisir. Yanlis hedefe gidiyorsa 80; hedefe hic ulasmiyorsa 160
+snap_max_target: 0.4     # ekranin bu oranindan BUYUK ogeler (sayfa, panel) hedef sayilmaz
+multi_monitor: false     # true: imlec ikinci monitore de ulasabilir (kalibrasyon birincil ekranda yapilir)
+
+# --- BUYUTEC TIKLAMA (OptiKey olmadan hassas tik) ---
+zoom_key: "f6"           # bas: imlecin cevresi buyutulur -> hedefe BAK -> tiklama tusuna bas = hassas tik. Tekrar f6 = iptal. Bos "" = kapali
+zoom_scale: 0.4          # buyutulen alan (ekranin %40'i tam ekrana yayilir = 2.5x buyutme). Hedef alana girmiyorsa buyutun (0.5); daha cok buyutme icin kucultun (0.25)
+zoom_timeout: 8          # sn; tiklanmazsa buyutec kendini kapatir
+
+# --- AAC IZGARASI (OptiKey'siz konusma - hazir cumleler) ---
+aac_key: "f5"            # bas: tam ekran cumle izgarasi acilir; cumleye BAK + tiklama tusu = konusur. Tekrar f5 = kapat. Bos "" = kapali
+aac_dir: ""                              # cumle (AAC XML) klasoru. Bos "" = programla gelen Turkce cumle paketi. Baska bir klasor (or. OptiKey'in AAC klasoru) icin yolunu DUZ egik cizgiyle yazin
+aac_root: "turkce-aac-paketi"            # acilista gosterilen ana menu (dosya adi, .xml'siz)
+                         # DIL: language baska bir dil (or. "en") ise bu deger Turkce fabrika degerinde kaldikca o dilin degeri kullanilir (resources/lang/<dil>.yaml, _defaults). "auto" da ayni anlama gelir; baska bir deger elle secilmis sayilir
+aac_timeout: 20          # sn; secim yapilmazsa izgara kendini kapatir
+aac_cache: true          # cumleleri onceden seslendirip diske yaz (konusma aninda gecikme olmaz)
+
+# --- EKRAN KLAVYESI (OptiKey'siz yazi) ---
+osk_key: "scroll lock"   # 2 KEZ bas: ekran klavyesi acilir (gozle bak + Space ile yazilir). Bos "" = kapali
+
+# --- SESLENDIRME / TTS (OptiKey'siz Turkce konusma) ---
+tts_key: "f4"            # bas: SECILI metni Turkce sesle okur (once gozle surukleyerek sec, sonra f4). Bos "" = kapali
+tts_engine: "auto"       # auto = once piper (yerel dogal ses); yoksa Windows'ta onecore (Microsoft Tolga), son care sapi; Linux'ta espeak, spd
+                         # Elle: piper | xtts | onecore | sapi | espeak | spd. ONERILEN "auto": piper bir gun acilmazsa yedek sese duser.
+                         # Buraya "piper" YAZMAYIN: acikca istenen motor bulunamazsa BASKA SESE DUSULMEZ, yani hic konusma olmaz
+                         # NOT: Turkce SAPI sesi kurulu degilse sapi Turkce metni INGILIZCE aksanla okur. Gercek Turkce yedek: onecore (Tolga)
+                         # Motor ADIYLA istenirse (or. piper) bulunamadiginda baska sese DUSULMEZ; acilista konsolda sebebi yazar
+tts_voice: "tr_TR-dfki-medium"   # piper Turkce sesi (programla birlikte gelir; katalogdaki TEK Turkce piper sesi budur)
+                         # NOT: tts_engine'i onecore/sapi yaparsaniz bu ad eslesmez, dil kodu "tr" kullanilir ve Microsoft Tolga secilir. "tr" yazmaniz da yeterlidir
+                         # DIL: language baska bir dil (or. "en") ise bu deger Turkce fabrika degerinde kaldikca o dilin degeri kullanilir (resources/lang/<dil>.yaml, _defaults). "auto" da ayni anlama gelir; baska bir deger elle secilmis sayilir
+tts_speed: 1.25          # KONUSMA HIZI (piper ve Tolga): BUYUK = YAVAS. 1.0 = normal, 1.25 = biraz yavas (daha anlasilir), 1.5 = belirgin yavas
+                         # Degistirdiginizde AAC cumleleri kendiliginden YENIDEN seslendirilir (ilk acilista ~5 sn surer)
+tts_volume: 1.0          # ses seviyesi carpani (yalniz piper). Sibilant sesler ('s', 's') Bluetooth kulaklikta cizirdiyorsa 0.9 deneyin
+tts_speaker_wav: ""      # SES KLONLAMA (yalniz tts_engine: xtts): kisinin 6-30 sn temiz ses kaydi (WAV), ASCII bir yolda olmali
+                         # YOLU DUZ EGIK CIZGIYLE YAZIN: "D:/sesler/ses.wav" - Windows'un TERS egik cizgili yolunu yapistirmayin, bu dosyayi bozar ve program varsayilan ayarlarla acilir
+                         # DIKKAT: yol yanlissa BASKA BIR SESE DUSULMEZ - hic konusma olmaz. Bos "" = klonlama kapali (yerlesik ses kullanilir)
+
+# --- SESLE YAZMA / STT (yerel Whisper) ---
+stt_key: "f3"            # bas: KAYIT baslar; susunca kendi biter, yazi imlecin oldugu kutuya girer. Tekrar f3 = elle bitir. Bos "" = kapali
+stt_engine: "whisper"    # whisper = yerel (internet gerekmez, Turkce cok daha iyi). windows = eski Win+H davranisi
+stt_model: "auto"        # "auto" = bilgisayara gore secilir (guclu GPU: medium, yoksa small ya da base). Elle: tiny|base|small|medium|large-v3
+                         # Buyugu daha dogru, daha yavas
+                         # NOT: model ILK f3'te yuklenir (10-30 sn surebilir); sonraki cozumlemeler hizlidir
+stt_device: "auto"       # auto|cuda|cpu. GPU baska isle mesgulse "cpu" (yavas ama calisir)
+stt_language: "tr"
+                         # DIL: language baska bir dil (or. "en") ise bu deger Turkce fabrika degerinde kaldikca o dilin degeri kullanilir (resources/lang/<dil>.yaml, _defaults). "auto" da ayni anlama gelir; baska bir deger elle secilmis sayilir
+stt_silence_seconds: 1.5 # bu kadar sessiz kalinca kayit biter (yavas konusuyorsa 2.5)
+stt_max_seconds: 30      # guvenlik: en fazla bu kadar kayit
+stt_readback: true       # yazilan metni sesli GERI OKU (dogru anlasilmis mi kontrolu)
+                         # DIKKAT: yazi PANO uzerinden yapistirilir - o sirada panodaki icerik degisir
+
+# --- DERIN BAKIS MODELI (GPU onerilir; 1 GB VRAM yeter, 8 GB kartlar rahat) ---
+deep_gaze: "auto"        # "auto": bilgisayar yeterince hizliysa (tercihen NVIDIA GPU; VRAM ~64MB) derin model ACIK. true: her zaman, false: kapali. Degistirince YENIDEN KALIBRASYON gerekir
+deep_device: "auto"      # auto/cuda/cpu. GPU baska isle mesgulse gecici "cpu" yapin (yavas) ya da deep_gaze: false
+
+# --- SAKKAD ATLAMA (bakis sicramasinda imlec beklemeden gecsin) ---
+saccade_jump: false     # true: goz uzak bir yere SICRAYINCA imlec kaymadan HEMEN oraya gecer, sonra her zamanki gibi sakinlesir
+                        # VARSAYILAN KAPALI: bugunku imlec hissi gercek kullanimda onaylandi. Denemek icin true yapin, begenmezseniz false
+saccade_velocity_px_s: 1500  # sicrama sayilacak en dusuk bakis hizi (px/sn). Imlec yanlislikla ziplarsa 2500; hic atlamiyorsa 1000
+saccade_min_px: 120     # sicrama sayilacak en kisa mesafe (px). Kucuk bakislarda da atlasin: 80; sadece buyuklerde: 200
+
+# --- DWELL HALKASI (bakarak tiklamada ilerleme gostergesi) ---
+dwell_ring: true         # dwell_click acikken imlecin etrafinda dolan halka: dolunca tiklar, tikta yesil yanip soner. false: gizli
+                         # buyutec ve tik menusu ekran goruntusune girmez; kalibrasyon/F7 sirasinda gizlenir. AAC TARAMA modunda
+                         # (aac_scan: true) izgara acikken dwell CALISMAZ, halka da cikmaz (secim yalniz switch ile)
+dwell_ring_px: 40        # halkanin capi (px). Gormekte zorlaniyorsa 60-80 yapin
+
+# --- KALIBRASYON VERISI + ORTUK DUZELTME ---
+#   calibration_samples.<ayarlar>.npz : kalibrasyonun HAM ornekleri (calibration.json'un yaninda; .onceki = bir onceki)
+#   calibration_implicit.json        : buyutec/F7'den ogrenilen kucuk isabet duzeltmeleri. Silinirse sifirdan ogrenir
+calibration_refit: true     # calibration_poly2 / reach_margin / pursuit_latency degisince YENIDEN KALIBRASYON YAPMADAN kayitli orneklerden yeniden hesapla
+                            # (gormedigi noktalarda olculur; yeni ayar belirgin KOTUYSE uygulanmaz, eski kalibrasyon kullanilir). false = kapali
+implicit_correction: true   # ORTUK DUZELTME: F6 buyutecle tikladiginizda (once imlec, sonra buyutecte asil hedef) aradaki fark imlecin o bolgedeki
+                            # hatasidir; program bunu YAVASCA ogrenip o bolgede imleci duzeltir. Normal tiklardan ogrenmez. false = kapali
+implicit_max_px: 100        # ortuk duzeltme en fazla bu kadar piksel kaydirir (guvenlik siniri)
+implicit_halflife_days: 3   # eski olcumlerin etkisi bu kadar gunde yariya iner (oturus/isik degisir). Yeni tam kalibrasyonda (F9) sifirlanir
+
+# --- ACIL ALARM (yardim cagirma) ---
+# Tusu BASILI TUTUNCA yuksek sesli siren + "Yardim edin!" sesi calar. Ayni tusu tekrar basili tutmak durdurur.
+# Yuz gorunmese de, DURAKLATILMISKEN de, kalibrasyon sirasinda da calisir (ayri is parcaciginda izlenir).
+# TTS calismazsa yalniz siren calar. Konsola ve gaze.log dosyasina saatli satir yazilir.
+# Alarm calarken TIK SESLERI ve KONUSMA (f4/AAC/f11 tekrar) CALINMAZ - siren kesilmesin diye; alarm durunca normale doner.
+alarm_key: "f12"         # bu tus alarm_hold_seconds kadar basili tutulunca alarm calar/durur. Bos "" = klavye alarmi kapali
+alarm_hold_seconds: 2.0  # sn; kisa basis ALARM CALMAZ (tusun kendi kendini tekrarlamasi da sayilmaz)
+alarm_max_seconds: 120   # sn; alarm en fazla bu kadar calar, sonra kendi durur. 0 = siz durdurana kadar
+gamepad_alarm: ""        # gamepad dugmesi ile alarm (or. "START"), ayni basili tutma kurali. Bos "" = kapali
+alarm_switch_hold: 0     # TEK SWITCH kullananlar icin: sol tik switch'i bu kadar sn basili tutulunca alarm (or. 3).
+                         # Kisa basis yine TEK tik yapar; uzun basista da once bir tik olur, sonra alarm calar. 0 = kapali
+                         # click_menu_on_hold da aciksa uzun basista ONCE tik menusu acilir, sure dolunca alarm yine calar
+
+# --- SES GERI BILDIRIMI (kisa uyari sesleri) + KONUSMAYI DURDUR / TEKRARLA ---
+feedback_sounds: true    # kisa, kisik uyari sesleri: tik, kayit basladi/bitti (f3), duraklat/devam, kalibrasyon bitti, kamera koptu/geldi, hata, AAC izgarasi acildi/kapandi
+                         # konusma (TTS/AAC) calarken uyari sesi CALINMAZ (cumle kesilmez); f3 kaydi surerken yalniz kayit basladi/bitti sesi calar. false = sessiz
+                         # ACIL ALARM calarken hicbir uyari sesi calinmaz (siren kesilmesin)
+feedback_volume: 0.3     # uyari seslerinin yuksekligi, 0.0 - 1.0 (0.3 = kisik). Ondalik icin 0.3 ya da 0,3 yazabilirsiniz
+speech_stop_key: "f11"   # 1 KEZ bas: o an soylenen cumleyi (f4 / AAC / geri okuma) HEMEN DURDURUR. 2 KEZ bas: son cumleyi TEKRAR soyler. Bos "" = kapali
+                         # izgara/buyutec/menu acikken de calisir (tik yapmaz). Duraklatilmisken tus programa da gider (tarayicida tam ekran)
+
+# --- AAC TARAMA (gozle nisan almak zorlasirsa: yalniz parmak switch'i ile cumle secimi) ---
+aac_scan: false          # true: F5 izgarasi BAKIS GEREKMEDEN calisir. Satirlar sirayla SARI yanar; tiklama tusu satiri secer,
+                         # sonra o satirin kutulari tek tek yanar; tekrar tiklama = o cumleyi KONUSUR. Her turun sonunda
+                         # sag ustte "<< GERI" adimi yanar (satirlara don / ana menuye don; ana menude "KAPAT" = izgarayi kapat)
+                         # DEVAM kutusu (sayfa degistir) diger kutular gibi sirayla yanar. Switch'i BASILI TUTMAK tek basis sayilir
+aac_scan_seconds: 1.5    # her adim kac saniye yanik kalir. Yetisemiyorsa 2 ya da 2.5 yapin (en az 0.5)
+aac_scan_mode: "row-col" # "row-col" = once satir sonra kutu (az basis). "linear" = kutular tek tek sirayla (tek basis, daha yavas)
+aac_scan_cycles: 3       # bu kadar TUR hic basilmazsa izgara kendini kapatir (kapandiktan hemen sonraki basis yutulur). Tarama acikken aac_timeout kullanilmaz
+
+# --- TIK MENUSU (tek parmak switch'iyle sag tik / cift tik / surukle / kaydir) ---
+click_menu_key: "f2"     # bas: baktiginiz noktanin YANINDA buyuk bir menu acilir: Sol tik, Sag tik, Cift tik, Surukle, Kaydir yukari/asagi, Iptal
+                         # secenege BAK + tiklama tusu = o islem, menuyu ACTIGINIZ noktada (kirmizi isaret) yapilir. Tekrar f2 = kapat. Bos "" = kapali
+click_menu_on_hold: 0    # sn; 0 = kapali. Or. 0.8: tiklama tusunu bu kadar BASILI TUTMAK da menuyu acar (kisa basis yine normal SOL TIK)
+                         # DIKKAT: acikken her sol tik, tus BIRAKILINCA yapilir (basili mi tutuluyor bilmek icin)
+click_menu_timeout: 10   # sn; secim yapilmazsa menu kendini kapatir (son 5 sn geri sayim gosterilir)
+click_menu_scroll: 5     # Kaydir yukari/asagi bir secimde kac tekerlek adimi kaydirir

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OptiKey Dynamic Keyboard - English AAC: Social / Feelings
+-->
+<Keyboard>
+  <Name>English AAC - Social / Feelings</Name>
+  <HideFromKeyboardMenu>False</HideFromKeyboardMenu>
+  <WindowState>Maximised</WindowState>
+  <Height>100</Height>
+  <ShowOutputPanel>True</ShowOutputPanel>
+  <Grid>
+    <Rows>8</Rows>
+    <Cols>2</Cols>
+  </Grid>
+  <Content>
+
+    <DynamicKey Row="0" Col="0" Width="1" Height="1"
+                BackgroundColor="#6C3483" ForegroundColor="#FFFFFF">
+      <Label>Thank you.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Thank you.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="0" Col="1" Width="1" Height="1"
+                BackgroundColor="#6C3483" ForegroundColor="#FFFFFF">
+      <Label>I love you.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I love you.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="0" Width="1" Height="1"
+                BackgroundColor="#7D3C98" ForegroundColor="#FFFFFF">
+      <Label>Please wait.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Please wait.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="1" Width="1" Height="1"
+                BackgroundColor="#7D3C98" ForegroundColor="#FFFFFF">
+      <Label>I'd like to talk.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'd like to talk.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="0" Width="1" Height="1"
+                BackgroundColor="#8E44AD" ForegroundColor="#FFFFFF">
+      <Label>I'd like to be alone.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'd like to be alone.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="1" Width="1" Height="1"
+                BackgroundColor="#8E44AD" ForegroundColor="#FFFFFF">
+      <Label>I feel very good.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I feel very good.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="3" Col="0" Width="1" Height="1"
+                BackgroundColor="#5B2C6F" ForegroundColor="#FFFFFF">
+      <Label>I'm sorry.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'm sorry.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="3" Col="1" Width="1" Height="1"
+                BackgroundColor="#6C3483" ForegroundColor="#FFFFFF">
+      <Label>Good morning.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Good morning.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="0" Width="1" Height="1"
+                BackgroundColor="#7D3C98" ForegroundColor="#FFFFFF">
+      <Label>Good night.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Good night.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="1" Width="1" Height="1"
+                BackgroundColor="#8E44AD" ForegroundColor="#FFFFFF">
+      <Label>How are you?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>How are you?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="0" Width="1" Height="1"
+                BackgroundColor="#5B2C6F" ForegroundColor="#FFFFFF">
+      <Label>Welcome.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Welcome.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="1" Width="1" Height="1"
+                BackgroundColor="#6C3483" ForegroundColor="#FFFFFF">
+      <Label>I didn't understand, could you say it again?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I didn't understand, could you say it again?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="0" Width="1" Height="1"
+                BackgroundColor="#7D3C98" ForegroundColor="#FFFFFF">
+      <Label>Give me a little time.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Give me a little time.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="1" Width="1" Height="1"
+                BackgroundColor="#8E44AD" ForegroundColor="#FFFFFF">
+      <Label>I'm feeling low.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'm feeling low.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+<DynamicKey Row="7" Col="0" Width="1" Height="1"
+                BackgroundColor="#1C2833" ForegroundColor="#FFFFFF">
+      <Label>Back / Main Menu</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-pack</ChangeKeyboard>
+    </DynamicKey>
+
+  </Content>
+</Keyboard>

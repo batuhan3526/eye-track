@@ -1,0 +1,228 @@
+GÖZ FARESİ - ÜÇÜNCÜ TARAF BİLEŞENLER VE LİSANSLARI
+==================================================
+
+Göz Faresi'nin kendi kodu GPL-3.0-or-later lisanslıdır (LICENSE.txt):
+  Copyright (C) 2026 Göz Faresi (eye-track) projesi
+  Bu program özgür yazılımdır: Free Software Foundation'ın yayımladığı GNU
+  Genel Kamu Lisansı'nın 3. sürümü ya da (seçiminize göre) daha sonraki bir
+  sürümü koşullarıyla yeniden dağıtabilir ve/veya değiştirebilirsiniz.
+  Program yararlı olması umuduyla, ancak HİÇBİR GARANTİ OLMADAN dağıtılır.
+  (This program is free software under the GNU GPL version 3 or, at your
+  option, any later version; it comes with ABSOLUTELY NO WARRANTY.)
+
+EK İZİN / ADDITIONAL PERMISSION (GPL-3.0 madde 7; GPL metninin parçası değil)
+  As an additional permission under section 7 of the GNU GPL version 3,
+  the copyright holders of Göz Faresi give you permission to combine Göz
+  Faresi with, and convey the result together with, the following
+  libraries that are not GPL-compatible, in unmodified form: Intel oneMKL
+  and Intel OpenMP runtime (as used by CTranslate2), OpenSSL 1.1.x, NVIDIA
+  CUDA/cuDNN/cuBLAS runtime libraries. The corresponding source of Göz
+  Faresi itself must still be provided under the GPL. This permission does
+  not extend to other GPL-licensed works distributed with Göz Faresi (such
+  as piper-tts and espeak-ng), which run as a separate program.
+
+  Türkçe açıklama: Göz Faresi'nin telif sahipleri, GPL 3 madde 7'nin izin
+  verdiği bir EK İZİN veriyor. Göz Faresi, GPL ile uyumlu olmayan şu
+  kitaplıklarla, değiştirilmemiş hâlleriyle, birlikte çalıştırılabilir ve
+  birlikte dağıtılabilir: Intel oneMKL ve Intel OpenMP (dikte motoru
+  CTranslate2'nin içinde), OpenSSL 1.1.x, NVIDIA CUDA/cuDNN/cuBLAS. Göz
+  Faresi'nin kendi kaynak kodu yine GPL ile verilmek zorundadır. Bu izin
+  Göz Faresi'yle birlikte dağıtılan başka GPL yazılımlarını (piper-tts,
+  espeak-ng) kapsamaz; onlar paketlerde ayrı bir program olarak
+  (GozFaresi-Ses / gozfaresi-ses) çalışır ve yukarıdaki kitaplıkları hiç
+  yüklemez.
+
+Derlenmiş paketler aşağıdaki başka projelerin dosyalarını da içerir; her
+biri kendi lisansıyla gelir. Bu dosya bir ÖZETTİR. TAM lisans metinleri
+paketin içindeki "lisanslar" klasöründedir (programın yanında):
+
+  lisanslar/<paket>-<sürüm>/  her Python paketinin kendi lisans dosyaları
+  lisanslar/metinler/         tam metinler: GPL-3.0, GPL-2.0, LGPL-2.1,
+                              LGPL-3.0, Apache-2.0, CC BY-NC-SA 4.0 ve
+                              kendi lisans dosyası olmayan paketlerinkiler
+  lisanslar/python/           Python ve onunla gelen kitaplıklar
+  lisanslar/sistem/           (Linux) pakete kopyalanan sistem
+                              kitaplıklarının telif dosyaları
+
+
+ÖNEMLİ - GPL VE KAYNAK KODU
+---------------------------
+piper-tts (Türkçe ses motoru) ve içine derlenmiş espeak-ng GPL-3.0-or-later
+lisanslıdır; Göz Faresi'nin kendi kodu da GPL-3.0-or-later'dır. Derlenmiş
+paketin bütünü GPL-3.0-or-later koşullarıyla dağıtılır.
+
+Paketlerde piper-tts ve espeak-ng AYRI BİR PROGRAMDA çalışır:
+GozFaresi-Ses.exe (Windows) / gozfaresi-ses (Linux). Göz Faresi onunla bir
+boru (pipe) üzerinden konuşur: metni verir, ses dosyasını alır. Ses programı
+yalnız piper, espeak-ng, ONNX Runtime (CPU) ve NumPy içerir; CTranslate2,
+Intel oneMKL / OpenMP, OpenCV, OpenSSL ve NVIDIA kitaplıkları o sürece hiç
+girmez. Derleme denetimi (hazirla.py denetle) bunu derlemede sınar: iki
+programın Python modül listesi ve kendi ikili (DLL / .so) listesi; ses
+programı ayrıca bu kitaplıkların içe aktarılmasını çalışırken engeller.
+Çalışan süreçlerin yüklediği kitaplık listesiyle de denendi. Ana program bu
+kitaplıkları yukarıdaki EK İZİN ile kullanır.
+
+Pakete giren HER GPL / LGPL / MPL bileşenin tam kaynağı paketlerle AYNI
+YERDE, ayrı dosyalar olarak yayınlanır (bağlantı değil, dosyanın kendisi;
+hepsi SHA256SUMS içinde). Hangi dosyanın neyin kaynağı olduğu, indirildiği
+adres, SHA-256 değeri ve sürümün nasıl belirlendiği:
+  KAYNAKLAR-Windows.txt / KAYNAKLAR-Linux.txt   paketlerin yanında
+  lisanslar/KAYNAKLAR.txt                       paketin içinde
+
+  GozFaresi-<sürüm>-kaynak.zip   Göz Faresi'nin kendi kaynak kodu
+Her iki pakette:
+  piper1-gpl-v1.6.0.tar.gz       piper-tts 1.6.0 (GPL-3.0-or-later)
+  espeak-ng-724808c5a83f9ef95fdd0db886ba7ba537ff224a.tar.gz
+                                 piper-tts 1.6.0'ın içine derlenen espeak-ng
+                                 (piper'ın CMakeLists.txt dosyasındaki commit)
+  pyinstaller-6.22.3.tar.gz      PyInstaller 6.22.3: programın önyükleyicisi
+                                 (GPL-2.0-or-later, önyükleyici istisnasıyla)
+  certifi-<sürüm>.tar.gz         certifi (MPL-2.0; Windows ve Linux paketinde
+                                 sürümü farklı olabilir, KAYNAKLAR'da yazar)
+  tqdm-4.70.1.tar.gz             tqdm (MPL-2.0 ve MIT)
+Yalnız Linux paketinde:
+  python-xlib-0.33.tar.gz        python-xlib 0.33 (LGPL-2.1-or-later)
+  ffmpeg-8.0.1.tar.gz            OpenCV tekerleğinin içindeki FFmpeg 8.0.1
+                                 (LGPL-2.1-or-later)
+  qt-everywhere-opensource-src-5.15.18.tar.xz
+                                 OpenCV tekerleğinin içindeki Qt 5.15.18
+                                 (LGPL-3.0)
+  opencv-python-92.tar.gz        opencv-python 4.13.0.92 derleme betikleri:
+                                 FFmpeg ve Qt'nin nasıl yapılandırılıp
+                                 derlendiği
+  gcc-8.5.0-28.el8_10.alma.1.src.rpm, gcc-4.8.5-44.el7.src.rpm
+                                 OpenCV ve NumPy tekerleklerindeki libquadmath
+                                 (LGPL-2.1-or-later; GCC kaynağı)
+  glib2.0_..., jackd2_..., alsa-lib_... (.dsc + .orig + .debian)
+                                 pakete kopyalanan Ubuntu 22.04 kitaplıkları
+                                 GLib, JACK ve ALSA (LGPL-2.1-or-later),
+                                 derleme imajındaki sürümün Ubuntu kaynak
+                                 paketi
+
+Kaynak gerektirmeyenler: GCC çalışma kitaplıkları (libgcc_s, libstdc++,
+libgfortran, libgomp) GPL-3.0 + GCC Runtime Library Exception ile gelir; bu
+istisna onların derlenmiş hâlinin her koşulla dağıtılmasına izin verir.
+
+Lisans ya da kaynak sorunu yaratmasın diye pakete HİÇ KONMAYANLAR:
+  - PyAV (av) ve içindeki FFmpeg / libx264 / libx265 / GnuTLS / GMP:
+    faster-whisper yalnız ses DOSYASI çözmek için kullanır; Göz Faresi
+    mikrofondan gelen sesi doğrudan verir, dikte onsuz çalışır;
+  - OpenCV'nin Windows FFmpeg eklentisi (opencv_videoio_ffmpeg*.dll):
+    yalnız video dosyası açmak içindir, kamera onsuz açılır;
+  - Microsoft DirectML (Windows): derin bakış modeli pakette işlemcide
+    (CPU) çalışır;
+  - PortAudio'nun ASIO derlemesi (Steinberg ASIO SDK), GNU readline,
+    Berkeley DB ve glibc'nin libmvec parçası.
+Paket derlenirken bir denetim (hazirla.py denetle) bu listeye uymayan bir
+GPL/LGPL kitaplığı görürse derlemeyi durdurur.
+
+Hukuki değerlendirme bu dosyanın konusu değildir.
+
+
+ÖNEMLİ - TİCARİ OLMAYAN KULLANIM
+--------------------------------
+Pakete gömülü Türkçe piper sesi "CC BY-NC-SA 4.0" lisanslıdır; derin bakış
+modelinin eğitim verisi (ETH-XGaze) de aynı lisansla yayınlanmıştır.
+Ücretsiz dağıtılabilir, kaynak gösterilmelidir, PARAYLA SATILAMAZ ve
+değiştirilmiş hâli aynı lisansla paylaşılmalıdır. Tam metin:
+lisanslar/metinler/CC-BY-NC-SA-4.0.txt
+
+
+1. PAKETE GÖMÜLÜ MODELLER VE VERİLER
+------------------------------------
+ETH-XGaze ResNet-18 bakış modeli (resources/models/eth-xgaze-resnet18.onnx)
+  Ağırlıklar: hysts/ptgaze-eth-xgaze-resnet18 (Hugging Face) - MIT
+  (lisanslar/metinler/ptgaze-LICENSE.txt). Model ETH-XGaze veri kümesiyle
+  eğitilmiştir; veri kümesi CC BY-NC-SA 4.0 (https://ait.ethz.ch/xgaze).
+  Ağırlıklar derleme sırasında ONNX biçimine çevrilir; ihtiyatla
+  CC BY-NC-SA 4.0 koşullarına uyulur.
+  Kaynak: Zhang ve ark., "ETH-XGaze: A Large Scale Dataset for Gaze
+  Estimation under Extreme Head Pose and Gaze Variation", ECCV 2020.
+
+MediaPipe Face Landmarker modeli (resources/models/face_landmarker.task)
+  Google - Apache-2.0 (lisanslar/metinler/Apache-2.0.txt).
+
+Türkçe piper sesi tr_TR-dfki-medium (resources/piper/)
+  rhasspy/piper-voices - CC BY-NC-SA 4.0. Veri kümesi: DFKI MaryTTS Türkçe
+  verisi, https://github.com/marytts/dfki-ot-data/
+  AÇIK SORU: model kartına göre bu ses ABD İngilizcesi "lessac" piper
+  sesinden ince ayarla türetilmiştir; o sesin eğitim verisi Blizzard 2013
+  Lessac'tır ve şartları doğrulanamamıştır (İngilizce lessac sesi bu yüzden
+  bırakıldı). Şartlar: https://www.cstr.ed.ac.uk/projects/blizzard/2013/lessac_blizzard2013/license.html
+  Ses, en iyi açık Türkçe ses olduğu için pakette tutuluyor; ticari olmayan
+  kullanımı, projenin ticari olmama amacıyla uyumludur (yukarıdaki
+  "TİCARİ OLMAYAN KULLANIM").
+
+espeak-ng verisi (resources/piper/espeak-ng-data)
+  GPL-3.0-or-later (kaynağı yukarıda).
+
+DejaVu Sans yazı tipi (resources/fonts) - Bitstream Vera / DejaVu lisansı
+  (resources/fonts/LICENSE-DejaVu.txt).
+
+Deneme yüz resmi (resources/faces/benchmark.jpg)
+  Kalpana Chawla, NASA portresi - kamu malı (ABD federal hükümeti eseri).
+  Ayrıntı: resources/faces/SOURCES.txt.
+
+Türkçe ve İngilizce AAC panoları (resources/aac: turkce-aac-*,
+  english-aac-*) - Göz Faresi projesi, GPL-3.0-or-later.
+
+
+2. PROGRAMIN SONRADAN İNDİRDİKLERİ (pakette yok)
+------------------------------------------------
+faster-whisper dikte modelleri (Systran/faster-whisper-*) - MIT;
+  OpenAI Whisper ağırlıklarından türetilmiştir (MIT).
+NVIDIA GPU paketi (Windows ve Linux, isteğe bağlı; sihirbaz NVIDIA ekran
+  kartı olan bilgisayarda önerir; nvidia-* tekerlekleri, PyPI: Windows'ta
+  cuBLAS + cuDNN, Linux'ta ayrıca cudart, cuFFT, cuRAND, nvJitLink, NVRTC)
+  - NVIDIA yazılım lisansı. İndirme yalnızca kullanıcı isterse yapılır.
+İngilizce piper sesi en_US-ljspeech-medium (yalnız program dili İngilizce
+  seçilip sihirbazdan istenirse; rhasspy/piper-voices). Veri kümesi:
+  LJ Speech, kamu malı (https://keithito.com/LJ-Speech-Dataset/); ses bu
+  veriyle sıfırdan eğitilmiştir (model kartı), başka bir sesten türetilmemiştir.
+
+
+3. YAZILIM KİTAPLIKLARI (özet; tam metinler lisanslar/ klasöründe)
+------------------------------------------------------------------
+Python 3.11 ........................ PSF License (Tcl/Tk, OpenSSL, SQLite,
+                                     libffi ... ile; lisanslar/python/)
+PyInstaller (önyükleyici) .......... GPL-2.0-or-later, önyükleyici istisnasıyla
+piper-tts .......................... GPL-3.0-or-later
+espeak-ng (piper-tts içinde) ....... GPL-3.0-or-later
+MediaPipe .......................... Apache-2.0
+OpenCV (opencv-python, -contrib) ... Apache-2.0. Linux paketinde içerdiği
+                                     FFmpeg 8.0.1 LGPL-2.1-or-later ve
+                                     Qt 5.15.18 LGPL-3.0 (kaynakları
+                                     paketlerin yanında); Windows paketinde
+                                     FFmpeg eklentisi yok
+NumPy .............................. BSD-3-Clause (+ içerdiği OpenBLAS vb.;
+                                     Linux'ta libquadmath LGPL-2.1-or-later,
+                                     kaynağı paketlerin yanında)
+ONNX Runtime (Windows, yalnız CPU) . MIT (+ ThirdPartyNotices)
+ONNX Runtime GPU (Linux) ........... MIT (+ ThirdPartyNotices)
+faster-whisper ..................... MIT
+CTranslate2 ........................ MIT; derlemesinin içinde Intel oneMKL
+                                     (Windows'ta ayrıca Intel OpenMP,
+                                     libiomp5md.dll) vardır - Intel'in kendi
+                                     lisansıyla (Intel Simplified Software
+                                     License)
+tokenizers ......................... Apache-2.0
+huggingface_hub, hf-xet ............ Apache-2.0
+PyAV (av) .......................... pakette YOK (yukarıya bakın)
+pathvalidate ....................... MIT
+sounddevice ........................ MIT; PortAudio MIT (ASIO'lu derlemesi
+                                     pakette yok)
+Pillow ............................. MIT-CMU (HPND)
+PyYAML ............................. MIT
+matplotlib (MediaPipe bağımlılığı) . Matplotlib lisansı (PSF tabanlı)
+absl-py, flatbuffers ............... Apache-2.0
+certifi ............................ MPL-2.0
+tqdm ............................... MPL-2.0 ve MIT
+keyboard, comtypes, winsdk (Windows) MIT
+python-xlib (Linux) ................ LGPL-2.1-or-later (kaynağı paketlerin
+                                     yanında)
+evdev (Linux) ...................... BSD-3-Clause
+mss (Linux) ........................ MIT
+Linux sistem kitaplıkları (libX11, libxcb, Tcl/Tk, libstdc++ ...):
+                                     kendi telif dosyaları lisanslar/sistem/;
+                                     LGPL olanlar (GLib, JACK, ALSA) Ubuntu
+                                     kaynak paketleriyle paketlerin yanında

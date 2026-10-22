@@ -1,0 +1,4 @@
+# /etc/udev/rules.d/99-gozfaresi.rules - installed by izin-kur.sh (Goz Faresi).
+# /dev/uinput for the input group: the program's virtual pointer and keyboard.
+# static_node: the rule also applies before the uinput module is loaded.
+KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"

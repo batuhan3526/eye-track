@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OptiKey Dynamic Keyboard - English AAC Pack
+  For: people with ALS/MND who communicate with eye tracking
+  One look + one confirmation (a switch press) speaks a whole sentence
+  Translated from the Turkish pack (turkce-aac-paketi): same boards, same places
+  Schema: OptiKey Dynamic Keyboard XML (https://github.com/OptiKey/OptiKey/wiki/Creating-and-Using-Dynamic-Keyboards)
+  Note: each key writes its <Text> to the scratchpad, then <Action>Speak</Action> says it.
+-->
+<Keyboard>
+  <Name>English AAC - Main Menu</Name>
+  <HideFromKeyboardMenu>False</HideFromKeyboardMenu>
+  <WindowState>Maximised</WindowState>
+  <Height>100</Height>
+  <ShowOutputPanel>True</ShowOutputPanel>
+  <Grid>
+    <Rows>8</Rows>
+    <Cols>3</Cols>
+  </Grid>
+  <Content>
+
+    <DynamicKey Row="0" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>URGENT / HEALTH</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-urgent-health</ChangeKeyboard>
+    </DynamicKey>
+
+    <DynamicKey Row="0" Col="1" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>BASIC NEEDS</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-basic-needs</ChangeKeyboard>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="0" Width="1" Height="1"
+                BackgroundColor="#117A65" ForegroundColor="#FFFFFF">
+      <Label>COMFORT / CARE</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-comfort-care</ChangeKeyboard>
+    </DynamicKey>
+
+        <DynamicKey Row="1" Col="1" Width="1" Height="1"
+                BackgroundColor="#6C3483" ForegroundColor="#FFFFFF">
+      <Label>SOCIAL / FEELINGS</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-social-feelings</ChangeKeyboard>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="0" Width="1" Height="1"
+                BackgroundColor="#784212" ForegroundColor="#FFFFFF">
+      <Label>PERSONAL</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-personal</ChangeKeyboard>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="1" Width="1" Height="1"
+                BackgroundColor="#212121" ForegroundColor="#FFFFFF">
+      <Label>KEYBOARD</Label>
+      <Action>Alpha1Keyboard</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="3" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>Yes.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Yes.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="3" Col="1" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>No.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>No.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>Please wait.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Please wait.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="1" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>Thank you.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Thank you.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="0" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>Help me, please!</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Help me, please!</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="1" Width="1" Height="1"
+                BackgroundColor="#212121" ForegroundColor="#FFFFFF">
+      <Label>Main Menu</Label>
+      <Action>MenuKeyboard</Action>
+    </DynamicKey>
+
+      <DynamicKey Row="6" Col="0" Width="1" Height="1"
+                BackgroundColor="#212121" ForegroundColor="#FFFFFF">
+      <Label>I don't know.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I don't know.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="1" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>Maybe.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Maybe.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="7" Col="0" Width="1" Height="1"
+                BackgroundColor="#1A5276" ForegroundColor="#FFFFFF">
+      <Label>One moment, please.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>One moment, please.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="7" Col="1" Width="1" Height="1"
+                BackgroundColor="#212121" ForegroundColor="#FFFFFF">
+      <Label>I didn't understand.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I didn't understand.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+  </Content>
+</Keyboard>

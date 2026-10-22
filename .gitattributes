@@ -1,0 +1,24 @@
+# Files that run on Linux (Docker image, test.sh, AppImage build) keep LF in
+# a Windows checkout too: core.autocrlf=true would hand bash and the
+# Dockerfile CRLF lines, and a trailing \r breaks every continued RUN line.
+# text=auto, not text: git still detects binaries (an AppImage icon) and
+# leaves their bytes alone instead of "normalising" CRLF pairs inside them.
+packaging/linux/** text=auto eol=lf
+# The permission installer and its udev rule run as root on Linux: a
+# trailing CR would end up inside the rule's values.
+gaze/linux/** text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.ico binary
+*.jpg binary
+# Bundled fonts (gaze/resources/fonts): binary, so an autocrlf checkout never
+# rewrites a CR/LF byte pair inside the glyph tables.
+*.ttf binary
+# gaze/config.yaml is each install's own file (.gitignore), never committed;
+# the source zip (packaging/kaynak.sh, git archive) leaves it out as well in
+# case a fork tracks it. A fresh checkout without it is set up from
+# config.default.yaml by the launcher.
+gaze/config.yaml export-ignore
+# The GPL text ships inside the packages as it is in the repo: LF, never
+# the CRLF copy an autocrlf checkout would hand the Windows build.
+LICENSE text eol=lf

@@ -1,0 +1,490 @@
+# Göz Faresi - English texts.
+#
+# Every text the program shows on screen or speaks, by key; the keys and the
+# {placeholders} are the same as in tr.yaml (the tests check). Sections marked
+# "ascii" are drawn with OpenCV: plain ASCII letters only.
+_name: "English"
+_decimal: "."
+# The settings that suit this language (voice, dictation language, AAC
+# phrase pack). Used when config.yaml says "auto" or nothing - and also when
+# it still holds the Turkish factory value (tr_TR-dfki-medium / tr /
+# turkce-aac-paketi), which the template carries. Any other value was chosen
+# on purpose and always wins. The rule: eye_gaze/i18n.py, setting().
+_defaults:
+  tts_voice: "en_US-ljspeech-medium"
+  stt_language: "en"
+  aac_root: "english-aac-pack"
+
+i18n:
+  unknown_language: "Language file not found: '{code}'. The program opened in Turkish."
+
+app:
+  title: "Göz Faresi (Eye Mouse)"
+
+widgets:
+  key:
+    space: "Space"
+    backspace: "Backspace"
+    up: "Up arrow"
+    down: "Down arrow"
+    left: "Left arrow"
+    right: "Right arrow"
+    menu: "Menu key"
+    unassigned: "— (not set)"
+  how:
+    double: "press twice within {sec} s"
+    hold: "hold for {sec} s"
+    once: "press once"
+  cap:
+    cursor: "Cursor (eye mouse)"
+    global_keys: "Keys (in every window)"
+    suppress_keys: "Keeping keys away from other programs"
+    injected_detection: "Telling on-screen keyboard keys apart"
+    gamepad: "Gamepad / switch"
+    zoom_capture: "Magnifier"
+    dwell_ring: "Dwell click ring"
+    snap: "Snap to targets"
+    osk: "On-screen keyboard"
+    clipboard: "Clipboard (reading selected text, dictation)"
+    onecore_tts: "Windows voice (Tolga)"
+    system_dictation: "System dictation (Win+H)"
+    audio: "Sound (speech and the emergency alarm siren)"
+    no_reason: "not available"
+  click:
+    switch: "With a key or a switch"
+    switch_note: "Clicks when the left-click key (Space) or a gamepad/switch button is pressed. The fastest and safest way for someone who can press a button with a finger."
+    dwell: "Click by looking (dwell)"
+    dwell_note: "Clicks by itself when the cursor rests in one place for 1 second. For someone who cannot press any button."
+    blink: "Click by blinking"
+    blink_note: "Clicks when the eyes stay closed for half a second. A short, natural blink does not click."
+  route:
+    pad_absent: "a gamepad left-click button ({pad}) is set, but no gamepad or switch is plugged in right now"
+    pad_unset: "no gamepad click is set either"
+    problem: "There is no working way to click right now: the left-click key is empty, {why}; clicking by looking or by blinking is off too. Like this, the cursor moves but nothing can be clicked."
+  keytable:
+    reset: "Back to defaults"
+    intro: "Press “Change” next to a job, then press the key or button you want for it."
+    change: "Change"
+    remove: "Remove"
+    check_failed: "The keys could not be checked ({error}); look at config.yaml before saving."
+    capture_title: "Set a key"
+    job: "“{label}”"
+    press_key: "Now press the key you want for this job."
+    press_pad: "Now press the gamepad or switch button you want for this job."
+    wait_note: "If nothing is pressed within 10 seconds, nothing changes."
+    not_pressed: "Nothing was pressed within 10 seconds; “{label}” did not change."
+    capture_failed: "Could not catch a key for “{label}”: {error}"
+
+launcher:
+  unknown_error: "unknown error"
+  settings: "Settings"
+  stop: "Stop"
+  start: "Start"
+  open_log: "Open log"
+  config_create_failed: "The settings file could not be created: {error}"
+  wizard_again: "The first-run setup seems to have been left unfinished (the camera and hardware check were not saved). Open the setup now?"
+  caps_failed: "The features could not be checked: {error}"
+  config_detail_in_log: "Details are in the log (the [ayar] lines)."
+  config_fix_hint: "Fix it in Settings or in config.yaml, then press “Start”."
+  no_log: "There is no log file yet:\n{path}"
+  confirm_close: "Are you sure? Göz Faresi will close, and the cursor can no longer be moved with the eyes."
+  already_open: "Göz Faresi is already open."
+  state:
+    stopping: "Stopping…"
+    running: "Running"
+    restarting: "The driver closed; restarting in {seconds} s…"
+    config_error: "Settings error: the driver could not start."
+    stopped: "Stopped"
+    closed: "Closed"
+    stopped_hint: "Stopped — press “Start” to open the program."
+  perm:
+    no_script: "The permission setup script could not be prepared: {error}"
+    no_pkexec: "pkexec was not found, so the permissions could not be set up. Choose “Ubuntu on Xorg” when you log in."
+    run_failed: "The permission setup could not be run: {error}"
+    done: "Permissions are set up. Log out and back in; then the program can use the cursor and the keys."
+    refused: "Permission was not given (no password, or it was refused). You can try again, or choose “Ubuntu on Xorg” when you log in."
+    failed: "The permission setup failed (code {code})."
+
+wizard:
+  window_title: "Göz Faresi — First-run setup"
+  counter: "Step {i} of {n}"
+  back: "◀ Back"
+  next: "Next ▶"
+  skip: "Skip"
+  start: "Start calibration"
+  not_now: "Not now"
+  close_question: "Close the setup? What you have chosen so far is saved, the rest keeps its default, and the program starts. Everything can be changed later in Settings."
+  route_title: "Clicking"
+  route_continue: "Continue anyway?"
+  route_save: "Save anyway?"
+  save_failed_title: "Settings not saved"
+  save_failed: "The keys and the click method you chose could not be saved: {error}\nThe program will open with the default settings; try again in Settings."
+  language:
+    label: "Language (Dil)"
+    note: "The program's language. You can change it later in Settings too."
+  welcome:
+    title: "Welcome"
+    lead: "Göz Faresi lets you use the computer with your eyes."
+    intro: "This setup adjusts the camera, the screen, the graphics card and the keys in a few steps. On every step you can press “Skip” to move on, or “Back” to return. Everything can be changed later in the Settings window."
+    source_note: "Source mode: this setup does not change this computer's settings; it only shows them (config.yaml and makine.json are not written)."
+    perm_button: "Set up permissions"
+    perm_ok: "Input device permissions are fine."
+    perm_needed: "{why}.\n“Set up permissions” asks for the administrator password once; after that you need to log out and back in. If that does not work, choose “Ubuntu on Xorg” when you log in."
+    perm_opening: "Opening the password window…"
+    caps_missing: "These do not work on this computer:"
+  preview:
+    open_failed: "The preview could not open (the camera may be in use by another program)."
+    face_found: "Face found ✓"
+    face_missing: "No face in view — look at the camera."
+    stopped: "The preview stopped: {error}"
+  camera:
+    title: "Camera"
+    retry: "Try again"
+    searching: "Looking for cameras… (this can take a few seconds)"
+    search_failed: "Could not look for cameras ({error}). Plug in the camera and press “Try again”."
+    none: "No camera found. Plug in the camera and press “Try again”. You can also go on without one; the program looks for the camera again every time it opens."
+    found: "{n} camera(s) found. Choose the camera to use; your face should be visible in the preview."
+    item: "Camera {index} — {width}x{height}, {fps} frames/s"
+    preview_opening: "Opening the preview…"
+  hardware:
+    title: "Screen and graphics card"
+    reading: "Reading the details…"
+    intro: "The “deep model” layer of the eye tracking makes it more accurate, but it needs a fast computer. A 3-second test here decides whether it is on or off. The test uses the graphics card."
+    measure: "Test the speed (3 s)"
+    screen: "Screen: {count} monitor(s), {width}x{height}, scale {scale}%"
+    gpu_none: "not found"
+    via_dml: "with DirectML"
+    via_cuda: "with CUDA"
+    via_none: "not used"
+    gpu: "Graphics card: {name} ({via})"
+    cpu: "Processor: {cores} cores · Memory: {ram} GB"
+    measuring: "Testing… (3 seconds)"
+    deep_on: "Deep model: on ({where})"
+    where_cpu: "processor"
+    where_gpu: "graphics card"
+    deep_off: "Deep model: off (the computer is too slow)"
+    frame_time: "One frame took {ms} ms (the limit is {limit} ms)."
+    failed: "The speed could not be tested; the program uses its own rule for the deep model."
+  download:
+    title: "Downloads"
+    intro: "These are optional. If there is no internet, or you do not want them now, press “Skip”: the program works without them, and the dictation model is downloaded the first time F3 is pressed."
+    size_gb: "~{gb} GB"
+    size_mb: "~{mb} MB"
+    get: "Download"
+    cancel: "Cancel"
+    ready: "Ready ✓"
+    partial: "Partly downloaded; press “Download” to resume."
+    missing: "Not downloaded."
+    downloading: "Downloading…"
+    progress: "Downloading… {done} / {total} MB"
+    done: "Downloaded ✓"
+    cancelled: "Cancelled. Press “Download” to continue where it stopped."
+    failed: "This file could not be downloaded: {error} The program works without it; you can try again later."
+    gpu_pack: "Graphics card pack (NVIDIA)"
+    gpu_note: "Runs dictation on the graphics card."
+    gpu_note_linux: "Runs dictation (and the deep model) on the graphics card."
+    whisper: "Dictation model (Whisper {size})"
+    whisper_note: "For writing by speaking with F3; chosen to suit this computer."
+    voice: "Speaking voice ({name})"
+    voice_note: "A natural voice in the program's language. Until it is downloaded, the computer's own voice speaks."
+  keys:
+    title: "Keys"
+    conflicts: "One key does one job; fix these first:"
+  click:
+    title: "Click method"
+    question: "How will the user click?"
+  finish:
+    title: "Start calibration"
+    lead: "Almost done."
+    intro: "When you press “Start calibration”, the program opens and a green ball glides across the screen: follow the ball with your eyes. This is done once. After that, the cursor moves with your eyes."
+    pending: "Settings to save: {n}"
+    camera: "Camera: {index} ({width}x{height})"
+    source: "Source mode: no settings will be written."
+
+settings:
+  window_title: "Göz Faresi — Settings"
+  source_note: "Source mode: every change saved here is written to this developer install's gaze/config.yaml and changes the driver on this computer."
+  save: "Save"
+  close: "Close"
+  stt_auto: "Automatic (suits this computer)"
+  deep_auto: "Automatic (from the speed test)"
+  deep_on: "On"
+  deep_off: "Off"
+  not_saved_conflicts: "Not saved: one key does one job."
+  not_saved: "Not saved."
+  save_failed: "Not saved: {error}"
+  saved: "Saved. The driver was restarted."
+  saved_language: "Saved. The driver was restarted and opens in the new language."
+  no_change: "Nothing changed."
+  close_question: "There are unsaved changes. Close without saving?"
+  tab:
+    keys: "Keys"
+    click: "Clicking"
+    camera: "Camera"
+    sound: "Sound"
+    advanced: "Advanced"
+    missing: "Not on this computer"
+    language: "Language (Dil)"
+  camera:
+    now_auto: "Now: camera {index} ({width}x{height}), chosen automatically."
+    now_searching: "Now: the camera is found automatically."
+    now_fixed: "Now: camera {index} (set in config.yaml)."
+    note: "If you choose another camera, the picture's shape may change; the program then says “the calibration was not made with this camera” and suggests F7 or F9."
+    search: "Look for cameras"
+    searching: "Looking for cameras… (the driver pauses meanwhile)"
+    none: "No camera found. Plug in the camera and look again."
+    item: "Camera {index} — {width}x{height}"
+    failed: "Could not look for cameras: {error}"
+  sound:
+    speed: "Speaking speed (higher = slower; 1.0 = normal)"
+    volume: "Volume (piper voice only)"
+  advanced:
+    deep: "Deep model"
+    deep_note: "Changing it may need a new calibration."
+    stt: "Dictation model (Whisper)"
+    stt_note: "A size that is not downloaded yet is downloaded the first time F3 is pressed."
+    snap: "Snap to targets (the cursor settles on the nearest button)"
+    autostart: "Start when the computer starts"
+  missing:
+    none: "Every feature works on this computer."
+  language:
+    label: "The program's language"
+    note: "When you press “Save”, these windows switch to the chosen language at once. The eye driver (cursor, menus, speech) switches when it restarts; “Save” restarts it anyway."
+    voice_note: "Another language's natural voice is downloaded in the wizard's “Downloads” step; until then the computer's own voice speaks that language."
+
+actions:
+  left_click_key: "Left click"
+  right_click_key: "Right click"
+  double_click_key: "Double click"
+  drag_key: "Drag (start/finish)"
+  click_menu_key: "Click menu"
+  zoom_key: "Magnifier (precise click)"
+  gamepad_left: "Left click (gamepad)"
+  gamepad_right: "Right click (gamepad)"
+  gamepad_double: "Double click (gamepad)"
+  gamepad_drag: "Drag (gamepad)"
+  aac_key: "Phrase board (AAC)"
+  tts_key: "Read selected text aloud"
+  speech_stop_key: "Stop / repeat speech"
+  stt_key: "Dictation (write by speaking)"
+  osk_key: "On-screen keyboard"
+  alarm_key: "Emergency alarm"
+  gamepad_alarm: "Emergency alarm (gamepad)"
+  pause_key: "Pause / resume"
+  drift_key: "Quick correction (one point)"
+  recalibrate_key: "Calibrate again"
+  quit_key: "Quit the program"
+  group:
+    click: "Clicking"
+    gamepad: "Gamepad"
+    speech: "Speech"
+    writing: "Writing"
+    emergency: "Emergency"
+    program: "Program"
+
+keymap:
+  pad_taken: "The “{label}” button ({name}) is already used for “{owner}”. One button does one job: saved like this, “{label}” stays off. For an alarm on the click button, set alarm_switch_hold in config.yaml instead (seconds to hold the click switch)."
+  key_taken: "The “{label}” key ({name}) is already used for “{owner}”. One key does one job: saved like this, “{label}” stays off. Choose another key."
+  same_key: "“{first}” and “{second}” have the same key ({name}). One key does one job: saved like this, one press does both. Choose another key for one of them."
+  same_pad: "“{first}” and “{second}” have the same button ({name}). One button does one job: saved like this, one press does both. Choose another button for one of them."
+
+keycapture:
+  no_keyboard: "The keyboard cannot be read ({error}); write the key into config.yaml by hand."
+  keyboard_failed: "The keyboard cannot be read: {error}"
+  no_permission: "The keyboard cannot be read in this session (no permission); see the “Not on this computer” tab."
+  no_pad: "No gamepad or switch interface is plugged in. Plug one in and try again."
+
+autostart:
+  old_link: "The Startup folder has an old '{name}' shortcut (OTOMATIK-BASLAT-KUR.bat). If both open, two drivers run at once; remove that one first (OTOMATIK-BASLAT-KUR.bat KALDIR)."
+  no_folder: "The Startup folder could not be opened: {error}"
+  link_failed: "The startup shortcut could not be created ({error}). Starting with the computer is OFF."
+  code: "code {code}"
+  on_windows: "Göz Faresi will start by itself when the computer starts."
+  comment: "Eye-controlled mouse with a webcam"
+  write_failed: "The autostart file could not be written: {error}"
+  on_linux: "Göz Faresi will start by itself when you log in."
+  off_failed: "Starting with the computer could not be turned off: {error}"
+  turned_off: "Starting with the computer is turned off."
+
+supervisor:
+  start_failed: "The driver could not start: {error}"
+  crash_loop: "The driver keeps crashing; please send the log. (It closed {limit} times in 1 minute; it will try again in {seconds} s.)"
+
+downloader:
+  cancelled: "Download stopped: {name}. It will resume next time."
+  http: "The server returned an error (HTTP {code}): {name} was not downloaded."
+  certificate: "No secure connection (the certificate could not be verified): {name} was not downloaded."
+  timeout: "The server did not answer (timed out): {name} was not downloaded."
+  offline: "No internet connection: {name} was not downloaded."
+  disk_full: "The disk is full: {name} could not be written ({folder})."
+  no_permission: "No permission to write to the folder: {folder}."
+  write_failed: "The file could not be written: {name} ({folder})."
+  no_space: "Not enough disk space: {name} needs {need} MB, {free} MB free ({folder})."
+  no_resume: "The server would not continue where it stopped: {name} was not downloaded."
+  stalled: "The server stopped answering (timed out): {name}. It continues where it stopped next time."
+  too_big: "The downloaded file is damaged (larger than expected): {name}. It will be downloaded again."
+  cut: "The download was cut off ({done}/{total} MB): {name}. Trying again continues where it stopped."
+  bad_sha: "The downloaded file turned out damaged (SHA-256 did not match): {name}. It will be downloaded again."
+  bad_zip: "The downloaded package could not be opened: {name}. It will be downloaded again."
+  unsafe_zip: "The downloaded package holds an unexpected file path, so it was not unpacked: {name}."
+  unexpected: "The download stopped with an unexpected error: {name}."
+
+config_writer:
+  unknown_key: "There is no setting called '{key}'."
+  not_utf8: "{path} is not UTF-8; it was not edited."
+  restore_failed: "{path} was written but could not be checked, and the OLD VERSION COULD NOT BE PUT BACK ({error}). Fix the file before opening the program."
+  restored: "The setting was not saved; the file is back as it was: {error}"
+  unreadable: "{path} cannot be read right now ({error}); the file must be fixed first."
+  not_a_map: "{path} is not in the expected shape (it should be “key: value” lines)."
+  nested: "'{key}' is written nested or quoted in the file; fix it by hand."
+  duplicate: "'{key}' appears {n} times in the file; it is unclear which one counts, so fix it by hand."
+  odd_shape: "'{key}' is written in a way that cannot be edited; fix it by hand."
+  not_a_setting: "The '{key}' line does not read as a setting; fix it by hand."
+  value_empty: "the value is empty or on the next lines"
+  quote_open: "the quote does not close on this line"
+  not_one_line: "the value is not a one-line value"
+  line_why: "The '{key}' line cannot be edited: {error}."
+  line: "The '{key}' line cannot be edited."
+  multi_line: "The value of '{key}' spreads over several lines; fix it by hand."
+  not_finite: "an infinite or undefined number cannot be written: {value}"
+  bad_type: "this kind of value cannot be written to a setting: {type}"
+  read_only: "{path} is read-only (write-protected); the setting was not saved. Clear the \"Read-only\" box in the file's properties, or make the change by hand."
+  read_back_differs: "the file read back differently than expected after writing ({keys})."
+  unusable: "'{key}: {want}' cannot be used by the program (read: {got}).{notes}"
+  no_click: "with this change NO WAY TO CLICK is left (left-click key, gamepad left click, clicking by looking or by blinking)."
+
+# config.py: these also reach gaze.log, so they stay ASCII.
+config:
+  not_bool: "WARNING: '{key}: {value}' is not on/off - this line is IGNORED and the default is used. (Write true / false.)"
+  not_number: "WARNING: '{key}: {value}' is not a number - this line is IGNORED and the default is used. (For decimals write 0.15 or 0,15.)"
+  not_positive: "WARNING: '{key}: {value}' must be GREATER than zero - this line is IGNORED and the default is used."
+  bad_latency: "WARNING: 'pursuit_latency: {value}' must be between 0 and {max} seconds (e.g. 0.12) - \"auto\" is used."
+  unreadable: "{path} could not be read ({error}): {detail}"
+  not_a_map: "{path} is not in the expected shape (it should be key: value lines)."
+  only_defaults: "{path} holds no setting DIFFERENT from the defaults (the file may be empty or only comments; if you see lines in it, they all already hold the default value)."
+
+platform:
+  xorg: "choose “Ubuntu on Xorg” when you log in"
+  no_session: "No graphical session found (no DISPLAY or WAYLAND_DISPLAY); start the program from inside the desktop session"
+  wayland_input: "Wayland does not allow moving the cursor or listening to keys in this session; give permission with the “Set up permissions” button in Settings, or {xorg}"
+  no_display: "Could not connect to the X11 display (no DISPLAY); start the program from inside the desktop session"
+  start_failed: ". Could not start: {errors}"
+  screen_guessed: ". The screen size could not be measured; 1920x1080 is assumed"
+  uinput_pointer: "uinput absolute pointer"
+  evdev_grab: "the device is grabbed; other keys are passed on unchanged through a virtual keyboard"
+  evdev_osk: "on-screen keyboard keys never reach /dev/input"
+  x11_injected: "on X11, keys sent by the on-screen keyboard cannot be told apart from real keys"
+  x11_gamepad: "The gamepad needs /dev/input permission; use the “Set up permissions” button in Settings"
+  wayland_screenshot: "Wayland does not allow screenshots in this session; {xorg}"
+  wayland_overlay: "Wayland does not allow always-on-top windows in this session; {xorg}"
+  x11_screenshot: "X11 screenshot"
+  x11_overlay: "X11 always-on-top window"
+  no_mss: "The screenshot library (mss) was not found; the magnifier does not work"
+  no_xlib: "The X11 library (python-xlib) was not found; the dwell ring cannot be drawn"
+  linux_only: "Linux only"
+  snap_windows_only: "Snap to targets exists only on Windows (Linux's accessibility interface is not enough for it)"
+  onecore_windows_only: "The Windows voice (Tolga) exists only on Windows; Linux uses the piper voice"
+  winh_windows_only: "System dictation (Win+H) exists only on Windows; Whisper dictation is used"
+  keys_dead: "The key listener stopped ({error}); the driver keys do not work, restart the program"
+  keys_restarting: "The key listener stopped ({error}); it will be set up again in a few seconds"
+  evdev:
+    ok: "Input device permissions are fine"
+    install: "use the “Set up permissions” button in Settings"
+    relogin: "log out and back in"
+    group_pending: "The user was added to the input group, but this session was opened before that; {relogin}"
+    no_group: "No permission to read the keyboard: the user is not in the input group; {install}, then {relogin}"
+    no_uinput: "There is no virtual input device (/dev/uinput): the uinput module is not loaded; {install}"
+    uinput_denied: "No permission to write to /dev/uinput (the rule is not set up, or the user is not in the input group); {install}"
+    no_keyboard: "No keyboard is connected to the computer (/dev/input)"
+    watchdog_dead: "The key watchdog stopped ({error}); grabbing was turned off so the keyboard cannot lock up, and the driver keys also reach programs; restart the program"
+    closed: "closed"
+    no_readable_keyboard: "No readable keyboard found; a keyboard plugged in is used within a few seconds"
+    grab_gave_up: "Keyboard grabbing was given up ({error}); the driver keys also reach programs, restart the program"
+    loose: "the device is grabbed; other keys are passed on unchanged through a virtual keyboard; on these keyboards the driver keys also reach programs: {names}"
+    pointer_guessed: "uinput absolute pointer; the screen size could not be measured, 1920x1080 is assumed"
+  x11:
+    no_xi21: "the X server has no XInput 2.1"
+    old_xi: "the X server's XInput version is old ({version})"
+    xi_query_failed: "XInput2 could not be queried: {error}"
+    xi_ok: "XInput2: keys from the on-screen keyboard and other programs come from the XTEST device and are told apart from real keys"
+    xi_missing: "on X11, keys sent by the on-screen keyboard cannot be told apart from real keys ({why})"
+    xi_select_failed: "XInput2 raw key events could not be selected: {error}"
+  misc:
+    tk_clipboard_xwayland: "Tk clipboard (XWayland)"
+    tk_clipboard: "Tk clipboard (copied text is lost when the program closes; install the 'xclip' package)"
+    need_wl_clipboard: "The clipboard needs the 'wl-clipboard' package"
+    no_session: "No graphical session found; start the program from inside the desktop session"
+    gnome_osk: "GNOME on-screen keyboard (it stays on after the program closes; to turn it off: Settings > Accessibility > Screen Keyboard)"
+    no_osk: "No on-screen keyboard found; install the 'onboard' package"
+
+playback:
+  device_failed: "The sound device could not be opened ({error}): speech and the emergency alarm siren cannot be heard"
+  no_sounddevice: "Sound cannot be played: 'sounddevice' (PortAudio) is missing; speech and the emergency alarm siren cannot be heard"
+
+# --- the driver's own screens (ascii: drawn with OpenCV) ---------------------
+
+common:
+  closing: "Closing: {n}"
+
+driver:
+  cal:
+    window: "Calibration - look STEADILY at the dot"
+    point: "Point {i}/{total} - look STEADILY"
+    pass_title: "ROUND {n}/{total}: shift your position SLIGHTLY"
+    pass_hint: "(lean or slide a little) - calibration continues in a moment"
+  pursuit:
+    window: "Calibration - follow the ball with your EYES"
+    follow: "Follow the ball with your EYES  {pct}%  (round {n}/{total})"
+  drift:
+    window: "Quick correction - look STEADILY at the center dot"
+    look: "Look STEADILY at the center dot"
+  aac:
+    window: "AAC - look at a phrase and click"
+    close: "CLOSE"
+  zoom:
+    window: "Magnifier - look at the target and click"
+  warn:
+    old_settings: "OLD SETTINGS - config.yaml could not be read, recent changes are NOT in effect"
+    no_click: "NO WAY TO CLICK - config.yaml: left_click_key or dwell_click"
+  hud:
+    paused: "PAUSED - resume: {key} x2"
+    recording: "REC"
+    transcribing: "TRANSCRIBING..."
+  # console lines (ascii: printed and written to gaze.log) - the deep model
+  # opened on the CPU although the stored calibration needs it
+  deep:
+    cpu_gpu_failed: "WARNING: the GPU could not be used - the deep gaze model OPENED on the CPU. Your calibration is still VALID; the cursor reacts a little more slowly. Restart the driver once the GPU is free."
+    cpu_no_gpu: "NOTE: no GPU usable by the deep model was found on this computer - the deep gaze model runs on the CPU. Your calibration is still VALID; the cursor reacts a little more slowly."
+
+click_menu:
+  window: "Click menu - look at an option and click"
+  left: "Left click"
+  right: "Right click"
+  double: "Double click"
+  drag_start: "Start drag"
+  drag_stop: "End drag"
+  scroll_up: "Scroll up"
+  scroll_down: "Scroll down"
+  undo: "Undo calibration"
+  cancel: "Cancel"
+
+aac:
+  next: "MORE >>"
+  back: "<< BACK"
+  gaze_hint: "look + click = speak"
+  not_filled: "(not filled in)"
+
+scan:
+  hint: "click when it lights up"
+
+# --- spoken ---------------------------------------------------------------------
+
+alarm:
+  phrase: "Help me!"
+
+stt:
+  say:
+    downloading: "The dictation model is downloading. Please wait; I will tell you when it is done."
+    download_failed: "The dictation model could not be downloaded. Check the internet connection and try again."
+    unknown_size: "This dictation model size is not known. Choose another size in Settings."
+    ready: "Dictation is ready. You can speak now."

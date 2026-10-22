@@ -1,0 +1,19 @@
+opencv-python>=4.8
+mediapipe>=0.10
+numpy>=1.24
+PyYAML>=6.0
+keyboard>=0.13
+pytest>=7.4
+pyttsx3>=2.90
+# SAPI yedek sesi comtypes'i dogrudan kullanir (pyttsx3 ile zaten geliyor,
+# dogrudan import ettigimiz icin acikca yaziyoruz).
+comtypes>=1.2
+winsdk>=1.0
+# Istege bagli DERIN BAKIS MODELI (deep_gaze) icin KUR-DERIN.bat calistirin:
+# torch+cu121, ptgaze (--no-deps), omegaconf, timm, coloredlogs,
+# safetensors, huggingface_hub, scipy
+# ZORUNLU (KUR.bat kurar) - Turkce metin cizimi. Silmeyin, istege bagli degildir.
+Pillow>=10.0
+# Istege bagli YEREL KONUSMA (TTS/STT/AAC) icin KUR-SES.bat calistirin:
+# piper-tts, sounddevice, openai-whisper
+# Klonlamaya hazir yuksek kalite ses (opsiyonel, agir): coqui-tts

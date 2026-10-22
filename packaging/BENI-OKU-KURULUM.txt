@@ -1,0 +1,227 @@
+GÖZ FARESİ - KURULUM NOTU
+=========================
+
+Göz Faresi, bilgisayarın kamerasıyla gözünüzün baktığı yeri bulur ve fare
+imlecini oraya götürür. Tıklamak için bir tuş, bir düğme (switch), bir
+oyun kolu düğmesi, göz kırpma ya da bakıp bekleme kullanılabilir.
+
+Bu programı kurmak için Python, komut satırı ya da teknik bilgi GEREKMEZ.
+Aşağıdan bilgisayarınıza uyan bölümü izleyin.
+
+İçindekiler:
+  1. Windows - kurulumlu kullanım (önerilen)
+  2. Windows - taşınabilir kullanım (USB bellek)
+  3. Linux
+  4. İlk açılış sihirbazı
+  5. Programın dili
+  6. Sorun olursa
+  7. Lisans
+
+
+1. WINDOWS - KURULUMLU KULLANIM (önerilen)
+------------------------------------------
+1) "GozFaresi-...-Windows-Kurulum.exe" dosyasına çift tıklayın.
+
+2) Windows mavi bir pencere gösterebilir: "Windows bilgisayarınızı korudu".
+   Bu, programın ücretli bir imza sertifikası olmadığı için çıkar; programda
+   bir sorun olduğu anlamına gelmez. Şöyle geçin:
+     - pencerede "Ek bilgi" yazısına tıklayın,
+     - altta beliren "Yine de çalıştır" düğmesine tıklayın.
+   Tarayıcı da indirirken "yaygın olarak indirilmiyor" diyebilir: dosyanın
+   yanındaki menüden "Sakla" / "Yine de sakla" seçin.
+
+3) Kurulum yönetici şifresi İSTEMEZ. "İleri" ile ilerleyin. İsterseniz
+   masaüstüne kısayol konur (varsayılan: evet).
+
+4) Kurulum bitince Göz Faresi açılır ve İLK AÇILIŞ SİHİRBAZI başlar
+   (aşağıda 4. bölüm).
+
+Program şuraya kurulur:   %LOCALAPPDATA%\Programs\GozFaresi
+Ayarlar ve kalibrasyon:   %LOCALAPPDATA%\GozFaresi
+                          (config.yaml, kalibrasyon, indirilen modeller,
+                          gaze.log)
+
+Windows kullanıcı adınızda Türkçe harf varsa (ör. "Örnek"): bazı
+parçalar Türkçe harfli klasör adını açamadığı için program sesin bir
+kopyasını ve indirilen dikte modellerini şuraya koyar:
+                          C:\Users\Public\GozFaresi
+(Bu klasöre bilgisayardaki HER Windows kullanıcısı yazabilir; aşağıda
+6. bölümdeki "Paylaşılan bilgisayar" notuna bakın.)
+
+Başlat menüsünde üç kısayol vardır: "Göz Faresi", "Göz Faresi - Ayarlar"
+ve "Göz Faresi - Kurulum Okuma Notu" (bu dosya).
+
+KALDIRMAK
+  Başlat > Ayarlar > Uygulamalar > "Göz Faresi" > Kaldır.
+  - Ayarlarınız ve kalibrasyonunuz KORUNUR. Programı yeniden kurarsanız
+    kalibrasyonu tekrar yapmanız gerekmez.
+  - Onları da silmek isterseniz kaldırma sırasında çıkan
+    "Ayarları ve kalibrasyonu da sil" kutusunu işaretleyin
+    (varsayılan: işaretsiz). Bu kutu yalnız %LOCALAPPDATA%\GozFaresi
+    klasörünü siler.
+  - C:\Users\Public\GozFaresi klasörü (varsa) kaldırınca SİLİNMEZ; aynı
+    bilgisayardaki başka bir Windows kullanıcısı da onu kullanıyor
+    olabilir. İstemiyorsanız o klasörü elle silebilirsiniz.
+  - "Bilgisayar açılınca başlat" seçtiyseniz o kısayol da kaldırılır.
+
+
+2. WINDOWS - TAŞINABİLİR KULLANIM (kurulumsuz, USB bellek için)
+---------------------------------------------------------------
+1) "GozFaresi-...-Windows-Tasinabilir.zip" dosyasına sağ tıklayın,
+   "Tümünü ayıkla..." deyin ve bir klasör seçin.
+2) Açılan "GozFaresi" klasöründeki "GozFaresi.exe" dosyasına çift tıklayın.
+   (Mavi uyarı çıkarsa: "Ek bilgi" > "Yine de çalıştır".)
+
+Bu kullanımda ayarlar ve kalibrasyon programın KENDİ KLASÖRÜNDE tutulur.
+Klasördeki "tasinabilir" adlı dosyayı silmeyin: o dosya programa "verilerini
+burada tut" der. Kaldırmak için klasörü silmeniz yeter.
+
+
+3. LINUX
+--------
+İki seçenek var; ikisinin içeriği aynıdır.
+
+a) AppImage (önerilen):
+   1) "GozFaresi-...-Linux-x86_64.AppImage" dosyasına sağ tıklayın,
+      "Özellikler" > "İzinler" > "Programın çalışmasına izin ver"
+      kutusunu işaretleyin (adı sürüme göre biraz değişir, ör.
+      "Program olarak çalıştırılabilir").
+   2) Dosyaya çift tıklayın.
+
+   Çift tıklayınca hiçbir şey olmuyorsa (GNOME/Ubuntu bazen çalıştırmaz)
+   ya da "FUSE" diye bir hata çıkarsa, dosyanın bulunduğu klasörde bir
+   terminal açın (sağ tık > "Terminalde aç") ve şunu yazın:
+      chmod +x GozFaresi-*-Linux-x86_64.AppImage
+      ./GozFaresi-*-Linux-x86_64.AppImage --appimage-extract-and-run
+
+b) tar.gz:
+   1) Arşivi bir klasöre açın (sağ tık > "Buraya çıkar").
+   2) "gozfaresi" klasöründeki "gozfaresi" dosyasına çift tıklayın.
+   GNOME bu dosyayı çift tıklayınca çalıştırmayabilir. O zaman "gozfaresi"
+   klasöründe bir terminal açıp şunu yazın:
+      ./gozfaresi
+
+Ayarlar ve kalibrasyon:   ~/.config/gozfaresi   (gaze.log da burada)
+İndirilen modeller:       ~/.local/share/gozfaresi
+
+OTURUM TÜRÜ: Xorg ÖNERİLİR
+  Wayland oturumunda büyüteç (ekran görüntüsü), bakıp bekleme halkası ve
+  bazı pencere işleri çalışmaz. Oturum açarken, parola kutusunun yanındaki
+  dişli simgesinden "Xorg" / "Ubuntu on Xorg" seçin.
+
+KLAVYE VE FARE İZNİ (bir defalık, Xorg'da da önerilir)
+  Sihirbazın ilk adımında (ve Ayarlar penceresinde) "İzinleri kur" düğmesi
+  çıkar. Basınca bilgisayarın parolası BİR KEZ sorulur. Sonra oturumu
+  kapatıp yeniden açın.
+  - Wayland'de bu izin olmadan imleç sürülemez ve tuşlar dinlenemez.
+  - Xorg'da da kurmanızı öneririz: izinle program tuşları masaüstü
+    oturumu için daha güvenli bir yoldan dinler. İzinsiz Xorg yolu da
+    çalışır, ama program çok uzun süre meşgul kalırsa masaüstü oturumunu
+    kapatma riski taşır.
+  - Bedeli: izin, hesabınızı "input" grubuna ekler. Bundan sonra BU
+    HESAPTA çalışan her program bütün klavyeleri okuyabilir (yazılan her
+    şey, parolalar da). Bu hesapta güvenmediğiniz program çalıştırmayın.
+  - Parola verilemiyorsa oturum açarken "Xorg" seçin.
+
+EKSİK SİSTEM KİTAPLIKLARI
+  Bazı çok sade Linux kurulumlarında şu kitaplıklar eksik olabilir;
+  AppImage açılırken eksikse adlarını ve kurma komutunu söyler:
+     sudo apt install libegl1 libgles2 libxcb-randr0 libxcb-render0 libxcb-shm0 libxcb-xfixes0
+
+
+4. İLK AÇILIŞ SİHİRBAZI
+-----------------------
+Program ilk açılışta size adım adım sorar. Her adımda tek bir karar vardır
+ve her adım "Atla" ile geçilebilir, "Geri" ile dönülebilir. Düğmeler fare,
+Tab + Enter ya da Space ile kullanılabilir.
+  - ilk adım: programın dili (Türkçe / English) ve Linux'ta izin,
+  - kamera bulunur ve denenir,
+  - bilgisayarın hızı ölçülür; derin bakış modeli ve dikte modeli buna göre
+    seçilir,
+  - gerekirse modeller internetten indirilir (dikte için birkaç yüz MB).
+    İnternet yoksa program onlarsız da çalışır; sonra yeniden denenebilir,
+  - tıklama ve diğer işler için tuşlar ya da düğmeler seçilir
+    ("bir tuş tek iş yapar": aynı tuş iki işe atanamaz),
+  - son olarak kalibrasyon yapılır: ekranda süzülen topu gözünüzle takip
+    edin (yaklaşık 25 saniyelik iki tur).
+
+Kalibrasyon kaydedilir; sonraki açılışlarda yeniden yapmanız gerekmez.
+Daha sonra her şey "Ayarlar" penceresinden değiştirilebilir. Tuşların
+listesi ve günlük kullanım için KULLANIM-KILAVUZU'na bakın.
+
+
+5. PROGRAMIN DİLİ
+-----------------
+Program Türkçe açılır. İngilizce için:
+  - sihirbazın ilk adımında "English" seçin, ya da
+  - Ayarlar penceresinde "Dil (Language)" sekmesinden seçip "Kaydet"e
+    basın (sürücü yeni dilde yeniden başlar).
+Ayar dosyasında (config.yaml) karşılığı:  language: "en"
+(Bu satır yoksa program Türkçedir.)
+
+İngilizce doğal ses (en_US-ljspeech-medium) sihirbazın "İndirmeler"
+adımından indirilir. İndirilene kadar bilgisayarın kendi İngilizce sesi
+konuşur. Konsol ve gaze.log satırlarının çoğu Türkçe kalır.
+
+İngilizce ekran metinleri ve İngilizce AAC cümleleri makine yardımıyla
+çevrilmiştir; anadili İngilizce olan biri tarafından denetlenmedi.
+Düzeltmelerinizi memnuniyetle alırız. Denetlenmiş dil Türkçedir.
+(English: the English texts and AAC phrases are machine-assisted
+translations, not checked by a native speaker; corrections are welcome.
+Turkish is the reviewed language.)
+
+
+6. SORUN OLURSA
+---------------
+- Programın küçük durum penceresindeki "Günlüğü aç" düğmesi, ne olduğunu
+  yazan kayıt dosyasını (gaze.log) açar. Yardım isterken bu dosyayı
+  gönderin. Dosya, yukarıda yazan "Ayarlar ve kalibrasyon" klasöründedir.
+- Kamera başka bir programda açıksa (görüntülü görüşme gibi) Göz Faresi
+  kamerayı kullanamaz; o programı kapatın.
+- Program açıkken yeniden açarsanız ikinci bir kopya başlamaz; açık olanın
+  penceresi öne gelir (ya da "Göz Faresi zaten açık" yazar).
+- Sürücü kendiliğinden kapanırsa program onu birkaç saniye sonra yeniden
+  başlatır; durum penceresi ne olduğunu yazar. Sürekli kapanıyorsa
+  (1 dakikada 5 kez) daha seyrek dener - 1 dakika, 2 dakika, sonra 5
+  dakikada bir - ve günlüğü göndermenizi ister. Hiç vazgeçmez: her
+  denemede acil alarm yeniden kurulur. "Durdur" düğmesi denemeleri keser.
+- Paylaşılan bilgisayar: aynı bilgisayardaki başka bir kullanıcı (ya da
+  onun çalıştırdığı bir program) Göz Faresi'ne "ilk kurulum sihirbazını
+  aç" diyebilir; sihirbaz açıkken imleç ve acil alarm DURUR, sihirbaz
+  kapanınca geri gelir. C:\Users\Public\GozFaresi klasörüne de her
+  kullanıcı yazabilir. Bilgisayarı yalnız Göz Faresi'ni kullanan kişi
+  kullanıyorsa bunlar sorun değildir.
+
+
+7. LİSANS
+---------
+Göz Faresi özgür yazılımdır: GNU GPL 3.0 ya da sonraki sürümleri
+(GPL-3.0-or-later). Ücretsiz kullanabilir, paylaşabilir ve
+değiştirebilirsiniz. Değiştirilmiş bir sürümü başkalarına veren, onun TAM
+kaynak kodunu da aynı lisansla vermek zorundadır. GPL satışı yasaklamaz,
+ama kapalı kaynak sürüm yapılamaz. Program hiçbir garanti olmadan
+verilir.
+
+Paketin içindeki iki parça TİCARİ OLMAYAN lisanslıdır (CC BY-NC-SA 4.0):
+  - Türkçe ses (tr_TR-dfki-medium); bu ses Blizzard 2013 Lessac verisiyle
+    eğitilmiş bir İngilizce sesten türetilmiştir ve o verinin şartları
+    doğrulanamamıştır (açık soru, UCUNCU-TARAF-LISANSLAR.txt),
+  - derin bakış modeli: ağırlıkları ETH-XGaze veri kümesiyle eğitilmiştir
+    ve bu veri kümesi ticari olmayan kullanım içindir.
+Bu yüzden paket BU HÂLİYLE satılamaz, ticari amaçla kullanılamaz ve
+ticari olarak dağıtılamaz. Kodu satmak isteyen bu iki dosyayı çıkarmalı
+ya da ticari kullanıma izin verenlerle değiştirmelidir.
+
+Paketteki her GPL / LGPL / MPL bileşenin tam kaynak kodu, paketlerin
+indirildiği yerde ayrı dosyalar olarak durur; listesi KAYNAKLAR-Windows.txt
+/ KAYNAKLAR-Linux.txt ve programın yanındaki lisanslar/KAYNAKLAR.txt
+dosyasındadır. Windows paketinde derin bakış modeli işlemcide (CPU) çalışır;
+Microsoft'un DirectML kitaplığı pakete konmaz.
+
+Türkçe ses motoru (piper-tts, espeak-ng) programın yanında ayrı bir küçük
+program olarak çalışır (GozFaresi-Ses.exe / gozfaresi-ses); Göz Faresi onu
+kendisi açar ve kapatır, sizin bir şey yapmanız gerekmez. Göz Faresi'nin
+kendi kodu için GPL'e bir EK İZİN eklenmiştir: dikte motorunun içindeki Intel
+kitaplıkları, OpenSSL 1.1 ve NVIDIA kitaplıklarıyla birlikte dağıtılabilir
+(tam metin: UCUNCU-TARAF-LISANSLAR.txt başı).
+Ayrıntı: LICENSE.txt ve UCUNCU-TARAF-LISANSLAR.txt (programın yanında).

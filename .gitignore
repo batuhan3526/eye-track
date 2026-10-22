@@ -1,0 +1,30 @@
+.superpowers/
+__pycache__/
+*.pyc
+.pytest_cache/
+gaze/models/*.task
+gaze/calibration.json
+gaze/calibration.json.*
+gaze/calibration_samples.*
+gaze/calibration_implicit.json*
+gaze/config.son-iyi.yaml*
+
+
+gaze.log
+cache/
+# Built by gaze/tools/derin_onnx_cevir.py from the HF weights (spec 6.9):
+# never committed, regenerated at build time.
+gaze/resources/models/eth-xgaze-resnet18.onnx
+gaze/resources/models/eth-xgaze-resnet18.onnx.sha256
+# Build venvs and outputs (e.g. venv-onnx for the ONNX export).
+packaging/out/
+gaze/makine.json
+gaze/makine.json.tmp
+# Package builds (packaging/windows/derle.ps1, packaging/linux/derle.sh,
+# packaging/kaynak.sh): deliverables in dist/surum-<version>/.
+/dist/
+/build/
+# Each install's own settings: made from config.default.yaml on first start
+# (python gozfaresi.py) and changed by the wizard / settings window.
+gaze/config.yaml
+gaze/config.yaml.tmp

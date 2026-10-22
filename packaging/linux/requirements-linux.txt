@@ -1,0 +1,34 @@
+# Linux runtime + build + test dependencies (Docker ubuntu:22.04, Python 3.11).
+# Pinned to the versions the Windows suite runs against where both exist, so a
+# test that passes on one OS and fails on the other points at the OS, not at a
+# library upgrade.
+opencv-python==4.13.0.92
+# mediapipe depends on opencv-contrib-python, unpinned: pip took 5.0, which
+# shares the cv2/ folder and wins. OpenCV 5's solvePnP stops at a different
+# head pose (rvec ~4e-4 rad off), and the deep gaze features moved 1.5e-3 rad
+# from Windows' for the same image. Same version as Windows.
+opencv-contrib-python==4.13.0.92
+# 0.10.35 = the Windows version; it ships a py3-none-manylinux_2_28 wheel
+# (glibc 2.35 on 22.04 is new enough).
+mediapipe==0.10.35
+numpy==2.4.6
+PyYAML==6.0.3
+Pillow==12.2.0
+# 1.26.0 = the newest CUDA 12 / cuDNN 9 build (1.27+ links CUDA 13): it must
+# match the NVIDIA GPU pack the program downloads (eye_gaze/models_manifest.py,
+# CUDA 12.8 libraries). Windows' CPU onnxruntime is 1.28; the deep model is
+# opset 17, which both run. Without CUDA libraries it falls back to
+# CPUExecutionProvider. faster-whisper and piper-tts both pull the CPU
+# "onnxruntime" wheel, which shares the onnxruntime/ package folder with this
+# one; the Dockerfile removes it again (see there).
+onnxruntime-gpu==1.26.0
+faster-whisper==1.2.1
+piper-tts==1.6.0
+sounddevice==0.5.5
+python-xlib==0.33
+# sdist only: built in the image (needs gcc + python3.11-dev).
+evdev==2.0.0
+mss==10.2.0
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.9
+pytest==9.1.1

@@ -1,0 +1,48 @@
+#!/bin/sh
+# packaging/linux/AppRun - entry point of the Goz Faresi AppImage.
+#
+# Starts usr/lib/gozfaresi/gozfaresi with every argument unchanged
+# (--surucu, --sihirbaz, --ayarlar ...). The program's autostart entry and
+# the supervisor start the AppImage again through $APPIMAGE, which lands
+# here as well.
+#
+# Before that it checks the host's graphics and X client libraries. They are
+# deliberately NOT bundled: libEGL/libGLESv2 belong to the GPU driver, and
+# the libxcb family to the X server the desktop runs (AppImage practice).
+# mediapipe needs EGL/GLESv2 to find a face at all; mss dlopens the xcb
+# extensions at the magnifier's first grab. A missing one is said once, in
+# Turkish, with the package names - the program still starts and its log
+# says what failed (nothing may fail silently).
+HERE=$(dirname "$(readlink -f "$0")")
+
+missing=""
+pkgs=""
+if command -v ldconfig >/dev/null 2>&1; then LDC=ldconfig
+elif [ -x /sbin/ldconfig ]; then LDC=/sbin/ldconfig
+else LDC=""
+fi
+if [ -n "$LDC" ]; then
+    cache=$("$LDC" -p 2>/dev/null)
+    for pair in libEGL.so.1:libegl1 libGLESv2.so.2:libgles2 \
+                libxcb.so.1:libxcb1 libxcb-randr.so.0:libxcb-randr0 \
+                libxcb-render.so.0:libxcb-render0 libxcb-shm.so.0:libxcb-shm0 \
+                libxcb-xfixes.so.0:libxcb-xfixes0; do
+        lib=${pair%%:*}
+        case "$cache" in
+            *"$lib "*) ;;
+            *) missing="$missing $lib"; pkgs="$pkgs ${pair#*:}" ;;
+        esac
+    done
+fi
+if [ -n "$missing" ]; then
+    msg="Göz Faresi: bu bilgisayarda gereken sistem kitaplıkları eksik:$missing
+Kurmak için (Ubuntu/Debian/Mint): sudo apt install$pkgs
+(Fedora: mesa-libEGL mesa-libGLES libxcb paketleri.)
+Bunlar olmadan yüz bulunamayabilir ya da büyüteç çalışmayabilir."
+    printf '%s\n' "$msg" >&2
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send "Göz Faresi" "$msg" >/dev/null 2>&1 || true
+    fi
+fi
+
+exec "$HERE/usr/lib/gozfaresi/gozfaresi" "$@"

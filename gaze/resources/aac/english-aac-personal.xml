@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OptiKey Dynamic Keyboard - English AAC: Personal
+  TO FILL IN AT SET-UP: adapt these phrases to the user's real needs.
+  - Family names (e.g. "Please ask Anna to come.", "Call Michael.")
+  - Medicine names (e.g. "I want my baclofen.")
+  - Frequent visitors
+-->
+<Keyboard>
+  <Name>English AAC - Personal</Name>
+  <HideFromKeyboardMenu>False</HideFromKeyboardMenu>
+  <WindowState>Maximised</WindowState>
+  <Height>100</Height>
+  <ShowOutputPanel>True</ShowOutputPanel>
+  <Grid>
+    <Rows>8</Rows>
+    <Cols>2</Cols>
+  </Grid>
+  <Content>
+
+    <DynamicKey Row="0" Col="0" Width="1" Height="1"
+                BackgroundColor="#784212" ForegroundColor="#FFFFFF">
+      <Label>Can you come to me?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Can you come to me?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="0" Col="1" Width="1" Height="1"
+                BackgroundColor="#784212" ForegroundColor="#FFFFFF">
+      <Label>Where is my family?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Where is my family?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="1" Col="0" Width="1" Height="1"
+                BackgroundColor="#935116" ForegroundColor="#FFFFFF">
+      <Label>I want my medicine.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I want my medicine.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="1" Col="1" Width="1" Height="1"
+                BackgroundColor="#935116" ForegroundColor="#FFFFFF">
+      <Label>It's time for my medicine.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>It's time for my medicine.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="2" Col="0" Width="1" Height="1"
+                BackgroundColor="#A04000" ForegroundColor="#FFFFFF">
+      <Label>Please call the doctor.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Please call the doctor.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="2" Col="1" Width="1" Height="1"
+                BackgroundColor="#A04000" ForegroundColor="#FFFFFF">
+      <Label>Will you hold my hand?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Will you hold my hand?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="3" Col="0" Width="1" Height="1"
+                BackgroundColor="#6E2F1A" ForegroundColor="#FFFFFF">
+      <Label>I want to talk to my family.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I want to talk to my family.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="3" Col="1" Width="1" Height="1"
+                BackgroundColor="#784212" ForegroundColor="#FFFFFF">
+      <Label>Could you call my family?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you call my family?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="0" Width="1" Height="1"
+                BackgroundColor="#935116" ForegroundColor="#FFFFFF">
+      <Label>Could you bring me the phone?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you bring me the phone?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="1" Width="1" Height="1"
+                BackgroundColor="#A04000" ForegroundColor="#FFFFFF">
+      <Label>I'd like to look at photos.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'd like to look at photos.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="0" Width="1" Height="1"
+                BackgroundColor="#6E2F1A" ForegroundColor="#FFFFFF">
+      <Label>Would you read me a book?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Would you read me a book?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="1" Width="1" Height="1"
+                BackgroundColor="#784212" ForegroundColor="#FFFFFF">
+      <Label>Shall we chat for a bit?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Shall we chat for a bit?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="0" Width="1" Height="1"
+                BackgroundColor="#935116" ForegroundColor="#FFFFFF">
+      <Label>How was your day?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>How was your day?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="1" Width="1" Height="1"
+                BackgroundColor="#A04000" ForegroundColor="#FFFFFF">
+      <Label>Please don't leave me alone.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Please don't leave me alone.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+<DynamicKey Row="7" Col="0" Width="1" Height="1"
+                BackgroundColor="#1C2833" ForegroundColor="#FFFFFF">
+      <Label>Back / Main Menu</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-pack</ChangeKeyboard>
+    </DynamicKey>
+
+  </Content>
+</Keyboard>

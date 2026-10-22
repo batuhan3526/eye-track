@@ -1,0 +1,18 @@
+# packaging/requirements-onnx.txt
+# Build-only venv that converts the ETH-XGaze weights to ONNX
+# (gaze/tools/derin_onnx_cevir.py), used by derle.ps1 / derle.sh / CI only
+# when gaze/resources/models/eth-xgaze-resnet18.onnx is missing or does not
+# match its .sha256. torch itself is installed first, separately, from the
+# CPU-only index (https://download.pytorch.org/whl/cpu): torch==2.5.1, the
+# version the existing model (Task 9) was made with - the export is
+# deterministic per torch version (spec 6.9: torch exists only here).
+timm==1.0.28
+safetensors==0.8.0
+onnx==1.19.1
+onnxruntime==1.28.0
+huggingface_hub==1.24.0
+numpy==2.4.6
+PyYAML==6.0.3
+mediapipe==0.10.35
+opencv-python==4.13.0.92
+opencv-contrib-python==4.13.0.92

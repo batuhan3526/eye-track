@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Göz Faresi
+GenericName=Göz ile fare
+Comment=Kamerayla bakılan yere fare imlecini götürür
+Exec=gozfaresi %U
+Icon=gozfaresi
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=göz;fare;erişilebilirlik;ALS;eye;gaze;mouse;

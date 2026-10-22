@@ -1,0 +1,155 @@
+# .github/workflows/paketle.yml
+# Builds the Goz Faresi packages when a version tag (v*) is pushed, or by hand
+# (Actions > paketle > Run workflow). No step depends on the tag name; only the
+# commented-out release step uses GITHUB_REF_NAME (a branch name on a manual run):
+#   windows-latest: packaging/windows/derle.ps1 -> Kurulum.exe + Tasinabilir.zip
+#   ubuntu-22.04:   packaging/linux/derle.sh without Docker (the runner IS the
+#                   image packaging/linux/Dockerfile describes: same apt
+#                   packages, Python 3.11 from deadsnakes, same pins) ->
+#                   AppImage + tar.gz, and packaging/kaynak.sh -> kaynak.zip
+# Every package is uploaded as a workflow artifact. Publishing a release is
+# the maintainer's decision: the `gh release` step at the end is commented out on
+# purpose - uncomment it to publish.
+#
+# No GPU anywhere: the deep model's ONNX export runs on CPU torch inside the
+# build scripts (spec 6.9), and nothing else needs a device.
+name: paketle
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:      # manual run: Actions > paketle > Run workflow
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+                    "$env:ProgramFiles\Inno Setup 6\ISCC.exe") |
+                  Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { choco install innosetup -y --no-progress }
+
+      - name: Derle (Windows)
+        shell: powershell
+        env:
+          CUDA_VISIBLE_DEVICES: '-1'
+        run: |
+          $env:GOZFARESI_PYTHON = (Get-Command python).Source
+          powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\derle.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gozfaresi-windows
+          path: |
+            dist/surum-*/*.exe
+            dist/surum-*/*.zip
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    env:
+      CUDA_VISIBLE_DEVICES: ''
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0       # kaynak.sh runs git archive
+
+      # Mirrors packaging/linux/Dockerfile (keep the two in step).
+      - name: Sistem paketleri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              ca-certificates gpg-agent software-properties-common
+          sudo add-apt-repository -y ppa:deadsnakes/ppa
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+              python3.11 python3.11-tk python3.11-venv python3.11-dev \
+              build-essential \
+              libgl1 libglib2.0-0 libportaudio2 \
+              libegl1 libgles2 \
+              libxcb1 libxcb-randr0 libxcb-render0 libxcb-shm0 libxcb-xfixes0 \
+              xvfb xauth xclip xdotool file
+
+      - name: Python ortami
+        run: |
+          python3.11 -m venv "$RUNNER_TEMP/venv"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+          . "$RUNNER_TEMP/venv/bin/activate"
+          pip install --upgrade pip
+          pip install -r packaging/linux/requirements-linux.txt
+          # Same onnxruntime swap as the Dockerfile: faster-whisper/piper
+          # pull the CPU wheel into onnxruntime-gpu's folder.
+          pip uninstall -y onnxruntime
+          pip install --force-reinstall --no-deps \
+              "$(grep -E '^onnxruntime-gpu==' packaging/linux/requirements-linux.txt)"
+          python -c "import onnxruntime as o; assert 'CPUExecutionProvider' in o.get_available_providers()"
+
+      - name: Derle (Linux)
+        run: GOZFARESI_DOCKERSIZ=1 bash packaging/linux/derle.sh
+
+      - name: Kaynak zip
+        run: bash packaging/kaynak.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gozfaresi-linux-kaynak
+          path: |
+            dist/surum-*/*.AppImage
+            # the Linux tar.gz AND the GPL sources derle.sh puts beside it
+            # (piper1-gpl-*.tar.gz, espeak-ng-*.tar.gz)
+            dist/surum-*/*.tar.gz
+            dist/surum-*/*-kaynak.zip
+          if-no-files-found: error
+
+  # SHA256SUMS over all packages, once both jobs are done.
+  toplam:
+    runs-on: ubuntu-22.04
+    needs: [windows, linux]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: indirilen
+          merge-multiple: true
+      # upload-artifact stores the files flat (their common folder,
+      # dist/surum-<v>, is dropped), so they all land in indirilen/.
+      - name: SHA256SUMS
+        run: |
+          cd indirilen
+          ls -l
+          sha256sum -- * > ../SHA256SUMS
+          mv ../SHA256SUMS .
+          sha256sum -c SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gozfaresi-sha256sums
+          path: indirilen/SHA256SUMS
+          if-no-files-found: error
+
+      # YAYINLAMA KULLANICININDIR. Acmak icin asagidaki satirlarin basindaki
+      # '#' isaretlerini kaldirin ve ust kisimda `permissions: contents: write`
+      # yapin.
+      # - name: GitHub surumu
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   run: |
+      #     cd indirilen
+      #     gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+      #         --title "Goz Faresi $GITHUB_REF_NAME" \
+      #         --notes "Kurulum: paketlerdeki BENI-OKU-KURULUM.txt" \
+      #         -- *

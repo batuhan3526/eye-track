@@ -1,0 +1,497 @@
+# Göz Faresi - Türkçe metinler (varsayılan dil).
+#
+# Programın ekranda gösterdiği ve sesli söylediği her metin burada, anahtarıyla.
+# Bu dosya programın her zaman gösterdiği Türkçenin AYNISIDIR: bir harfi
+# değişirse ekrandaki metin de değişir. Yeni bir dil = bu dosyanın bir kopyası
+# (ör. de.yaml), metinler o dile çevrilmiş; kod değişmez.
+#
+# Kurallar:
+#   - {ad} biçimindeki yer tutucular her dilde aynı kalmalı (testler denetler).
+#   - "_" ile başlayan üst anahtarlar metin değil, dilin bilgisidir.
+#   - "ascii" diye işaretli bölümler OpenCV ile çizilir: yalnız ASCII harf.
+_name: "Türkçe"
+_decimal: ","
+# Bu dile uyan ayarlar (ses, dikte dili, AAC cümle paketi). config.yaml'da
+# değer "auto" ya da boşsa bunlar kullanılır. Türkçe (language satırı yok)
+# için config.yaml'daki değer her zaman olduğu gibi kullanılır. Başka bir
+# dilde, Türkçe fabrika değeri (tr_TR-dfki-medium / tr / turkce-aac-paketi)
+# yazılı kalmışsa da o dilin değeri geçer; başka bir değer elle seçilmiş
+# sayılır ve her zaman kazanır. Kural: eye_gaze/i18n.py, setting().
+_defaults:
+  tts_voice: "tr_TR-dfki-medium"
+  stt_language: "tr"
+  aac_root: "turkce-aac-paketi"
+
+i18n:
+  unknown_language: "Dil dosyası bulunamadı: '{code}'. Program Türkçe açıldı."
+
+app:
+  title: "Göz Faresi"
+
+widgets:
+  key:
+    space: "Boşluk (Space)"
+    backspace: "Geri silme"
+    up: "Yukarı ok"
+    down: "Aşağı ok"
+    left: "Sol ok"
+    right: "Sağ ok"
+    menu: "Menü tuşu"
+    unassigned: "— (atanmamış)"
+  how:
+    double: "{sec} sn'de 2 kez basın"
+    hold: "{sec} sn basılı tutun"
+    once: "bir kez basın"
+  cap:
+    cursor: "İmleç (gözle fare)"
+    global_keys: "Tuşlar (her pencerede)"
+    suppress_keys: "Tuşların programlara gitmemesi"
+    injected_detection: "Ekran klavyesi tuşlarını ayırt etme"
+    gamepad: "Gamepad / switch"
+    zoom_capture: "Büyüteç"
+    dwell_ring: "Bakarak tıklama halkası"
+    snap: "Hedefe yapışma"
+    osk: "Ekran klavyesi"
+    clipboard: "Pano (seçili metni okuma, dikte)"
+    onecore_tts: "Windows sesi (Tolga)"
+    system_dictation: "Sistem diktesi (Win+H)"
+    audio: "Ses (konuşma ve acil alarm sireni)"
+    no_reason: "yok"
+  click:
+    switch: "Tuş ya da switch ile"
+    switch_note: "Sol tık tuşuna (Space) ya da gamepad/switch düğmesine basınca tıklar. Parmağıyla bir düğmeye basabilen için en hızlı ve en güvenli yol."
+    dwell: "Bakarak tıklama (dwell)"
+    dwell_note: "İmleç bir yerde 1 saniye durunca kendiliğinden tıklar. Hiçbir düğmeye basamayan için."
+    blink: "Göz kırparak tıklama"
+    blink_note: "Gözü yarım saniye kapalı tutunca tıklar. Kısa, doğal kırpma tıklamaz."
+  route:
+    pad_absent: "gamepad sol tık düğmesi ({pad}) atanmış ama şu an takılı bir gamepad ya da switch bulunamadı"
+    pad_unset: "gamepad ile tıklama da atanmamış"
+    problem: "Şu an çalışan bir tıklama yolu yok: sol tık tuşu boş, {why}; bakarak ya da göz kırparak tıklama da kapalı. Böyle olursa imleç oynar ama hiçbir şeye tıklanamaz."
+  keytable:
+    reset: "Varsayılana dön"
+    intro: "İşin yanındaki «Değiştir»e basın, sonra o iş için istediğiniz tuşa ya da düğmeye basın."
+    change: "Değiştir"
+    remove: "Kaldır"
+    check_failed: "Tuşlar denetlenemedi ({error}); kaydetmeden önce config.yaml'a bakın."
+    capture_title: "Tuş atama"
+    job: "«{label}»"
+    press_key: "Şimdi bu iş için istediğiniz tuşa basın."
+    press_pad: "Şimdi bu iş için istediğiniz gamepad ya da switch düğmesine basın."
+    wait_note: "10 saniye içinde basılmazsa hiçbir şey değişmez."
+    not_pressed: "10 saniye içinde basılmadı; «{label}» değişmedi."
+    capture_failed: "«{label}» için tuş yakalanamadı: {error}"
+
+launcher:
+  unknown_error: "bilinmeyen hata"
+  settings: "Ayarlar"
+  stop: "Durdur"
+  start: "Başlat"
+  open_log: "Günlüğü aç"
+  config_create_failed: "Ayar dosyası oluşturulamadı: {error}"
+  wizard_again: "İlk kurulum sihirbazı yarıda kalmış görünüyor (kamera ve donanım ölçümü kaydedilmemiş). Sihirbaz şimdi açılsın mı?"
+  caps_failed: "Özellikler denetlenemedi: {error}"
+  config_detail_in_log: "Ayrıntı günlükte ([ayar] satırları)."
+  config_fix_hint: "Ayarlar'dan ya da config.yaml'dan düzeltip «Başlat»a basın."
+  no_log: "Günlük dosyası henüz yok:\n{path}"
+  confirm_close: "Emin misiniz? Göz Faresi kapanır; imleç artık gözle sürülemez."
+  already_open: "Göz Faresi zaten açık."
+  state:
+    stopping: "Durduruluyor…"
+    running: "Çalışıyor"
+    restarting: "Sürücü kapandı; {seconds} sn sonra yeniden başlatılıyor…"
+    config_error: "Ayar hatası: sürücü başlatılamadı."
+    stopped: "Durduruldu"
+    closed: "Kapandı"
+    stopped_hint: "Durduruldu — «Başlat»a basınca program açılır."
+  perm:
+    no_script: "İzin kurulum betiği hazırlanamadı: {error}"
+    no_pkexec: "pkexec bulunamadı; izinler kurulamadı. Oturum açarken «Ubuntu on Xorg» seçin."
+    run_failed: "İzin kurulumu çalıştırılamadı: {error}"
+    done: "İzinler kuruldu. Oturumu kapatıp açın; sonra program imleci ve tuşları kullanabilir."
+    refused: "İzin verilmedi (parola girilmedi ya da reddedildi). Yeniden deneyebilir ya da oturum açarken «Ubuntu on Xorg» seçebilirsiniz."
+    failed: "İzin kurulumu başarısız oldu (kod {code})."
+
+wizard:
+  window_title: "Göz Faresi — İlk kurulum"
+  counter: "Adım {i} / {n}"
+  back: "◀ Geri"
+  next: "İleri ▶"
+  skip: "Atla"
+  start: "Kalibrasyona başla"
+  not_now: "Şimdi değil"
+  close_question: "Sihirbaz kapatılsın mı? Şimdiye kadar seçtikleriniz kaydedilir, gerisi varsayılan kalır ve program başlar. Her şey sonra Ayarlar'dan değiştirilebilir."
+  route_title: "Tıklama"
+  route_continue: "Yine de devam edilsin mi?"
+  route_save: "Yine de kaydedilsin mi?"
+  save_failed_title: "Ayarlar kaydedilemedi"
+  save_failed: "Seçtiğiniz tuşlar ve tıklama yöntemi kaydedilemedi: {error}\nProgram varsayılan ayarlarla açılacak; Ayarlar'dan yeniden deneyin."
+  language:
+    label: "Dil (Language)"
+    note: "Programın dili. Sonra Ayarlar'dan da değiştirilebilir."
+  welcome:
+    title: "Hoş geldiniz"
+    lead: "Göz Faresi bilgisayarı gözle kullanmayı sağlar."
+    intro: "Bu sihirbaz kamerayı, ekranı, ekran kartını ve tuşları birkaç adımda ayarlar. Her adımda «Atla» ile geçebilir, «Geri» ile dönebilirsiniz. Her şey sonradan Ayarlar penceresinden değiştirilebilir."
+    source_note: "Kaynak kipi: bu sihirbaz bu bilgisayarın ayarlarını değiştirmez; yalnızca gösterir (config.yaml ve makine.json yazılmaz)."
+    perm_button: "İzinleri kur"
+    perm_ok: "Giriş aygıtı izinleri tamam."
+    perm_needed: "{why}.\n«İzinleri kur» bir kez yönetici parolası ister; sonra oturumu kapatıp açmanız gerekir. Olmazsa oturum açarken «Ubuntu on Xorg» seçin."
+    perm_opening: "Parola penceresi açılıyor…"
+    caps_missing: "Bu bilgisayarda şunlar çalışmıyor:"
+  preview:
+    open_failed: "Önizleme açılamadı (kamera başka bir programda açık olabilir)."
+    face_found: "Yüz bulundu ✓"
+    face_missing: "Yüz görünmüyor — kameraya bakın."
+    stopped: "Önizleme durdu: {error}"
+  camera:
+    title: "Kamera"
+    retry: "Yeniden dene"
+    searching: "Kameralar aranıyor… (birkaç saniye sürebilir)"
+    search_failed: "Kameralar aranamadı ({error}). Kamerayı takıp «Yeniden dene»ye basın."
+    none: "Kamera bulunamadı. Kamerayı takıp «Yeniden dene»ye basın. Kamerasız da devam edebilirsiniz; program kamerayı her açılışta yeniden arar."
+    found: "{n} kamera bulundu. Kullanılacak kamerayı seçin; önizlemede yüzünüz görünmeli."
+    item: "Kamera {index} — {width}x{height}, {fps} kare/sn"
+    preview_opening: "Önizleme açılıyor…"
+  hardware:
+    title: "Ekran ve ekran kartı"
+    reading: "Bilgiler okunuyor…"
+    intro: "Göz takibinin «derin model» katmanı isabeti artırır ama hızlı bir bilgisayar ister. 3 saniyelik bir ölçümle burada açık mı kapalı mı olacağına karar verilir. Ölçüm ekran kartını kullanır."
+    measure: "Hızı ölç (3 sn)"
+    screen: "Ekran: {count} monitör, {width}x{height}, ölçek %{scale}"
+    gpu_none: "bulunamadı"
+    via_dml: "DirectML ile"
+    via_cuda: "CUDA ile"
+    via_none: "kullanılmıyor"
+    gpu: "Ekran kartı: {name} ({via})"
+    cpu: "İşlemci: {cores} çekirdek · Bellek: {ram} GB"
+    measuring: "Ölçülüyor… (3 saniye)"
+    deep_on: "Derin model: açık ({where})"
+    where_cpu: "işlemci"
+    where_gpu: "ekran kartı"
+    deep_off: "Derin model: kapalı (bilgisayar yavaş)"
+    frame_time: "Bir kare {ms} ms sürdü (sınır {limit} ms)."
+    failed: "Hız ölçülemedi; derin model için program kendi kuralını kullanır."
+  download:
+    title: "İndirmeler"
+    intro: "Bunlar isteğe bağlıdır. İnternet yoksa ya da şimdi istemiyorsanız «Atla»ya basın: program bunlar olmadan çalışır, sesle yazma modeli ilk F3'te indirilir."
+    size_gb: "~{gb} GB"
+    size_mb: "~{mb} MB"
+    get: "İndir"
+    cancel: "İptal"
+    ready: "Hazır ✓"
+    partial: "Yarım kaldı; «İndir»e basınca kaldığı yerden devam eder."
+    missing: "İndirilmedi."
+    downloading: "İndiriliyor…"
+    progress: "İndiriliyor… {done} / {total} MB"
+    done: "İndirildi ✓"
+    cancelled: "İptal edildi. «İndir»e basınca kaldığı yerden devam eder."
+    failed: "Bu dosya indirilemedi: {error} Program onsuz da çalışır; sonra yeniden deneyebilirsiniz."
+    gpu_pack: "Ekran kartı paketi (NVIDIA)"
+    gpu_note: "Sesle yazmayı ekran kartında çalıştırır."
+    gpu_note_linux: "Sesle yazmayı ekran kartında çalıştırır (derin model de)."
+    whisper: "Sesle yazma modeli (Whisper {size})"
+    whisper_note: "F3 ile konuşarak yazmak için; bu bilgisayara göre seçildi."
+    voice: "Konuşma sesi ({name})"
+    voice_note: "Programın dilinde doğal ses. İndirilene kadar bilgisayarın kendi sesi konuşur."
+  keys:
+    title: "Tuşlar"
+    conflicts: "Bir tuş tek iş yapar; önce bunları düzeltin:"
+  click:
+    title: "Tıklama yöntemi"
+    question: "Kullanıcı nasıl tıklayacak?"
+  finish:
+    title: "Kalibrasyona başla"
+    lead: "Neredeyse bitti."
+    intro: "«Kalibrasyona başla»ya basınca program açılır ve ekranda yeşil bir top süzülür: topu gözünüzle takip edin. Bu bir kez yapılır. Sonra imleç gözle hareket eder."
+    pending: "Kaydedilecek ayar sayısı: {n}"
+    camera: "Kamera: {index} ({width}x{height})"
+    source: "Kaynak kipi: hiçbir ayar yazılmayacak."
+
+settings:
+  window_title: "Göz Faresi — Ayarlar"
+  source_note: "Kaynak kipi: burada kaydedilen her değişiklik bu geliştirici kurulumunun gaze/config.yaml dosyasına yazılır ve bu bilgisayardaki sürücüyü değiştirir."
+  save: "Kaydet"
+  close: "Kapat"
+  stt_auto: "Otomatik (bu bilgisayara göre)"
+  deep_auto: "Otomatik (hız ölçümüne göre)"
+  deep_on: "Açık"
+  deep_off: "Kapalı"
+  not_saved_conflicts: "Kaydedilmedi: bir tuş tek iş yapar."
+  not_saved: "Kaydedilmedi."
+  save_failed: "Kaydedilmedi: {error}"
+  saved: "Kaydedildi. Sürücü yeniden başlatıldı."
+  saved_language: "Kaydedildi. Sürücü yeniden başlatıldı; yeni dilde açılıyor."
+  no_change: "Değişiklik yok."
+  close_question: "Kaydedilmemiş değişiklikler var. Kaydetmeden kapatılsın mı?"
+  tab:
+    keys: "Tuşlar"
+    click: "Tıklama"
+    camera: "Kamera"
+    sound: "Ses"
+    advanced: "Gelişmiş"
+    missing: "Bu bilgisayarda olmayanlar"
+    language: "Dil (Language)"
+  camera:
+    now_auto: "Şu an: kamera {index} ({width}x{height}), kendiliğinden seçildi."
+    now_searching: "Şu an: kamera kendiliğinden aranıyor."
+    now_fixed: "Şu an: kamera {index} (config.yaml'da yazılı)."
+    note: "Başka bir kamera seçerseniz görüntü oranı değişebilir; program «kalibrasyon bu kamerayla yapılmadı» der ve F7 ya da F9 önerir."
+    search: "Kameraları ara"
+    searching: "Kameralar aranıyor… (sürücü bu sırada durur)"
+    none: "Kamera bulunamadı. Kamerayı takıp yeniden arayın."
+    item: "Kamera {index} — {width}x{height}"
+    failed: "Kameralar aranamadı: {error}"
+  sound:
+    speed: "Konuşma hızı (büyük = yavaş; 1,0 = normal)"
+    volume: "Ses seviyesi (yalnız piper sesi)"
+  advanced:
+    deep: "Derin model"
+    deep_note: "Değiştirirseniz yeniden kalibrasyon gerekebilir."
+    stt: "Sesle yazma modeli (Whisper)"
+    stt_note: "İndirilmemiş bir boyut ilk F3'te indirilir."
+    snap: "Hedefe yapışma (imleç en yakın düğmenin üstüne oturur)"
+    autostart: "Bilgisayar açılınca başlat"
+  missing:
+    none: "Bu bilgisayarda her özellik çalışıyor."
+  language:
+    label: "Programın dili"
+    note: "«Kaydet»e basınca bu pencereler hemen seçilen dile geçer. Göz sürücüsü (imleç, menüler, konuşma) yeniden başlayınca geçer; «Kaydet» onu zaten yeniden başlatır."
+    voice_note: "Başka bir dilin doğal sesi sihirbazın «İndirmeler» adımından indirilir; o zamana kadar bilgisayarın kendi sesi o dilde konuşur."
+
+actions:
+  left_click_key: "Sol tık"
+  right_click_key: "Sağ tık"
+  double_click_key: "Çift tık"
+  drag_key: "Sürükle (başlat/bitir)"
+  click_menu_key: "Tık menüsü"
+  zoom_key: "Büyüteç (hassas tık)"
+  gamepad_left: "Sol tık (gamepad)"
+  gamepad_right: "Sağ tık (gamepad)"
+  gamepad_double: "Çift tık (gamepad)"
+  gamepad_drag: "Sürükle (gamepad)"
+  aac_key: "Cümle ızgarası (AAC)"
+  tts_key: "Seçili metni sesli oku"
+  speech_stop_key: "Konuşmayı durdur / tekrarla"
+  stt_key: "Sesle yazma (dikte)"
+  osk_key: "Ekran klavyesi"
+  alarm_key: "Acil alarm"
+  gamepad_alarm: "Acil alarm (gamepad)"
+  pause_key: "Duraklat / devam"
+  drift_key: "Hızlı düzeltme (tek nokta)"
+  recalibrate_key: "Yeniden kalibrasyon"
+  quit_key: "Programdan çık"
+  group:
+    click: "Tıklama"
+    gamepad: "Gamepad"
+    speech: "Konuşma"
+    writing: "Yazı"
+    emergency: "Acil durum"
+    program: "Program"
+
+keymap:
+  pad_taken: "“{label}” düğmesi ({name}) zaten “{owner}” için kullanılıyor. Bir düğme tek iş yapar: böyle kaydedilirse “{label}” kapalı kalır. Tıklama düğmesiyle alarm için “basılı tutunca alarm” süresini kullanın."
+  key_taken: "“{label}” tuşu ({name}) zaten “{owner}” için kullanılıyor. Bir tuş tek iş yapar: böyle kaydedilirse “{label}” kapalı kalır. Başka bir tuş seçin."
+  same_key: "“{first}” ile “{second}” aynı tuşa ({name}) atanmış. Bir tuş tek iş yapar: böyle kaydedilirse tek basış ikisini birden yapar. Birine başka bir tuş seçin."
+  same_pad: "“{first}” ile “{second}” aynı düğmeye ({name}) atanmış. Bir düğme tek iş yapar: böyle kaydedilirse tek basış ikisini birden yapar. Birine başka bir düğme seçin."
+
+keycapture:
+  no_keyboard: "Klavye dinlenemiyor ({error}); tuşu config.yaml'a elle yazın."
+  keyboard_failed: "Klavye dinlenemiyor: {error}"
+  no_permission: "Bu oturumda klavye dinlenemiyor (izin yok); 'Bu bilgisayarda olmayanlar' sekmesine bakın."
+  no_pad: "Takılı bir gamepad ya da switch arayüzü bulunamadı. Takıp yeniden deneyin."
+
+autostart:
+  old_link: "Başlangıç klasöründe eski '{name}' kısayolu var (OTOMATIK-BASLAT-KUR.bat). İkisi birden açılırsa iki sürücü aynı anda çalışır; önce onu kaldırın (OTOMATIK-BASLAT-KUR.bat KALDIR)."
+  no_folder: "Başlangıç klasörü açılamadı: {error}"
+  link_failed: "Başlangıç kısayolu oluşturulamadı ({error}). Otomatik başlatma KAPALI."
+  code: "kod {code}"
+  on_windows: "Göz Faresi bilgisayar açılınca kendiliğinden başlayacak."
+  comment: "Webcam ile göz kontrollü fare"
+  write_failed: "Otomatik başlatma dosyası yazılamadı: {error}"
+  on_linux: "Göz Faresi oturum açılınca kendiliğinden başlayacak."
+  off_failed: "Otomatik başlatma kapatılamadı: {error}"
+  turned_off: "Otomatik başlatma kapatıldı."
+
+supervisor:
+  start_failed: "Sürücü başlatılamadı: {error}"
+  crash_loop: "Sürücü sürekli çöküyor, günlüğü gönderin. (1 dakikada {limit} kez kapandı; {seconds} sn sonra yeniden denenecek.)"
+
+downloader:
+  cancelled: "İndirme durduruldu: {name}. Sonra kaldığı yerden devam eder."
+  http: "Sunucu hata verdi (HTTP {code}): {name} indirilemedi."
+  certificate: "Güvenli bağlantı kurulamadı (sertifika doğrulanamadı): {name} indirilemedi."
+  timeout: "Sunucu yanıt vermedi (zaman aşımı): {name} indirilemedi."
+  offline: "İnternete bağlanılamadı: {name} indirilemedi."
+  disk_full: "Diskte yer kalmadı: {name} yazılamadı ({folder})."
+  no_permission: "Klasöre yazma izni yok: {folder}."
+  write_failed: "Dosya yazılamadı: {name} ({folder})."
+  no_space: "Diskte yer yok: {name} için {need} MB gerekiyor, {free} MB boş ({folder})."
+  no_resume: "Sunucu kaldığı yerden devam etmeye izin vermedi: {name} indirilemedi."
+  stalled: "Sunucu yanıt vermeyi kesti (zaman aşımı): {name}. Sonra kaldığı yerden devam eder."
+  too_big: "İndirilen dosya bozuk (beklenenden büyük): {name}. Yeniden indirilecek."
+  cut: "İndirme yarıda kesildi ({done}/{total} MB): {name}. Tekrar denenince kaldığı yerden devam eder."
+  bad_sha: "İndirilen dosya bozuk çıktı (SHA-256 tutmadı): {name}. Yeniden indirilecek."
+  bad_zip: "İndirilen paket açılamadı: {name}. Yeniden indirilecek."
+  unsafe_zip: "İndirilen paket beklenmeyen bir dosya yolu içeriyor, açılmadı: {name}."
+  unexpected: "İndirme beklenmeyen bir hatayla durdu: {name}."
+
+config_writer:
+  unknown_key: "'{key}' diye bir ayar yok."
+  not_utf8: "{path} UTF-8 değil; düzenlenmedi."
+  restore_failed: "{path} yazıldı ama doğrulanamadı ve ESKİ HALİ GERİ KONAMADI ({error}). Programı açmadan önce dosyayı düzeltin."
+  restored: "Ayar kaydedilmedi, dosya eski haline döndü: {error}"
+  unreadable: "{path} şu an okunamıyor ({error}); önce dosya düzeltilmeli."
+  not_a_map: "{path} beklenen biçimde değil (anahtar: değer satırları olmalı)."
+  nested: "'{key}' dosyada iç içe ya da tırnaklı yazılmış; elle düzeltilmeli."
+  duplicate: "'{key}' dosyada {n} kez geçiyor; hangisinin geçerli olduğu belirsiz, elle düzeltilmeli."
+  odd_shape: "'{key}' dosyada düzenlenemeyen bir biçimde yazılmış; elle düzeltilmeli."
+  not_a_setting: "'{key}' satırı bir ayar olarak okunmuyor; elle düzeltilmeli."
+  value_empty: "değer boş ya da sonraki satırlarda"
+  quote_open: "tırnak bu satırda kapanmıyor"
+  not_one_line: "değer tek satırlık bir değer değil"
+  line_why: "'{key}' satırı düzenlenemiyor: {error}."
+  line: "'{key}' satırı düzenlenemiyor."
+  multi_line: "'{key}' değeri birden fazla satıra yayılmış; elle düzeltilmeli."
+  not_finite: "sonsuz/tanımsız sayı yazılamaz: {value}"
+  bad_type: "bu tür bir değer ayara yazılamaz: {type}"
+  read_only: "{path} salt okunur (yazma korumalı); ayar kaydedilmedi. Dosyanın özelliklerinden \"Salt okunur\" işaretini kaldırın ya da değişikliği elle yapın."
+  read_back_differs: "dosya yazıldıktan sonra beklenenden farklı okundu ({keys})."
+  unusable: "'{key}: {want}' program tarafından kullanılamıyor (okunan: {got}).{notes}"
+  no_click: "bu değişiklikle HİÇBİR TIKLAMA YOLU kalmıyor (sol tık tuşu, gamepad sol tık, bakarak ya da göz kırparak tıklama)."
+
+# config.py: these also reach gaze.log, so they stay ASCII.
+config:
+  not_bool: "UYARI: '{key}: {value}' acik/kapali degil - bu satir GORMEZDEN GELINIYOR, varsayilan deger kullaniliyor. (true / false yazin.)"
+  not_number: "UYARI: '{key}: {value}' bir sayi degil - bu satir GORMEZDEN GELINIYOR, varsayilan deger kullaniliyor. (Ondalik icin 0.15 ya da 0,15 yazabilirsiniz.)"
+  not_positive: "UYARI: '{key}: {value}' sifirdan BUYUK olmali - bu satir GORMEZDEN GELINIYOR, varsayilan deger kullaniliyor."
+  bad_latency: "UYARI: 'pursuit_latency: {value}' saniye cinsinden 0 ile {max} arasi olmali (or. 0.12) - \"auto\" kullaniliyor."
+  unreadable: "{path} okunamadi ({error}): {detail}"
+  not_a_map: "{path} beklenen bicimde degil (anahtar: deger satirlari olmali)."
+  only_defaults: "{path} icinde varsayilandan FARKLI hicbir ayar bulunamadi (dosya bos ya da yalniz yorum satiri olabilir; icinde satirlar gorunuyorsa hepsi zaten varsayilan degerdedir)."
+
+platform:
+  xorg: "oturum açarken 'Ubuntu on Xorg' seçin"
+  no_session: "Grafik oturum bulunamadı (DISPLAY ve WAYLAND_DISPLAY yok); programı masaüstü oturumunun içinden başlatın"
+  wayland_input: "Wayland bu oturumda imleci sürmeye ve tuşları dinlemeye izin vermiyor; Ayarlar'daki 'İzinleri kur' düğmesiyle izin verin ya da {xorg}"
+  no_display: "X11 ekranına bağlanılamadı (DISPLAY yok); programı masaüstü oturumunun içinden başlatın"
+  start_failed: ". Başlatılamadı: {errors}"
+  screen_guessed: ". Ekran boyutu ölçülemedi; 1920x1080 varsayıldı"
+  uinput_pointer: "uinput mutlak işaretçi"
+  evdev_grab: "aygıt yakalanır, diğer tuşlar sanal klavyeden aynen geri verilir"
+  evdev_osk: "ekran klavyesinin tuşları /dev/input'a hiç gelmez"
+  x11_injected: "X11'de ekran klavyesinin gönderdiği tuşlar gerçek tuştan ayırt edilemiyor"
+  x11_gamepad: "Gamepad için /dev/input izni gerekiyor; Ayarlar'daki 'İzinleri kur' düğmesini kullanın"
+  wayland_screenshot: "Wayland bu oturumda ekran görüntüsüne izin vermiyor; {xorg}"
+  wayland_overlay: "Wayland bu oturumda üst katman pencerelerine izin vermiyor; {xorg}"
+  x11_screenshot: "X11 ekran görüntüsü"
+  x11_overlay: "X11 üst katman penceresi"
+  no_mss: "Ekran görüntüsü kitaplığı (mss) bulunamadı; büyüteç çalışmıyor"
+  no_xlib: "X11 kitaplığı (python-xlib) bulunamadı; dwell halkası çizilemiyor"
+  linux_only: "yalnızca Linux'ta"
+  snap_windows_only: "Hedefe yapışma yalnızca Windows'ta var (Linux'un erişilebilirlik arayüzü bunun için yeterli değil)"
+  onecore_windows_only: "Windows sesi (Tolga) yalnızca Windows'ta var; Linux'ta piper sesi kullanılır"
+  winh_windows_only: "Sistem diktesi (Win+H) yalnızca Windows'ta var; Whisper diktesi kullanılır"
+  keys_dead: "Tuş dinleyicisi durdu ({error}); sürücü tuşları çalışmıyor, programı yeniden başlatın"
+  keys_restarting: "Tuş dinleyicisi durdu ({error}); birkaç saniye içinde yeniden kurulacak"
+  evdev:
+    ok: "Giriş aygıtı izinleri tamam"
+    install: "Ayarlar'daki 'İzinleri kur' düğmesini kullanın"
+    relogin: "oturumu kapatıp yeniden açın"
+    group_pending: "Kullanıcı input grubuna eklenmiş ama bu oturum ondan önce açılmış; {relogin}"
+    no_group: "Klavyeyi okuma izni yok: kullanıcı input grubunda değil; {install}, sonra {relogin}"
+    no_uinput: "Sanal giriş aygıtı (/dev/uinput) yok: uinput modülü yüklü değil; {install}"
+    uinput_denied: "/dev/uinput'a yazma izni yok (kural kurulmamış ya da kullanıcı input grubunda değil); {install}"
+    no_keyboard: "Bilgisayara bağlı bir klavye bulunamadı (/dev/input)"
+    watchdog_dead: "Tuş bekçisi durdu ({error}); klavye kilitlenmesin diye yakalama kapatıldı, sürücü tuşları uygulamaya da gidiyor; programı yeniden başlatın"
+    closed: "kapatıldı"
+    no_readable_keyboard: "Okunabilen bir klavye bulunamadı; takılan klavye birkaç saniye içinde kullanılır"
+    grab_gave_up: "Klavye yakalama bırakıldı ({error}); sürücü tuşları uygulamaya da gidiyor, programı yeniden başlatın"
+    loose: "aygıt yakalanır, diğer tuşlar sanal klavyeden aynen geri verilir; şu klavyelerde sürücü tuşları uygulamaya da gider: {names}"
+    pointer_guessed: "uinput mutlak işaretçi; ekran boyutu ölçülemedi, 1920x1080 varsayıldı"
+  x11:
+    no_xi21: "X sunucusunda XInput 2.1 yok"
+    old_xi: "X sunucusunun XInput sürümü eski ({version})"
+    xi_query_failed: "XInput2 sorgulanamadı: {error}"
+    xi_ok: "XInput2: ekran klavyesinin ve diğer programların tuşları XTEST aygıtından geliyor, gerçek tuştan ayrılıyor"
+    xi_missing: "X11'de ekran klavyesinin gönderdiği tuşlar gerçek tuştan ayırt edilemiyor ({why})"
+    xi_select_failed: "XInput2 ham tuş olayları seçilemedi: {error}"
+  misc:
+    tk_clipboard_xwayland: "Tk panosu (XWayland)"
+    tk_clipboard: "Tk panosu (kopyalanan metin program kapanınca kaybolur; 'xclip' paketini kurun)"
+    need_wl_clipboard: "Pano için 'wl-clipboard' paketi gerekiyor"
+    no_session: "Grafik oturum bulunamadı; programı masaüstü oturumunun içinden başlatın"
+    gnome_osk: "GNOME ekran klavyesi (program kapanınca da açık kalır; kapatmak için: Ayarlar > Erişilebilirlik > Ekran Klavyesi)"
+    no_osk: "Ekran klavyesi bulunamadı; 'onboard' paketini kurun"
+
+playback:
+  device_failed: "Ses aygıtı açılamadı ({error}): konuşma ve acil alarm sireni duyulmuyor"
+  no_sounddevice: "Ses çalınamıyor: 'sounddevice' (PortAudio) yok; konuşma ve acil alarm sireni duyulmuyor"
+
+# --- the driver's own screens (ascii: drawn with OpenCV) ---------------------
+
+common:
+  closing: "Kapaniyor: {n}"
+
+driver:
+  cal:
+    window: "Kalibrasyon - noktaya SABIT bakin"
+    point: "Nokta {i}/{total} - SABIT bakin"
+    pass_title: "TUR {n}/{total}: pozisyonunuzu HAFIFCE degistirin"
+    pass_hint: "(hafif yaslanin / kaykilin) - kalibrasyon birazdan devam edecek"
+  pursuit:
+    window: "Kalibrasyon - topu GOZLE takip edin"
+    follow: "Topu GOZLE takip edin  %{pct}  (tur {n}/{total})"
+  drift:
+    window: "Hizli duzeltme - ortadaki noktaya SABIT bakin"
+    look: "Ortadaki noktaya SABIT bakin"
+  aac:
+    window: "AAC - cumleye bakip tiklayin"
+    close: "KAPAT"
+  zoom:
+    window: "Buyutec - hedefe bakip tiklayin"
+  warn:
+    old_settings: "ESKI AYARLAR - config.yaml okunamadi, son degisiklikler GECERLI DEGIL"
+    no_click: "TIKLAMA YONTEMI YOK - config.yaml: left_click_key ya da dwell_click"
+  hud:
+    paused: "DURAKLATILDI - devam: {key} x2"
+    recording: "KAYIT"
+    transcribing: "COZULUYOR..."
+  # console lines (ascii: printed and written to gaze.log) - the deep model
+  # opened on the CPU although the stored calibration needs it
+  deep:
+    cpu_gpu_failed: "DIKKAT: GPU kullanilamadi - derin bakis modeli CPU'da ACILDI. Kalibrasyonunuz GECERLI; imlec biraz daha yavas tepki verir. GPU bosalinca surucuyu yeniden baslatin."
+    cpu_no_gpu: "NOT: bu bilgisayarda derin model icin kullanilabilir bir GPU bulunamadi - derin bakis modeli CPU'da calisiyor. Kalibrasyonunuz GECERLI; imlec biraz daha yavas tepki verir."
+
+click_menu:
+  window: "Tik menusu - secenege bakip tiklayin"
+  left: "Sol tik"
+  right: "Sag tik"
+  double: "Cift tik"
+  drag_start: "Surukle baslat"
+  drag_stop: "Surukle birak"
+  scroll_up: "Kaydir yukari"
+  scroll_down: "Kaydir asagi"
+  undo: "Kalibrasyonu geri al"
+  cancel: "Iptal"
+
+aac:
+  next: "DEVAM >>"
+  back: "<< GERI"
+  gaze_hint: "bak + tikla = konus"
+  not_filled: "(doldurulmadi)"
+
+scan:
+  hint: "isik gelince tikla"
+
+# --- spoken ---------------------------------------------------------------------
+
+alarm:
+  phrase: "Yardım edin!"
+
+stt:
+  say:
+    downloading: "Dikte modeli indiriliyor. Lütfen bekleyin, bitince haber vereceğim."
+    download_failed: "Dikte modeli indirilemedi. İnternet bağlantısını denetleyip tekrar deneyin."
+    unknown_size: "Bu dikte modeli boyutu tanınmıyor. Ayarlardan başka bir boyut seçin."
+    ready: "Dikte hazır. Şimdi konuşabilirsiniz."

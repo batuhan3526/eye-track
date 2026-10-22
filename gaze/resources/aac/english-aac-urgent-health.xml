@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  OptiKey Dynamic Keyboard - English AAC: Urgent / Health
+  Large targets, high-contrast colours
+-->
+<Keyboard>
+  <Name>English AAC - Urgent / Health</Name>
+  <HideFromKeyboardMenu>False</HideFromKeyboardMenu>
+  <WindowState>Maximised</WindowState>
+  <Height>100</Height>
+  <ShowOutputPanel>True</ShowOutputPanel>
+  <Grid>
+    <Rows>8</Rows>
+    <Cols>2</Cols>
+  </Grid>
+  <Content>
+
+    <DynamicKey Row="0" Col="0" Width="2" Height="1"
+                BackgroundColor="#E74C3C" ForegroundColor="#FFFFFF">
+      <Label>I'm in pain.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'm in pain.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="0" Col="1" Width="2" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>I'm not well, please help.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'm not well, please help.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="0" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>I want my medicine.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I want my medicine.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="1" Col="1" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>Could you change my position?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you change my position?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="2" Col="0" Width="1" Height="1"
+                BackgroundColor="#922B21" ForegroundColor="#FFFFFF">
+      <Label>Call the doctor.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Call the doctor.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+        <DynamicKey Row="2" Col="1" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>I'm having trouble breathing.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'm having trouble breathing.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="3" Col="0" Width="1" Height="1"
+                BackgroundColor="#922B21" ForegroundColor="#FFFFFF">
+      <Label>I need suction.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I need suction.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="3" Col="1" Width="1" Height="1"
+                BackgroundColor="#E74C3C" ForegroundColor="#FFFFFF">
+      <Label>The pain is very bad.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>The pain is very bad.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>I'd like a painkiller.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I'd like a painkiller.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="4" Col="1" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>I feel dizzy.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I feel dizzy.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="0" Width="1" Height="1"
+                BackgroundColor="#922B21" ForegroundColor="#FFFFFF">
+      <Label>I feel sick to my stomach.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I feel sick to my stomach.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="5" Col="1" Width="1" Height="1"
+                BackgroundColor="#E74C3C" ForegroundColor="#FFFFFF">
+      <Label>Could you put my breathing machine on?</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>Could you put my breathing machine on?</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="0" Width="1" Height="1"
+                BackgroundColor="#C0392B" ForegroundColor="#FFFFFF">
+      <Label>I feel unwell, call someone.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>I feel unwell, call someone.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+    <DynamicKey Row="6" Col="1" Width="1" Height="1"
+                BackgroundColor="#E67E22" ForegroundColor="#FFFFFF">
+      <Label>This is an emergency, call an ambulance.</Label>
+      <Action>ClearScratchpad</Action>
+      <Text>This is an emergency, call an ambulance.</Text>
+      <Action>Speak</Action>
+    </DynamicKey>
+
+<DynamicKey Row="7" Col="0" Width="1" Height="1"
+                BackgroundColor="#1C2833" ForegroundColor="#FFFFFF">
+      <Label>Back / Main Menu</Label>
+      <ChangeKeyboard BackReturnsHere="False">english-aac-pack</ChangeKeyboard>
+    </DynamicKey>
+
+  </Content>
+</Keyboard>

@@ -1,0 +1,9 @@
+benchmark.jpg - the face picture eye_gaze/hardware.benchmark_gaze() times the
+gaze path on (MediaPipe + deep model), so the wizard can measure a machine
+without its camera. A byte-for-byte copy of tests/data/faces/chawla.jpg:
+
+  Kalpana Chawla, NASA photo portrait in orange suit
+  https://commons.wikimedia.org/wiki/File:Kalpana_Chawla,_NASA_photo_portrait_in_orange_suit.jpg
+  license: Public domain (NASA; work of the U.S. federal government)
+  cropped to 4:3 and resized to 640x480, JPEG quality 88 (see
+  tests/data/faces/SOURCES.txt)

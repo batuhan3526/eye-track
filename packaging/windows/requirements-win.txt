@@ -1,0 +1,38 @@
+# packaging/windows/requirements-win.txt
+# The Windows build venv (packaging/out/venv-win, made by derle.ps1 - never
+# the system Python, which the source install on the development machine runs on).
+# Same versions as the Windows test suite where both exist, so a frozen build
+# behaves like the tested source.
+#
+# The plain CPU onnxruntime wheel, never onnxruntime-directml (Task 18,
+# R39): DirectML.dll is Microsoft's own redistributable and must not ship in
+# one package (one process) with the GPL-3.0 piper-tts / espeak-ng. The
+# deep model and piper run on the CPU in a package; a source install keeps
+# whatever onnxruntime it has (eye_gaze/accel.py asks for DirectML first and
+# falls back to the CPU when the provider is absent). piper-tts and
+# faster-whisper depend on this same wheel, so no reinstall dance is needed.
+onnxruntime==1.24.4
+piper-tts==1.6.0
+pathvalidate==3.3.1
+faster-whisper==1.2.1
+mediapipe==0.10.35
+opencv-python==4.13.0.92
+# mediapipe depends on opencv-contrib-python, unpinned: pip would take 5.0,
+# which shares the cv2/ folder and wins. OpenCV 5's solvePnP stops at a
+# different head pose and the deep gaze features move 1.5e-3 rad (Task 9).
+opencv-contrib-python==4.13.0.92
+numpy==2.4.6
+PyYAML==6.0.3
+Pillow==12.2.0
+keyboard==0.13.5
+comtypes==1.4.16
+winsdk==1.0.0b10
+# Microphone (F3 dictation) and phrase playback.
+sounddevice==0.5.5
+# CA bundle for the model downloads (downloader merges it with the system's).
+certifi==2026.6.17
+# MPL-2.0 like certifi: its source ships next to the packages
+# (hazirla.py PY_SOURCES), so the version is fixed here.
+tqdm==4.70.1
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.9
