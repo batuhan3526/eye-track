@@ -102,7 +102,9 @@ def test_real_faces_get_an_unclamped_auto_threshold():
         assert op.FLOOR < op.FRACTION * v < op.CEILING
         eye = op.ClosedEye("auto")
         eye.use(SimpleNamespace(open_eye=v, camera=(w, h)))
-        assert eye.threshold() == pytest.approx(op.FRACTION * v)
+        eye.set_frame((w, h))
+        assert eye.threshold() == pytest.approx(
+            min(op.FRACTION * v, 0.18 * h / w))
 
 
 def test_a_pixel_scale_gate_is_fixed():
@@ -126,24 +128,25 @@ def test_auto_threshold_is_learnt_from_the_persons_open_eyes():
     _feed(eye, 0.20, 20.0)
     assert eye.threshold() == pytest.approx(op.FRACTION * 0.20)
     wide = op.ClosedEye("auto")
+    wide.set_frame((720, 1280))         # a portrait camera: the cap is loose
     _feed(wide, 0.32, 20.0)
     assert wide.threshold() == pytest.approx(op.FRACTION * 0.32)
 
 
 def test_closed_frames_do_not_drag_the_threshold_down():
     eye = op.ClosedEye("auto")
-    t = _feed(eye, 0.26, 15.0)
+    t = _feed(eye, 0.24, 15.0)
     t = _feed(eye, 0.03, 30.0, t0=t)        # a long rest with the eyes shut
-    assert eye.threshold() == pytest.approx(op.FRACTION * 0.26)
+    assert eye.threshold() == pytest.approx(op.FRACTION * 0.24)
 
 
 def test_runtime_tracking_is_slow_and_forgets_old_frames():
     eye = op.ClosedEye("auto")
-    t = _feed(eye, 0.30, 60.0)
-    t = _feed(eye, 0.22, 5.0, t0=t)         # a few seconds: no change yet
-    assert eye.threshold() == pytest.approx(op.FRACTION * 0.30)
-    _feed(eye, 0.22, 90.0, t0=t)            # a minute and more: followed
-    assert eye.threshold() == pytest.approx(op.FRACTION * 0.22)
+    t = _feed(eye, 0.25, 60.0)
+    t = _feed(eye, 0.18, 5.0, t0=t)         # a few seconds: no change yet
+    assert eye.threshold() == pytest.approx(op.FRACTION * 0.25)
+    _feed(eye, 0.18, 90.0, t0=t)            # a minute and more: followed
+    assert eye.threshold() == pytest.approx(op.FRACTION * 0.18)
 
 
 def test_calibration_value_is_used_until_enough_live_frames():
@@ -169,6 +172,7 @@ def test_auto_threshold_has_a_floor_and_a_ceiling():
     low.use(SimpleNamespace(open_eye=0.02, camera=None))
     assert low.threshold() == pytest.approx(op.FLOOR)
     high = op.ClosedEye("auto")
+    high.set_frame((720, 1280))
     high.use(SimpleNamespace(open_eye=1.5, camera=None))
     assert high.threshold() == pytest.approx(op.CEILING)
     assert op.FLOOR < op.FRACTION * op.CANONICAL_OPEN < op.CEILING
@@ -180,6 +184,66 @@ def test_nonsense_openness_is_ignored():
         eye.observe(float("nan"), i / 30.0)
         eye.observe(None, i / 30.0)
     assert eye.threshold() == pytest.approx(op.FRACTION * op.CANONICAL_OPEN)
+
+
+# --- never stricter than v1.2.0 on the current camera ---------------------------
+
+def _v120(lm):
+    """v1.2.0's decision: closed when the normalised ratio <= 0.18."""
+    return _old_normalised(lm) <= 0.18
+
+
+@pytest.mark.parametrize("setting", ["auto", 0.18])
+def test_16_9_is_never_stricter_than_v120(setting):
+    w, h = 1280, 720
+    for open_px in (0.20, 0.26, 0.32, 0.40):   # whoever the person is
+        eye = op.ClosedEye(setting)
+        eye.use(SimpleNamespace(open_eye=open_px, camera=(w, h)))
+        eye.set_frame((w, h))
+        assert eye.threshold() <= 0.18 * h / w + 1e-12
+        # every frame v1.2.0 called open (e.g. looking down at the bottom
+        # row, lid lowered) is still open
+        for gap in np.linspace(1.0, 20.0, 80):
+            lm = _landmarks(_face_px(gap=float(gap), width=40.0), w, h)
+            if not _v120(lm):
+                assert landmark_openness(lm, w, h) > eye.threshold()
+
+
+def test_16_9_runtime_estimate_is_capped_too():
+    eye = op.ClosedEye("auto")
+    eye.use(SimpleNamespace(open_eye=None, camera=None))    # a v1.2.0 file
+    eye.set_frame((1280, 720))
+    _feed(eye, 0.30, 20.0)
+    assert eye.threshold() == pytest.approx(0.18 * 720 / 1280)
+
+
+def test_4_3_typical_and_wide_eyes_are_identical_to_v120():
+    w, h = 1280, 960
+    for open_px in (op.CANONICAL_OPEN, 0.30, 0.36):
+        eye = op.ClosedEye("auto")
+        eye.use(SimpleNamespace(open_eye=open_px, camera=(w, h)))
+        eye.set_frame((w, h))
+        assert eye.threshold() == pytest.approx(0.18 * h / w)
+        for gap in np.linspace(1.0, 20.0, 80):
+            lm = _landmarks(_face_px(gap=float(gap), width=40.0), w, h)
+            closed = landmark_openness(lm, w, h) <= eye.threshold()
+            if abs(_old_normalised(lm) - 0.18) > 1e-9:
+                assert closed == _v120(lm)
+
+
+@pytest.mark.parametrize("size", [(1280, 960), (1280, 720)])
+def test_a_narrow_eye_gets_a_more_lenient_threshold(size):
+    w, h = size
+    eye = op.ClosedEye("auto")
+    eye.use(SimpleNamespace(open_eye=0.16, camera=size))     # ptotic lids
+    eye.set_frame(size)
+    assert eye.threshold() == pytest.approx(op.FRACTION * 0.16)
+    assert eye.threshold() < 0.18 * h / w
+    # that person's open eye, half-lowered looking down, v1.2.0 called closed
+    lm = _landmarks(_face_px(gap=0.105 * 40.0, width=40.0), w, h)
+    if size == (1280, 960):
+        assert _v120(lm)
+    assert landmark_openness(lm, w, h) > eye.threshold()
 
 
 # --- explicit values and the factory value -------------------------------------

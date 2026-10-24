@@ -21,8 +21,15 @@ front: lid gap 159-145 / corners 33-133 (the same for 386-374 / 362-263) =
 0.2586. On a 1280x960 camera that eye read 0.2586 / 0.75 = 0.345 on the old
 normalised scale, where 0.18 was the factory threshold, i.e. 52% of it.
 FRACTION = 0.18 x (960 / 1280) / 0.2586 = 0.522: on that camera "auto" decides
-exactly like 0.18 did for the typical eye, and on any other camera, and for any
-other eye, the threshold scales with the person instead.
+exactly like 0.18 did for the typical eye, and for any other eye the threshold
+scales with the person instead.
+
+"auto" is capped at what 0.18 meant on the current camera (0.18 x height /
+width): never stricter than v1.2.0. Looking down lowers the upper lid, and on a
+16:9 picture the old 0.18 was a looser 39% of the typical eye; the cap keeps
+that leniency. So 4:3 behaves as before for a typical or wide eye, 16:9 is never
+stricter than before, and a narrow (ptotic) eye gets its own, more lenient
+threshold - the gain.
 
 An explicit number other than 0.18 (the v1.2.0 factory value, which counts as
 "auto") was written on the old normalised scale; it is honoured, converted to
@@ -168,7 +175,15 @@ class ClosedEye:
         if self._explicit is not None:
             a = self._cal_aspect or self._frame_aspect or REF_ASPECT
             return self._explicit * a
-        return min(max(FRACTION * self.open_eye(), FLOOR), CEILING)
+        own = min(max(FRACTION * self.open_eye(), FLOOR), CEILING)
+        return min(own, self.legacy())
+
+    def legacy(self):
+        """What v1.2.0's 0.18 meant on the CURRENT camera, on the pixel
+        scale. "auto" is never stricter than that: looking down lowers the
+        upper lid, and the bottom of the screen must not freeze the cursor
+        where v1.2.0 did not."""
+        return FACTORY * (self._frame_aspect or REF_ASPECT)
 
     def describe(self):
         """One ASCII console line."""

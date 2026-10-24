@@ -79,7 +79,8 @@ scroll_speed: 1          # kaydirma hizi (centik)
 # --- GOZ KIRPMA ILE TIKLAMA (parmak yoksa) ---
 blink_click: false       # true: uzun goz kirpma = SOL TIK
 # "auto": kisinin kendi acik goz degerinin yaklasik yarisinin altinda goz "kapali"
-# sayilir (kalibrasyonda olculur, kullanirken yavasca guncellenir). Sayi yazilirsa
+# sayilir (kalibrasyonda olculur, kullanirken yavasca guncellenir; eski 0.18'den
+# hicbir kamerada daha siki degildir). Sayi yazilirsa
 # (eski olcek, 0.18 = auto) o deger kullanilir.
 blink_closed_threshold: "auto"
 blink_hold_seconds: 0.5  # bu kadar kapali tutulursa tikla (kisa/dogal kirpma tetiklemez)
