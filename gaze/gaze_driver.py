@@ -44,9 +44,10 @@ from eye_gaze.switch import (EdgeDetector, GamepadReader, KeyPresses,
 from eye_gaze.blink import BlinkClicker
 from eye_gaze.dwell import DwellClicker
 from eye_gaze.dwell_ring import attach as attach_dwell_ring, guard_capture
-from eye_gaze.pursuit import PursuitPath, best_latency_fit, pursuit_pairs
+from eye_gaze.pursuit import PursuitPath, best_latency_fit, pursuit_pairs, layout_of
 from eye_gaze import cursor, actions
 from eye_gaze import caldata
+from eye_gaze import calquality
 from eye_gaze import modelsel
 from eye_gaze.implicit import ImplicitCorrector
 from eye_gaze import click_menu
@@ -707,7 +708,7 @@ def _collect_gaze(estimator, cap, hotkeys, samples, max_attempts=900, topmost_ti
 
 
 def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
-              poly2=False, passes=1, feat=None):
+              poly2=False, passes=1, feat=None, recal_key="F9"):
     win = t_ascii("driver.cal.window")
     _fullscreen(win)
     gaze_pts, screen_pts = [], []
@@ -750,30 +751,33 @@ def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
                 screen_pts.append((px, py))
                 stamps.append(time.time())  # wall time: kept in the samples file
                 pass_of.append(pass_i)
+        if len(gaze_pts) < 6:
+            return None
+        _show_computing(win, sw, sh)
+        opts = {"poly2": bool(poly2), "reach": float(reach_margin), "latency": None}
+        cs = caldata.CalSamples.dots(gaze_pts, screen_pts, stamps, opts,
+                                     groups=pass_of if int(passes) > 1 else None,
+                                     screen=(sw, sh))
+        # Same fit as a refit from the saved samples: per-axis model selection,
+        # graded on the pass (or block) it did not see. Never raises.
+        r = caldata.refit(cs, reach_margin, poly2, None, feat) if cs else None
+        if r is not None:
+            mapper, err = r.mapper, r.err
+        else:
+            mapper, err = fit_with_rejection(gaze_pts, screen_pts,
+                                             reach_margin=reach_margin, poly2=poly2)
+            if mapper is None:
+                return None
+            mapper.err_cv = holdout_error(gaze_pts, screen_pts,
+                                          reach_margin=reach_margin, poly2=poly2)
+            mapper.cal_samples = cs
+        _stamp_setup(mapper, sw, sh, cap)
+        _print_cal_quality(err, mapper.err_cv, (sw, sh))
+        _print_model(mapper)
+        _show_cal_result(win, sw, sh, hotkeys, mapper, feat, recal_key)
+        return mapper
     finally:
         cv2.destroyWindow(win)
-    if len(gaze_pts) < 6:
-        return None
-    opts = {"poly2": bool(poly2), "reach": float(reach_margin), "latency": None}
-    cs = caldata.CalSamples.dots(gaze_pts, screen_pts, stamps, opts,
-                                 groups=pass_of if int(passes) > 1 else None)
-    # Same fit as a refit from the saved samples: per-axis model selection,
-    # graded on the pass (or block) it did not see. Never raises.
-    r = caldata.refit(cs, reach_margin, poly2, None, feat) if cs else None
-    if r is not None:
-        mapper, err = r.mapper, r.err
-    else:
-        mapper, err = fit_with_rejection(gaze_pts, screen_pts,
-                                         reach_margin=reach_margin, poly2=poly2)
-        if mapper is None:
-            return None
-        mapper.err_cv = holdout_error(gaze_pts, screen_pts,
-                                      reach_margin=reach_margin, poly2=poly2)
-        mapper.cal_samples = cs
-    _stamp_setup(mapper, sw, sh, cap)
-    _print_cal_quality(err, mapper.err_cv)
-    _print_model(mapper)
-    return mapper
 
 
 def _dot_passes(n_points, passes, n_inputs):
@@ -852,24 +856,23 @@ def _calibrate_until_done(run, hotkeys, wait, pause=5.0):
             return None
 
 
-_CV_GOOD, _CV_BAD = 100.0, 200.0     # px, on held-out points
+def _cal_label(err_cv, screen=None):
+    """IYI / ORTA / KOTU on held-out error. The bands are a fraction of the
+    screen diagonal (100/200 px at 2560x1440; eye_gaze.calquality), the same
+    rule the startup refit and _should_save use."""
+    return calquality.label(err_cv, screen)
 
 
-def _cal_label(err_cv):
-    return ("IYI" if err_cv < _CV_GOOD else
-            "ORTA" if err_cv < _CV_BAD else "KOTU")
-
-
-def _print_cal_quality(err, err_cv=None):
+def _print_cal_quality(err, err_cv=None, screen=None):
     """The label is graded on HELD-OUT points. The in-sample residual it used
     to be graded on flatters (simulated 73 px reported vs 141 px real), and
     the field log agreed: F7 corrections of 300-970 px after 'ORTA'."""
     if err_cv is None:
-        quality = "IYI" if err < 80 else ("ORTA" if err < 160 else "KOTU")
+        quality = calquality.label(err, screen, held_out=False)
         print(f"Kalibrasyon ortalama hatasi: {err:.0f} px [{quality}]"
               + ("  -> tekrar kalibre etmeniz onerilir" if quality == "KOTU" else ""))
         return
-    quality = _cal_label(err_cv)
+    quality = _cal_label(err_cv, screen)
     print(f"Kalibrasyon hatasi: {err_cv:.0f} px [{quality}] (gormedigi noktalarda"
           f" olculdu; egitim noktalarinda {err:.0f} px)"
           + ("  -> tekrar kalibre etmeniz onerilir" if quality == "KOTU" else ""))
@@ -880,6 +883,83 @@ def _print_model(mapper):
     line = caldata.describe(getattr(mapper, "selection", None))
     if line:
         print(line)
+
+
+def _show_computing(win, sw, sh):
+    """The model selection takes a few seconds after the last point, with
+    nothing moving on screen: say so (window and console)."""
+    msg = t_ascii("driver.calq.computing")
+    print(msg)
+    try:
+        canvas = np.zeros((sh, sw, 3), dtype=np.uint8)
+        cv2.putText(canvas, msg, (max(10, sw // 2 - 300), sh // 2),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.1, (255, 255, 255), 2)
+        cv2.imshow(win, canvas)
+        cv2.waitKey(1)
+    except Exception:
+        pass
+
+
+_GRADE_COLOUR = {"IYI": (0, 255, 0), "ORTA": (0, 255, 255), "KOTU": (0, 0, 255)}
+_GRADE_KEY = {"IYI": "driver.calq.grade_iyi", "ORTA": "driver.calq.grade_orta",
+              "KOTU": "driver.calq.grade_kotu"}
+
+
+def _cal_result_lines(q):
+    """[(text, BGR colour)] for a calquality.Summary: the grade, per-axis
+    error, how far the cursor reaches, then the hints. ASCII (i18n)."""
+    grade = t_ascii(_GRADE_KEY[q.label]) if q.label in _GRADE_KEY else q.label
+    err = "?" if not isinstance(q.err, (int, float)) else "%d" % round(q.err)
+    lines = [(t_ascii("driver.calq.result", grade=grade, err=err),
+              _GRADE_COLOUR.get(q.label, (255, 255, 255)))]
+    if q.axes:
+        lines.append((t_ascii("driver.calq.axes", x=q.axes[0], y=q.axes[1]),
+                      (255, 255, 255)))
+    if q.coverage and None not in q.coverage:
+        lines.append((t_ascii("driver.calq.coverage", x=q.coverage[0],
+                              y=q.coverage[1]), (255, 255, 255)))
+    for key, fmt in q.hints:
+        fmt = dict(fmt)
+        if "axis" in fmt:
+            fmt["axis"] = t_ascii("driver.calq." + fmt["axis"])
+        lines.append((t_ascii("driver.calq." + key, **fmt),
+                      (0, 0, 255) if key == "bad" else (0, 255, 255)))
+    return lines
+
+
+def _show_cal_result(win, sw, sh, hotkeys, mapper, feat=None, recal_key="F9"):
+    """After a calibration: per-axis error, reach and hints on the console,
+    and everything (grade first) on the calibration window for a few seconds
+    - the user cannot see the console. A KOTU grade says so in red, with the
+    key to try again. Never raises."""
+    try:
+        q = calquality.summary(mapper, (sw, sh), feat, key=str(recal_key).upper())
+        lines = _cal_result_lines(q)
+    except Exception:
+        return
+    for text, _ in lines[1:]:            # the grade line is printed already
+        print("  " + text)
+    try:
+        import textwrap
+        scale = 0.9
+        width = max(30, int((sw - 80) / (20 * scale)))
+        canvas = np.zeros((sh, sw, 3), dtype=np.uint8)
+        y = max(60, sh // 6)
+        for i, (text, colour) in enumerate(lines):
+            for part in textwrap.wrap(text, width) or [""]:
+                cv2.putText(canvas, part, (40, y), cv2.FONT_HERSHEY_SIMPLEX,
+                            1.2 if i == 0 else scale, colour, 2)
+                y += 60 if i == 0 else 40
+            y += 14
+        cv2.imshow(win, canvas)
+        _force_topmost(win)
+        # Long enough to read when there is something to act on.
+        for _ in range(80 if q.hints else 30):
+            hotkeys.feed_window_key(cv2.waitKey(100) & 0xFF)
+            if hotkeys.quit_requested:
+                break
+    except Exception:
+        pass
 
 
 def _pass_change_screen(win, sw, sh, hotkeys, pass_i, total_passes):
@@ -907,18 +987,19 @@ _PURSUIT_MIN_EARLY = 15   # ... with fewer usable frames than this: stop
 
 def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
                       passes=1, speed=480.0, latency="auto", closed_thr=0.18,
-                      feat=None):
+                      feat=None, layout="grid", recal_key="F9"):
     """Smooth-pursuit calibration: the user follows a gliding ball; every
     frame contributes a (gaze, ball position) pair. The user's eye lag is
     LEARNED from the data (latency='auto': several candidate lags are fitted
     and the best kept) or fixed to a number. Frames near direction changes
-    (saccades) or with closed eyes are dropped."""
+    (saccades) or with closed eyes are dropped. layout: the ball's path
+    (eye_gaze.pursuit.LAYOUTS, config calibration_path)."""
     win = t_ascii("driver.pursuit.window")
     _fullscreen(win)
     canvas = np.zeros((sh, sw, 3), dtype=np.uint8)
     samples = []  # (gaze_features, t) - latency pairing happens at fit time
     pass_of = []  # pass index per sample: the model is validated across passes
-    path = PursuitPath(sw, sh, speed)
+    path = PursuitPath(sw, sh, speed, layout=layout)
     try:
         for p in range(max(1, int(passes))):
             if p and not _pass_change_screen(win, sw, sh, hotkeys, p, passes):
@@ -963,40 +1044,42 @@ def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
                     samples.append((g, t))
                     pass_of.append(p)
                     got += 1
+        if len(samples) < 80:
+            print(f"Takip kalibrasyonu icin yeterli ornek toplanamadi ({len(samples)}).")
+            return None
+        _show_computing(win, sw, sh)
+        opts = {"poly2": bool(poly2), "reach": float(reach_margin), "latency": latency}
+        # Same fit as a refit from the saved samples: per-axis model selection,
+        # the eye lag chosen on the pass it did not see. Never raises.
+        cs = caldata.CalSamples.pursuit(samples, path, 0.0, opts, groups=pass_of)
+        r = caldata.refit(cs, reach_margin, poly2, latency, feat) if cs else None
+        if r is not None:
+            mapper, err, lat = r.mapper, r.err, r.latency
+        else:
+            if isinstance(latency, str) and latency.strip().lower() == "auto":
+                mapper, err, lat = best_latency_fit(samples, path,
+                                                    reach_margin=reach_margin,
+                                                    poly2=poly2)
+            else:
+                lat = float(latency)
+                mapper, err, lat = best_latency_fit(samples, path,
+                                                    reach_margin=reach_margin,
+                                                    poly2=poly2, candidates=(lat,))
+            if mapper is None:
+                return None
+            g_pts, s_pts = pursuit_pairs(samples, path, lat)
+            mapper.err_cv = holdout_error(g_pts, s_pts, reach_margin=reach_margin,
+                                          poly2=poly2, blocks=10)
+            mapper.cal_samples = caldata.CalSamples.pursuit(samples, path, lat, opts,
+                                                            groups=pass_of)
+        print(f"Takip kalibrasyonu: {len(samples)} ornek; ogrenilen goz gecikmesi: {lat:.2f} sn.")
+        _stamp_setup(mapper, sw, sh, cap)
+        _print_cal_quality(err, mapper.err_cv, (sw, sh))
+        _print_model(mapper)
+        _show_cal_result(win, sw, sh, hotkeys, mapper, feat, recal_key)
+        return mapper
     finally:
         cv2.destroyWindow(win)
-    if len(samples) < 80:
-        print(f"Takip kalibrasyonu icin yeterli ornek toplanamadi ({len(samples)}).")
-        return None
-    opts = {"poly2": bool(poly2), "reach": float(reach_margin), "latency": latency}
-    # Same fit as a refit from the saved samples: per-axis model selection,
-    # the eye lag chosen on the pass it did not see. Never raises.
-    cs = caldata.CalSamples.pursuit(samples, path, 0.0, opts, groups=pass_of)
-    r = caldata.refit(cs, reach_margin, poly2, latency, feat) if cs else None
-    if r is not None:
-        mapper, err, lat = r.mapper, r.err, r.latency
-    else:
-        if isinstance(latency, str) and latency.strip().lower() == "auto":
-            mapper, err, lat = best_latency_fit(samples, path,
-                                                reach_margin=reach_margin,
-                                                poly2=poly2)
-        else:
-            lat = float(latency)
-            mapper, err, lat = best_latency_fit(samples, path,
-                                                reach_margin=reach_margin,
-                                                poly2=poly2, candidates=(lat,))
-        if mapper is None:
-            return None
-        g_pts, s_pts = pursuit_pairs(samples, path, lat)
-        mapper.err_cv = holdout_error(g_pts, s_pts, reach_margin=reach_margin,
-                                      poly2=poly2, blocks=10)
-        mapper.cal_samples = caldata.CalSamples.pursuit(samples, path, lat, opts,
-                                                        groups=pass_of)
-    print(f"Takip kalibrasyonu: {len(samples)} ornek; ogrenilen goz gecikmesi: {lat:.2f} sn.")
-    _stamp_setup(mapper, sw, sh, cap)
-    _print_cal_quality(err, mapper.err_cv)
-    _print_model(mapper)
-    return mapper
 
 
 def measure_drift(estimator, cap, sw, sh, hotkeys, samples, mapper):
@@ -1096,7 +1179,7 @@ def _keep_best(path, data):
             if isinstance(old, (int, float)):
                 if new >= old:
                     return
-            elif new >= _CV_GOOD:
+            elif new >= calquality.bands(d.get("screen"))[0]:
                 return
         _atomic_write_bytes(best, data)
     except Exception:
@@ -1307,7 +1390,7 @@ def _backup_calibration(path, old):
         return _backup_failed(bak)
 
 
-def _should_save(path, err_cv, n_inputs=None, ref=None):
+def _should_save(path, err_cv, n_inputs=None, ref=None, screen=None):
     """(ok, reason): may a fresh calibration replace the file at `path`?
 
     Everything used to be saved, so one bad recalibration (tired, poor light,
@@ -1325,11 +1408,14 @@ def _should_save(path, err_cv, n_inputs=None, ref=None):
     `ref`: the stored calibration's error measured the SAME way as err_cv
     (a startup refit re-measures it), used instead of the grade in the file,
     which may come from an earlier, more lenient validation.
+
+    `screen`: (w, h) the new calibration was made on; KOTU is relative to
+    it (eye_gaze.calquality), unknown = the 2560x1440 bands.
     """
-    if err_cv is None or err_cv < _CV_BAD:
+    if err_cv is None or not calquality.is_bad(err_cv, screen):
         return True, ""
     if isinstance(ref, (int, float)) and not isinstance(ref, bool):
-        if err_cv <= 1.25 * ref:
+        if err_cv <= calquality.WORSE * ref:
             return True, ""
         return False, ("Yeni kalibrasyon KOTU (%.0f px); kayitli olan (%.0f px)"
                        " daha iyiydi - USTUNE YAZILMADI." % (err_cv, ref))
@@ -1341,7 +1427,7 @@ def _should_save(path, err_cv, n_inputs=None, ref=None):
             return False, ("Yeni kalibrasyon KOTU (%.0f px); kayitli (calisan)"
                            " kalibrasyonun USTUNE YAZILMADI." % err_cv)
         return True, ""
-    if err_cv <= 1.25 * old:
+    if err_cv <= calquality.WORSE * old:
         return True, ""
     return False, ("Yeni kalibrasyon KOTU (%.0f px); kayitli olan (%.0f px)"
                    " daha iyiydi - USTUNE YAZILMADI." % (err_cv, old))
@@ -3050,6 +3136,7 @@ def main():
     cal_mode = str(cfg.get("calibration_mode", "pursuit")).strip().lower()
     pursuit_speed = float(cfg.get("pursuit_speed", 480))
     pursuit_latency = cfg.get("pursuit_latency", "auto")
+    pursuit_layout = layout_of(cfg.get("calibration_path"))
 
     print(f"Hotkey modu: {hotkeys.mode}")
     if hotkeys.mode == "window":
@@ -3091,10 +3178,12 @@ def main():
     def run_calibration():
         if cal_mode.startswith("dot") or cal_mode.startswith("nokta"):
             return calibrate(source, cap, sw, sh, positions, hotkeys, cal_samples,
-                             reach_margin, poly2, cal_passes, feat=feat_id)
+                             reach_margin, poly2, cal_passes, feat=feat_id,
+                             recal_key=recal_key)
         return calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2,
                                  cal_passes, pursuit_speed, pursuit_latency, closed_thr,
-                                 feat=feat_id)
+                                 feat=feat_id, layout=pursuit_layout,
+                                 recal_key=recal_key)
 
     n_inputs = base_inputs + (2 if deep is not None else 0)
     if cal_mode.startswith("dot") or cal_mode.startswith("nokta"):
@@ -3110,11 +3199,16 @@ def main():
     if save_cal and bool(cfg.get("calibration_refit", True)):
         # A changed mapping option, or no usable calibration.json: refit from
         # the saved raw samples instead of a full calibration (never raises).
+        # Graded on the screen the calibration was made on (it is rescaled
+        # to today's below).
+        cal_screen = getattr(mapper, "screen", None) or (sw, sh)
         mapper = caldata.reconcile(
             cal_file, mapper, feat_id, n_inputs,
             {"poly2": poly2, "reach": reach_margin, "latency": pursuit_latency},
-            lambda e, ref=None: _should_save(cal_file, e, n_inputs, ref=ref),
-            lambda m: _save_calibration(cal_file, m, feat=feat_id))
+            lambda e, ref=None: _should_save(cal_file, e, n_inputs, ref=ref,
+                                             screen=cal_screen),
+            lambda m: _save_calibration(cal_file, m, feat=feat_id),
+            screen=(sw, sh))
     mapper = _fit_setup(mapper, sw, sh, _camera_size(cap))
     if mapper is not None:
         print(f"Kayitli kalibrasyon yuklendi. Yeniden kalibrasyon: '{recal_key}' x2.")
@@ -3441,7 +3535,8 @@ def main():
                         if save_cal:
                             ok_save, why = _should_save(
                                 cal_file, getattr(mapper, "err_cv", None),
-                                n_inputs)
+                                n_inputs,
+                                screen=getattr(mapper, "screen", None) or (sw, sh))
                             if ok_save:
                                 if _save_calibration(cal_file, mapper,
                                                      feat=feat_id):

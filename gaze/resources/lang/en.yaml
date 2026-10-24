@@ -435,6 +435,24 @@ driver:
   pursuit:
     window: "Calibration - follow the ball with your EYES"
     follow: "Follow the ball with your EYES  {pct}%  (round {n}/{total})"
+  # the end of a calibration: shown on the calibration window and printed
+  calq:
+    computing: "Calculating the calibration... (a few seconds)"
+    result: "Calibration {grade}: error {err} px"
+    grade_iyi: "GOOD"
+    grade_orta: "FAIR"
+    grade_kotu: "POOR"
+    axes: "Error on unseen points: horizontal {x} px, vertical {y} px"
+    coverage: "The cursor can reach {x}% of the screen width and {y}% of its height"
+    bad: "CALIBRATION POOR: the cursor may not go where you look. To try again press {key} twice."
+    hint_posture: "Your posture changed a lot between the two rounds (error after a posture change {err} px). Sit as you usually do; between rounds move only SLIGHTLY."
+    hint_reach: "The cursor does not reach even half of the screen {axis}."
+    hint_head_still: "Keep your head STILL while following the ball; move only your EYES."
+    hint_light: "Let the light fall on your face from the FRONT (no window behind you); if your glasses reflect, move the light to the side."
+    hint_camera: "Put the camera at the top centre of the screen, facing you."
+    axis_x: "horizontally"
+    axis_y: "vertically"
+    axis_xy: "horizontally and vertically"
   drift:
     window: "Quick correction - look STEADILY at the center dot"
     look: "Look STEADILY at the center dot"

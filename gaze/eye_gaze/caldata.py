@@ -35,13 +35,12 @@ from collections import namedtuple
 
 import numpy as np
 
-from . import modelsel
+from . import calquality, modelsel
 from .mapping import fit_with_rejection, holdout_error
 from .pursuit import PursuitPath, best_latency_fit, pursuit_keep, pursuit_pairs
 
 _VERSION = 1
-_CV_GOOD, _CV_BAD = 100.0, 200.0     # same grades as gaze_driver._cal_label
-_WORSE = 1.25                        # same tolerance as gaze_driver._should_save
+_WORSE = calquality.WORSE           # same tolerance as gaze_driver._should_save
 
 # report: what modelsel measured (per-axis held-out error, coverage slope,
 # chosen inputs; see modelsel.select), or None for a fit without selection.
@@ -82,14 +81,16 @@ class CalSamples:
     # fault here may cost the samples, never the calibration.
 
     @classmethod
-    def dots(cls, gaze_pts, screen_pts, stamps, opts, groups=None):
+    def dots(cls, gaze_pts, screen_pts, stamps, opts, groups=None, screen=None):
         try:
             n = len(gaze_pts)
             t = list(stamps) if stamps is not None and len(stamps) == n \
                 else list(range(n))
+            meta = {"kind": "dots", "opts": dict(opts)}
+            if _size(screen):
+                meta["screen"] = _size(screen)
             return cls("dots", [tuple(g) for g in gaze_pts], t,
-                       [tuple(s) for s in screen_pts],
-                       {"kind": "dots", "opts": dict(opts)}, group=groups)
+                       [tuple(s) for s in screen_pts], meta, group=groups)
         except Exception:
             return None
 
@@ -97,11 +98,18 @@ class CalSamples:
     def pursuit(cls, samples, path, latency_used, opts, groups=None):
         try:
             pts = [list(map(float, p)) for p in getattr(path, "_pts")]
+            meta = {"kind": "pursuit", "opts": dict(opts),
+                    "latency_used": float(latency_used),
+                    "speed": float(path.speed), "path_pts": pts}
+            # The turn guard the pairs are cut with; absent (files from
+            # before it) = the legacy rule, so old samples pair as they did.
+            guard = getattr(path, "guard", None)
+            if guard is not None:
+                meta["guard"] = [float(g) for g in guard]
+            if _size(getattr(path, "size", None)):
+                meta["screen"] = _size(path.size)
             return cls("pursuit", [tuple(g) for g, _ in samples],
-                       [float(t) for _, t in samples], None,
-                       {"kind": "pursuit", "opts": dict(opts),
-                        "latency_used": float(latency_used),
-                        "speed": float(path.speed), "path_pts": pts},
+                       [float(t) for _, t in samples], None, meta,
                        group=groups)
         except Exception:
             return None
@@ -111,9 +119,16 @@ class CalSamples:
         return int(self.gaze.shape[1]) if self.gaze.ndim == 2 else 0
 
     def path(self):
-        """The pursuit path exactly as it was during the calibration."""
+        """The pursuit path exactly as it was during the calibration, with
+        the turn guard its pairs were cut with."""
         return PursuitPath(1, 1, self.meta["speed"],
-                           waypoints=[tuple(p) for p in self.meta["path_pts"]])
+                           waypoints=[tuple(p) for p in self.meta["path_pts"]],
+                           guard=_guard(self.meta.get("guard")))
+
+    @property
+    def screen_size(self):
+        """[w, h] of the screen these samples were recorded on, or None."""
+        return _size(self.meta.get("screen"))
 
     def raw(self):
         """Pursuit samples as calibrate_pursuit collected them."""
@@ -156,6 +171,26 @@ class CalSamples:
         return CalSamples(self.kind, self.gaze, self.t,
                           self.screen if self.kind == "dots" else None, m,
                           group=self.group)
+
+
+def _guard(value):
+    """A stored (before, after) turn guard, or None (the legacy rule)."""
+    try:
+        b, a = (float(v) for v in value)
+        if math.isfinite(b) and math.isfinite(a) and b >= 0 and a >= 0:
+            return (b, a)
+    except Exception:
+        pass
+    return None
+
+
+def _size(value):
+    """[w, h] of a sensible screen size, or None."""
+    try:
+        w, h = (int(v) for v in value)
+        return [w, h] if w > 1 and h > 1 else None
+    except Exception:
+        return None
 
 
 def _group(group, n):
@@ -492,10 +527,8 @@ def options_changed(stored, current, kind):
     return out
 
 
-def _label(err_cv):
-    if err_cv is None:
-        return "?"
-    return "IYI" if err_cv < _CV_GOOD else "ORTA" if err_cv < _CV_BAD else "KOTU"
+def _label(err_cv, screen=None):
+    return calquality.label(err_cv, screen)
 
 
 def _num(v):
@@ -504,7 +537,7 @@ def _num(v):
 
 
 def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
-              log=_say):
+              log=_say, screen=None):
     """Startup: make the calibration in use match today's mapping options.
 
     Also, once per calibration, a loaded calibration from before the
@@ -513,6 +546,8 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
     mapper: the calibration that was loaded, or None when none could be.
     should_save(err_cv, ref) -> (ok, reason), ref = the loaded calibration's
     error measured the same way (or None); save(mapper) -> bool.
+    screen: (w, h) to grade on when neither the calibration nor its samples
+    say which screen they were made on (the grade bands scale with it).
     Returns the mapper to use. Never raises: on any fault the loaded
     calibration is returned untouched.
     """
@@ -527,21 +562,23 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
             r = refit(cs, reach, poly2, latency, feat)
             if r is None:
                 return None
+            screen = cs.screen_size or screen
             save(r.mapper)
             log("Kalibrasyon dosyasi kullanilamadi, ama KAYITLI KALIBRASYON"
                 " ORNEKLERINDEN yeniden hesaplandi: hata %s px [%s]."
                 " YENIDEN KALIBRASYON GEREKMEDI."
                 % ("?" if r.err_cv is None else "%.0f" % r.err_cv,
-                   _label(r.err_cv)))
+                   _label(r.err_cv, screen)))
             if r.report:
                 log("  " + describe(r.report))
-            if r.err_cv is None or r.err_cv >= _CV_BAD:
+            if r.err_cv is None or calquality.is_bad(r.err_cv, screen):
                 log("  Imlec belirgin sekilde kayiyorsa F9 x2 ile yeniden"
                     " kalibre edin.")
             return r.mapper
         cs = find_samples(cal_path, feat, n_inputs, sig=mapper_sig(mapper))
         if cs is None:
             return mapper
+        screen = getattr(mapper, "screen", None) or cs.screen_size or screen
         changed = options_changed(cs.meta.get("opts"), opts, cs.kind)
         upgrade = (not changed and getattr(mapper, "axes", None) is None
                    and not cs.meta.get("sel_tried"))
@@ -601,7 +638,7 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
             log("Ayar degisti (%s): kalibrasyon KAYITLI ORNEKLERDEN yeniden"
                 " hesaplandi, hata %.0f px [%s]%s. YENIDEN KALIBRASYON"
                 " GEREKMEDI."
-                % (names, r.err_cv, _label(r.err_cv),
+                % (names, r.err_cv, _label(r.err_cv, screen),
                    "" if stored is None else " (onceki %.0f px)" % stored))
         else:
             log("Kalibrasyon modeli KAYITLI ORNEKLERDEN yenilendi (eksen"
@@ -609,7 +646,7 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
                 " gormedigi veride ayni sekilde olculdu. YENIDEN KALIBRASYON"
                 " GEREKMEDI; eskisi yedekte."
                 % ("?" if stored is None else "%.0f" % stored, new,
-                   _label(r.err_cv)))
+                   _label(r.err_cv, screen)))
         if r.report:
             log("  " + describe(r.report))
         return r.mapper
@@ -650,7 +687,8 @@ def main(argv=None):
     _say("poly2=%s reach=%.2f latency=%s -> egitim %.0f px, gormedigi"
          " noktalarda %s px [%s]%s"
          % (poly2, reach, lat, r.err,
-            "?" if r.err_cv is None else "%.0f" % r.err_cv, _label(r.err_cv),
+            "?" if r.err_cv is None else "%.0f" % r.err_cv,
+            _label(r.err_cv, cs.screen_size),
             "" if r.latency is None else "; goz gecikmesi %.2f sn" % r.latency))
     if r.report:
         _say(describe(r.report))

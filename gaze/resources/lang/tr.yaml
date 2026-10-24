@@ -442,6 +442,24 @@ driver:
   pursuit:
     window: "Kalibrasyon - topu GOZLE takip edin"
     follow: "Topu GOZLE takip edin  %{pct}  (tur {n}/{total})"
+  # the end of a calibration: shown on the calibration window and printed
+  calq:
+    computing: "Kalibrasyon hesaplaniyor... (birkac saniye)"
+    result: "Kalibrasyon {grade}: hata {err} px"
+    grade_iyi: "IYI"
+    grade_orta: "ORTA"
+    grade_kotu: "KOTU"
+    axes: "Gormedigi noktalarda hata: yatay {x} px, dikey {y} px"
+    coverage: "Imlec ekranin yatayda %{x}, dikeyde %{y} kadarina ulasabiliyor"
+    bad: "KALIBRASYON KOTU: imlec baktiginiz yere gitmeyebilir. Tekrar denemek icin {key} tusuna 2 kez basin."
+    hint_posture: "Iki tur arasinda oturusunuz cok degisti (oturus degisince hata {err} px). Her zamanki gibi oturun; turlar arasinda yalniz HAFIFCE kipirdayin."
+    hint_reach: "Imlec {axis} ekranin yarisina bile ulasamiyor."
+    hint_head_still: "Topu takip ederken basinizi SABIT tutun, yalniz GOZLERINIZI oynatin."
+    hint_light: "Isik yuzunuze ONDEN gelsin (arkanizda pencere olmasin); gozlukte yansima varsa isigi yana alin."
+    hint_camera: "Kamera ekranin ust ortasinda, yuzunuze donuk dursun."
+    axis_x: "yatayda"
+    axis_y: "dikeyde"
+    axis_xy: "yatayda ve dikeyde"
   drift:
     window: "Hizli duzeltme - ortadaki noktaya SABIT bakin"
     look: "Ortadaki noktaya SABIT bakin"
