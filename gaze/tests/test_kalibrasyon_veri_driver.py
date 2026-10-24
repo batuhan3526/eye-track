@@ -437,7 +437,8 @@ def test_a_two_pass_dot_calibration_records_the_pass_of_each_point(monkeypatch):
                      3, 0.25, poly2=True, passes=2, feat="pe0-hp0-ht0-dg0")
     assert m is not None
     assert m.cal_samples.groups().tolist() == [0] * 25 + [1] * 25
-    assert m.selection is not None and m.selection["cv"] == "pass"
+    assert m.selection is not None and m.selection["cv"] == "blocks"
+    assert m.selection["posture"]["cv"] == "pass"
     assert m.err_cv == m.selection["err"]
 
 
@@ -449,7 +450,7 @@ def test_a_one_pass_dot_calibration_is_validated_on_blocks(monkeypatch):
     m = gd.calibrate(DotEstimator(cv), FakeCap(), 320, 240, pos, FakeHotkeys(),
                      3, 0.25, poly2=True, passes=1)
     assert m.cal_samples.group is None
-    assert m.selection["cv"] == "blocks"
+    assert m.selection["cv"] == "blocks" and m.selection["posture"] is None
 
 
 def test_a_pursuit_calibration_records_its_passes(monkeypatch, capsys):
@@ -475,11 +476,11 @@ def test_a_pursuit_calibration_records_its_passes(monkeypatch, capsys):
     grp = m.cal_samples.groups().tolist()
     assert grp[0] == 0 and grp[-1] == 1 and sorted(set(grp)) == [0, 1]
     assert m.cal_samples.group is not None          # recorded, not inferred
-    assert m.selection["cv"] == "pass"
+    assert m.selection["posture"]["cv"] == "pass"
     assert m.selection["latency"] == m.cal_samples.meta["latency_used"]
     out = capsys.readouterr().out
     out.encode("ascii")
-    assert "Model (turlar arasi dogrulama)" in out
+    assert "Model |" in out and "oturus degisince" in out
 
 
 def test_the_input_count_comes_from_the_feature_layout():
@@ -534,6 +535,6 @@ def test_the_startup_upgrade_keeps_the_old_calibration_as_backup(tmp_path):
     assert out is not loaded and out.axes is not None
     assert open(gd._calibration_backup(cal, 2), "rb").read() == old_bytes
     back, _, d = gd._read_calibration(cal)
-    assert back.axes == out.axes and d["sel"]["cv"] == "pass"
+    assert back.axes == out.axes and d["sel"]["posture"]["cv"] == "pass"
     assert out.err_cv < 40
     assert any("->" in line for line in said)

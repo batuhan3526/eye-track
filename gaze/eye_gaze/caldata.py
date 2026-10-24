@@ -19,8 +19,8 @@ feature stamp and their feature count, exactly like the calibration backups.
 
 A calibration fitted before the per-axis model selection (eye_gaze.modelsel)
 existed is refitted from its samples once at startup the same way, and only
-installed when it is not clearly worse - both measured on the same held-out
-passes.
+installed when it is not clearly worse - both measured the same way on the
+same samples.
 
 Nothing here raises into the driver. A failure to save samples costs only the
 convenience they offer; it must never cost the calibration.
@@ -420,8 +420,9 @@ def refit(samples, reach_margin, poly2, latency="auto", feat=None):
 
 def score_of(mapper, samples):
     """The held-out error of the model `mapper` was fitted as, re-measured
-    on its own samples with today's validation (modelsel.validate): the
-    number a refit is compared against. None when not measurable."""
+    on its own samples the way a refit is graded (modelsel.validate,
+    contiguous blocks): the number a refit is compared against. None when
+    not measurable."""
     try:
         d = mapper.to_dict()
         g, s, grp = samples.grouped_pairs()
@@ -435,7 +436,8 @@ def score_of(mapper, samples):
 
 def describe(report):
     """One ASCII line: per axis the chosen inputs, held-out error and how
-    much of the calibrated range the cursor spans. "" without a report."""
+    much of the calibrated range the cursor spans, then the error after a
+    posture change when it was measured. "" without a report."""
     try:
         parts = []
         for ax in ("x", "y"):
@@ -445,9 +447,12 @@ def describe(report):
                 ax, "+".join(a.get("groups") or ["?"]),
                 " (kare)" if a.get("quad") else "", a["rmse"],
                 "?" if slope is None else "%.2f" % slope))
-        how = ("turlar arasi" if report.get("cv") == "pass"
-               else "zaman bloklari")
-        return "Model (%s dogrulama) | %s" % (how, " | ".join(parts))
+        line = "Model | %s" % " | ".join(parts)
+        post = report.get("posture")
+        if isinstance(post, dict):
+            line += (" | oturus degisince (turlar arasi): %.0f px"
+                     % post["err"])
+        return line
     except Exception:
         return ""
 
@@ -559,9 +564,10 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
             return mapper
         if upgrade and not r.report:
             return mapper       # no per-axis model came out: nothing to gain
-        # Both measured on the same held-out passes: the grade stored with
-        # the loaded calibration may come from an earlier, more lenient
-        # validation, so it is the fallback only.
+        # Both measured the same way on the same samples: the grade stored
+        # with the loaded calibration may come from another validation
+        # (leave-one-out for dots, a different eye lag), so it is the
+        # fallback only.
         ref = score_of(mapper, cs)
         new = r.err_cv if r.report else score_of(r.mapper, r.mapper.cal_samples)
         if ref is None or new is None:

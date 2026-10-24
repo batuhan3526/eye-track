@@ -4,8 +4,10 @@
 One fixed model (every feature, quadratic eye terms) fitted the training
 frames well and then flung the cursor the moment the user sat differently: a
 head-position feature that only carried the posture of one pass looked like
-signal inside that pass. The selection holds out whole passes, so a feature
-has to keep working after a posture change to be chosen.
+signal inside that pass. The selection is graded within posture (contiguous
+blocks, the grade the bands mean) but only among candidates that also hold
+up with a whole pass held out - so a feature has to keep working after a
+posture change to be chosen.
 """
 import math
 
@@ -152,13 +154,17 @@ def test_a_head_feature_that_is_only_posture_is_dropped():
     sel = modelsel.select(g, s, grp, feat=HEAD, reach=0.25)
     assert sel is not None
     rep = sel.report
-    assert rep["cv"] == "pass" and rep["k"] == 2
+    assert rep["cv"] == "blocks" and rep["k"] == 10
+    assert rep["posture"]["cv"] == "pass" and rep["posture"]["k"] == 2
     assert "headrot" not in rep["x"]["groups"]
     assert "headrot" not in rep["y"]["groups"]
-    # the fixed all-features model flings across posture; the selected one
-    # does not
+    # Within one posture the head feature is the better one - that is the
+    # trap: only the across-posture check keeps it out.
     legacy = modelsel.validate(g, s, grp, reach=0.25, poly2=True)
-    assert rep["err"] < 0.5 * legacy["err"]
+    assert legacy["err"] < rep["err"]
+    legacy_p = modelsel.validate(g, s, grp, reach=0.25, poly2=True,
+                                 posture=True)
+    assert rep["posture"]["err"] < 0.5 * legacy_p["err"]
     fixed = _cross_pass_rmse(
         lambda a, b: fit_with_rejection(a, b, 0.25, poly2=True)[0], g, s, grp)
     chosen = _cross_pass_rmse(
@@ -173,6 +179,16 @@ def test_a_genuinely_useful_head_feature_is_kept():
     assert "headrot" in sel.report["x"]["groups"]
     assert "headrot" in sel.report["y"]["groups"]
     assert sel.err_cv < 40
+
+
+def test_the_posture_guard_sets_how_much_worse_across_posture_is_allowed():
+    """Without the guard (huge factor) the in-pass winner - the head
+    feature - is taken; with it, it is not."""
+    g, s, grp = _posture_offset()
+    loose = modelsel.select(g, s, grp, feat=HEAD, reach=0.25, guard=1e9)
+    assert "headrot" in loose.report["x"]["groups"]
+    strict = modelsel.select(g, s, grp, feat=HEAD, reach=0.25)
+    assert "headrot" not in strict.report["x"]["groups"]
 
 
 def test_quadratic_terms_only_when_the_truth_is_curved():
@@ -194,7 +210,8 @@ def test_quadratic_terms_are_not_offered_when_the_option_is_off():
 def test_one_group_is_validated_on_contiguous_blocks():
     g, s = _eye_only(curve=0.0)
     rep = modelsel.select(g, s, [0] * len(g), reach=0.25).report
-    assert rep["cv"] == "blocks" and rep["k"] == 5
+    assert rep["cv"] == "blocks" and rep["k"] == 10
+    assert rep["posture"] is None
 
 
 def test_the_report_has_what_the_grade_and_the_screen_need():
@@ -259,7 +276,7 @@ def test_the_eye_lag_is_chosen_on_held_out_passes():
     sel, lat = modelsel.select_pursuit(samples, path, grp, reach=0.25)
     assert lat == pytest.approx(0.18)
     assert sel.report["latency"] == pytest.approx(0.18)
-    assert sel.report["cv"] == "pass"
+    assert sel.report["posture"]["cv"] == "pass"
     assert sel.err_cv < 40
 
 
@@ -279,4 +296,4 @@ def test_the_lag_candidates_span_zero_to_half_a_second():
 def test_without_groups_the_passes_are_recovered_from_t():
     samples, path, _ = _pursuit(lat=0.12)
     sel, _ = modelsel.select_pursuit(samples, path, None, reach=0.25)
-    assert sel.report["cv"] == "pass" and sel.report["k"] == 2
+    assert sel.report["posture"]["k"] == 2

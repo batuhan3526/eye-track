@@ -12,18 +12,24 @@ are not too large, they are on the wrong inputs.
 So, per axis, a small FIXED family of candidates is compared - a nested
 ladder from the primary gaze pair (the deep model when it is on, else the
 eye) up to every input, each linear or with quadratic terms of the primary
-pair, at three ridge strengths - and validated the hard way: when the
-calibration had several passes (the user is asked to shift posture between
-them), every pass is held out once and predicted from the others. A feature
-that does not survive a posture change cannot win. With one pass, contiguous
-time blocks are held out instead.
+pair, at three ridge strengths - on two held-out measures:
 
-The simplest candidate within one standard error of the best is taken (the
-family is small and the rule leans simple, so the choice itself does not
-overfit), the final model is fitted on all pairs exactly as the live
-calibration fits (ridge + gross-outlier rejection), and what was measured
-travels with it as a plain dict - the grade, per-axis error and how much of
-the screen the cursor actually spans (the coverage slope).
+- within posture: contiguous time blocks held out, the same honest grading
+  the calibration has always reported (and the number the grade bands mean);
+- across posture: when the calibration had several passes (the user is asked
+  to shift posture between them), every pass held out once and predicted
+  from the others.
+
+A candidate is admissible only when its across-posture error is within
+_POSTURE_GUARD of the best across-posture error: a feature that flings the
+cursor after a posture change cannot win, however well it fits inside one.
+Among the admissible ones the simplest within one standard error of the best
+within-posture error is taken (the family is small and the rule leans
+simple, so the choice itself does not overfit). The final model is fitted
+on all pairs exactly as the live calibration fits (ridge + gross-outlier
+rejection), and what was measured travels with it as a plain dict - the
+grade, per-axis error, how much of the screen the cursor actually spans (the
+coverage slope), and the across-posture error ("posture").
 
 Pure numpy, no I/O.
 """
@@ -44,7 +50,8 @@ LATENCIES = tuple(round(0.03 * i, 2) for i in range(17))
 _LAG_TIE = 0.01
 
 _LAMBDAS = (1e-1, 1e-2, 1e-3)    # larger first: the simpler model on a tie
-_BLOCKS = 5
+_BLOCKS = 10                     # same blocks as the pursuit grade always had
+_POSTURE_GUARD = 1.25            # admissible: across-posture error <= this x best
 _MIN_PAIRS = 8                   # same floor as mapping.holdout_error
 _FLOOR = 60.0                    # px; mapping.holdout_error's outlier floor
 _SE_CHUNKS = 10
@@ -161,16 +168,23 @@ def groups_from_t(t):
     return g
 
 
-def _folds(n, groups, blocks=_BLOCKS):
-    """(held-out index arrays, "pass" | "blocks")."""
-    if groups is not None and len(groups) == n:
-        g = np.asarray(groups)
-        labels = np.unique(g)
-        if len(labels) >= 2:
-            return [np.flatnonzero(g == v) for v in labels], "pass"
+def _pass_folds(n, groups):
+    """Held-out index arrays, one per pass; None with fewer than two."""
+    if groups is None or len(groups) != n:
+        return None
+    g = np.asarray(groups)
+    labels = np.unique(g)
+    if len(labels) < 2:
+        return None
+    return [np.flatnonzero(g == v) for v in labels]
+
+
+def _block_folds(n, blocks=_BLOCKS):
+    """Held-out index arrays: contiguous blocks (consecutive frames are near
+    duplicates, so interleaved folds would grade a frame by its neighbour)."""
     k = max(2, min(int(blocks), n))
     edges = [round(i * n / k) for i in range(k + 1)]
-    return [np.arange(a, b) for a, b in zip(edges, edges[1:]) if b > a], "blocks"
+    return [np.arange(a, b) for a, b in zip(edges, edges[1:]) if b > a]
 
 
 def _kept(e):
@@ -230,9 +244,13 @@ def _axis_heldout(X, y, folds, inputs, quad, reach):
     return pred
 
 
-def _choose_axis(X, y, folds, steps, pair, reach, allow_quad):
-    """(names, spec) of the simplest candidate within one standard error of
-    the best, or None."""
+def _choose_axis(X, y, folds, pfolds, steps, pair, reach, allow_quad,
+                 guard=None):
+    """(names, spec, within-posture RMSE) of the chosen candidate, or None.
+
+    folds: within-posture blocks; pfolds: whole passes, or None (one pass).
+    """
+    guard = _POSTURE_GUARD if guard is None else guard
     cands = []
     quads = (None, pair) if (allow_quad and pair is not None) else (None,)
     for names, idx in steps:          # simplicity order: ladder,
@@ -240,15 +258,24 @@ def _choose_axis(X, y, folds, steps, pair, reach, allow_quad):
             preds = _axis_heldout(X, y, folds, idx, quad, reach)
             if preds is None:
                 continue
-            for lam, pred in zip(_LAMBDAS, preds):   # stronger ridge first
-                rmse, se, _ = _axis_score(pred, y)
+            ppreds = (None if pfolds is None
+                      else _axis_heldout(X, y, pfolds, idx, quad, reach))
+            for k, lam in enumerate(_LAMBDAS):       # stronger ridge first
+                rmse, se, _ = _axis_score(preds[k], y)
+                prmse = None if ppreds is None else _axis_score(ppreds[k], y)[0]
                 if math.isfinite(rmse):
-                    cands.append((rmse, se, names, (idx, quad, lam)))
+                    cands.append((rmse, se, prmse, names, (idx, quad, lam)))
+    checked = [c[2] for c in cands if c[2] is not None and math.isfinite(c[2])]
+    if checked:
+        # A candidate that could not be tried across posture (a pass too
+        # small to train on) cannot prove it survives one.
+        limit = guard * min(checked)
+        cands = [c for c in cands if c[2] is not None and c[2] <= limit]
     if not cands:
         return None
     best = min(cands, key=lambda c: c[0])
     limit = best[0] + best[1]
-    return next((c[2], c[3]) for c in cands if c[0] <= limit)
+    return next((c[3], c[4], c[0]) for c in cands if c[0] <= limit)
 
 
 def _clean(gaze, screen, groups):
@@ -280,16 +307,22 @@ def _report(pred, screen, kind, k):
 
 
 def validate(gaze, screen, groups=None, reach=0.0, poly2=False, axes=None,
-             blocks=_BLOCKS):
+             blocks=_BLOCKS, posture=False):
     """Held-out report of ONE fixed model, trained exactly as the live
-    calibration trains (mapping.fit_with_rejection): by pass when there are
-    several, else contiguous blocks. `axes` None = the single all-inputs
-    model of earlier versions (poly2 as given). None when not measurable."""
+    calibration trains (mapping.fit_with_rejection). posture=False:
+    contiguous blocks (the grade); True: whole passes held out (None with
+    fewer than two). `axes` None = the single all-inputs model of earlier
+    versions (poly2 as given). None when not measurable."""
     x, y, grp = _clean(gaze, screen, groups)
     n = len(x)
     if n < _MIN_PAIRS:
         return None
-    folds, kind = _folds(n, grp, blocks)
+    if posture:
+        folds = _pass_folds(n, grp)
+        if folds is None:
+            return None
+    else:
+        folds = _block_folds(n, blocks)
     pred = np.empty((n, 2))
     for te in folds:
         tr = np.ones(n, dtype=bool)
@@ -301,11 +334,48 @@ def validate(gaze, screen, groups=None, reach=0.0, poly2=False, axes=None,
         pred[te] = m.predict_many(x[te])
     if not np.all(np.isfinite(pred)):
         return None
-    return _report(pred, y, kind, len(folds))
+    return _report(pred, y, "pass" if posture else "blocks", len(folds))
+
+
+def _choose(X, Y, grp, feat, reach, allow_quad, blocks, guard):
+    """(chosen [(names, spec, rmse)] per axis, within-posture report of
+    the pair trained the live way - its "err" is the grade) or None."""
+    if len(X) < _MIN_PAIRS:
+        return None
+    fg = feature_groups(X.shape[1], feat)
+    steps, pair = ladder(fg), primary_pair(fg)
+    folds, pfolds = _block_folds(len(X), blocks), _pass_folds(len(X), grp)
+    chosen = []
+    for j in (0, 1):
+        c = _choose_axis(X, Y[:, j], folds, pfolds, steps, pair, reach,
+                         allow_quad, guard)
+        if c is None:
+            return None
+        chosen.append(c)
+    axes = tuple(spec for _, spec, _ in chosen)
+    rep = validate(X, Y, grp, reach, axes=axes, blocks=blocks)
+    return None if rep is None else (chosen, rep)
+
+
+def _finish(X, Y, grp, reach, chosen, rep):
+    """The final mapper on all pairs, with the report completed; or None."""
+    axes = tuple(spec for _, spec, _ in chosen)
+    mapper, err = fit_with_rejection(X, Y, reach_margin=reach, axes=axes)
+    if mapper is None:
+        return None
+    for ax, (names, (idx, quad, lam), _) in zip(("x", "y"), chosen):
+        rep[ax].update({"groups": list(names), "in": list(idx),
+                        "quad": None if quad is None else list(quad),
+                        "lam": lam})
+    # Posture robustness: the same model with whole passes held out.
+    rep["posture"] = validate(X, Y, grp, reach, axes=axes, posture=True)
+    mapper.selection = rep
+    mapper.err_cv = rep["err"]
+    return Selection(mapper, err, rep["err"], rep)
 
 
 def select(gaze, screen, groups=None, feat=None, reach=0.0, allow_quad=True,
-           blocks=_BLOCKS):
+           blocks=_BLOCKS, guard=None):
     """Choose and fit the per-axis model for these training pairs.
 
     groups: pass index per pair, or None. feat: the feature stamp (names the
@@ -314,39 +384,17 @@ def select(gaze, screen, groups=None, feat=None, reach=0.0, allow_quad=True,
     report) or None when nothing could be validated.
     """
     X, Y, grp = _clean(gaze, screen, groups)
-    n = len(X)
-    if n < _MIN_PAIRS:
-        return None
-    fg = feature_groups(X.shape[1], feat)
-    steps, pair = ladder(fg), primary_pair(fg)
-    folds, _ = _folds(n, grp, blocks)
-    chosen = []
-    for j in (0, 1):
-        c = _choose_axis(X, Y[:, j], folds, steps, pair, reach, allow_quad)
-        if c is None:
-            return None
-        chosen.append(c)
-    axes = tuple(spec for _, spec in chosen)
-    rep = validate(X, Y, grp, reach, axes=axes, blocks=blocks)
-    if rep is None:
-        return None
-    mapper, err = fit_with_rejection(X, Y, reach_margin=reach, axes=axes)
-    if mapper is None:
-        return None
-    for ax, (names, (idx, quad, lam)) in zip(("x", "y"), chosen):
-        rep[ax].update({"groups": list(names), "in": list(idx),
-                        "quad": None if quad is None else list(quad),
-                        "lam": lam})
-    mapper.selection = rep
-    mapper.err_cv = rep["err"]
-    return Selection(mapper, err, rep["err"], rep)
+    got = _choose(X, Y, grp, feat, reach, allow_quad, blocks, guard)
+    return None if got is None else _finish(X, Y, grp, reach, *got)
 
 
 def select_pursuit(samples, path, groups=None, feat=None, reach=0.0,
-                   allow_quad=True, latencies=LATENCIES, min_pairs=60):
+                   allow_quad=True, latencies=LATENCIES, min_pairs=60,
+                   guard=None):
     """select() for a pursuit calibration, with the eye lag chosen by the
-    same held-out error (not the in-sample one, which favours whichever lag
-    lets the richest model memorise the most).
+    held-out (within-posture) grade of the model chosen at that lag - not
+    the in-sample error, which favours whichever lag lets the richest model
+    memorise the most.
 
     samples: [(gaze, t)]; groups: pass index per SAMPLE, or None to read the
     passes from the t restarts. Returns (Selection, latency) or (None, None).
@@ -358,13 +406,16 @@ def select_pursuit(samples, path, groups=None, feat=None, reach=0.0,
         idx, targets = pursuit_keep(samples, path, lat)
         if len(idx) < min_pairs:
             continue
-        sel = select([samples[i][0] for i in idx], targets,
-                     [groups[i] for i in idx], feat, reach, allow_quad)
-        if sel is None:
+        X, Y, grp = _clean([samples[i][0] for i in idx], targets,
+                           [groups[i] for i in idx])
+        got = _choose(X, Y, grp, feat, reach, allow_quad, _BLOCKS, guard)
+        if got is None:
             continue
-        if best is None or sel.err_cv < best.err_cv * (1.0 - _LAG_TIE):
-            best, best_lat = sel, float(lat)
-    if best is None:
+        if best is None or got[1]["err"] < best[1][1]["err"] * (1.0 - _LAG_TIE):
+            best, best_lat = ((X, Y, grp), got), float(lat)
+    # Only the winning lag is fitted on all pairs and tried across posture.
+    sel = None if best is None else _finish(*best[0], reach, *best[1])
+    if sel is None:
         return None, None
-    best.report["latency"] = best_lat
-    return best, best_lat
+    sel.report["latency"] = best_lat
+    return sel, best_lat

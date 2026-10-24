@@ -434,7 +434,8 @@ def test_refit_reports_the_per_axis_selection():
     cs = caldata.CalSamples.pursuit(samples + samples, path, 0.06, OPTS)
     r = caldata.refit(cs, 0.25, poly2=True, latency="auto", feat=FEAT)
     assert r.report is not None
-    assert r.report["cv"] == "pass"
+    assert r.report["cv"] == "blocks"
+    assert r.report["posture"]["cv"] == "pass"
     assert r.report["latency"] == pytest.approx(r.latency)
     assert r.err_cv == r.report["err"]
     assert r.mapper.selection == r.report

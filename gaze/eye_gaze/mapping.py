@@ -302,10 +302,14 @@ def fit_with_rejection(gaze_points, screen_points, reach_margin=0.0, poly2=False
     quadratic fit first and falls back to affine when there are too few
     points for it. `axes` fits that per-axis model instead (no fallback)."""
     # A single NaN sample would make every ridge coefficient NaN.
-    pairs = [(g, s) for g, s in zip(gaze_points, screen_points)
-             if all(math.isfinite(v) for v in tuple(g) + tuple(s))]
-    gaze_points = [g for g, _ in pairs]
-    screen_points = [s for _, s in pairs]
+    if isinstance(gaze_points, np.ndarray) and isinstance(screen_points, np.ndarray):
+        ok = np.isfinite(gaze_points).all(axis=1) & np.isfinite(screen_points).all(axis=1)
+        gaze_points, screen_points = list(gaze_points[ok]), list(screen_points[ok])
+    else:
+        pairs = [(g, s) for g, s in zip(gaze_points, screen_points)
+                 if all(math.isfinite(v) for v in tuple(g) + tuple(s))]
+        gaze_points = [g for g, _ in pairs]
+        screen_points = [s for _, s in pairs]
 
     def try_fit(g, s, p2):
         m = GazeMapper(reach_margin=reach_margin, poly2=p2, axes=axes)
