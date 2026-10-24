@@ -640,11 +640,12 @@ class DownloadStep(Step):
 class KeysStep(Step):
     name = "tuslar"
     title_key = "wizard.keys.title"
+    LIST_H = 380            # px: the list's height in 1.2.0 - at least this
 
     def build(self, f):
         w = self.w
         self.table = widgets.KeyTable(f, w.services, dict(w.values), w.ask,
-                                      w.tell, w.worker, height=380)
+                                      w.tell, w.worker, height=self.LIST_H)
         self.table.pack(fill="both", expand=True)
 
     def apply(self):
@@ -759,7 +760,8 @@ class Wizard:
             anchor="w", pady=(0, 12))
         # Every step on one page that scrolls: as tall as the tallest step
         # where the screen has room, shorter where it has not (_fit).
-        self.body_scroll = widgets.ScrollFrame(outer, height=400)
+        self.body_scroll = widgets.ScrollFrame(outer, height=400,
+                                               autohide=True)
         self.body_scroll.pack(fill="both", expand=True)
         self.body = self.body_scroll.inner
         # The buttons are packed BEFORE the step body: when the window is
@@ -786,18 +788,33 @@ class Wizard:
     MIN_SIZE = (980, 760)
 
     def _fit(self, place):
-        """The page as large as the largest step, then the whole window on
-        the work area (widgets.fit_to_work_area): the page and the steps'
-        own scrolling lists give up the height a small screen lacks."""
+        """The page as large as the largest step (the Keys and Downloads
+        lists at their 1.2.0 heights), then the whole window on the work
+        area: only the page gives up the height a small screen lacks
+        (widgets.fit_to_work_area). Then each of those two lists takes the
+        page's height its step leaves - longer on a large screen, shorter
+        on a small one, never an empty band under a scrolled list."""
+        lists = ((self.step("tuslar"), self.step("tuslar").table.scroll,
+                  KeysStep.LIST_H),
+                 (self.step("indirmeler"), self.step("indirmeler").scroll,
+                  DownloadStep.ROWS_H))
+        for _step, scroll, height in lists:
+            scroll.canvas.configure(height=height)
         self.win.update_idletasks()
         frames = [s.frame for s in self.steps]
         self.body_scroll.canvas.configure(
             width=max(f.winfo_reqwidth() for f in frames),
             height=max(f.winfo_reqheight() for f in frames))
-        scrolls = [self.body_scroll, self.step("tuslar").table.scroll,
-                   self.step("indirmeler").scroll]
-        widgets.fit_to_work_area(self.win, scrolls, self.MIN_SIZE,
+        widgets.fit_to_work_area(self.win, [self.body_scroll], self.MIN_SIZE,
                                  place=place)
+        page = int(self.body_scroll.canvas.cget("height"))
+        for step, scroll, _height in lists:
+            rest = step.frame.winfo_reqheight() - int(
+                scroll.canvas.cget("height"))
+            scroll.canvas.configure(height=max(widgets.MIN_SCROLL,
+                                               page - rest))
+        self.win.update_idletasks()
+        self.body_scroll.sync_bar()
 
     @property
     def current(self):
@@ -857,6 +874,8 @@ class Wizard:
         self.title_var.set(step.title)
         step.frame.pack(fill="both", expand=True)
         self.body_scroll.canvas.yview_moveto(0)
+        self.win.update_idletasks()
+        self.body_scroll.sync_bar()
         last = i == len(self.steps) - 1
         self.back_button.configure(state="normal" if i > 0 else "disabled")
         self.next_button.configure(text=t("wizard.start") if last

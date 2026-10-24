@@ -350,21 +350,32 @@ def check(parent, label, variable, command=None):
 class ScrollFrame(tk.Frame):
     """A frame whose content (.inner) scrolls; the wheel scrolls it while
     the pointer is over it, and Tab-focus scrolls the focused row into
-    view (a keyboard-only caregiver must reach the last row too)."""
+    view (a keyboard-only caregiver must reach the last row too).
 
-    def __init__(self, parent, height=420, **kw):
+    autohide: the scrollbar is shown only while the content is taller than
+    the frame (a page holding a list that scrolls by itself would otherwise
+    show two bars side by side)."""
+
+    def __init__(self, parent, height=420, autohide=False, **kw):
         super().__init__(parent, bg=BG, **kw)
+        self.autohide = autohide
         self.canvas = tk.Canvas(self, bg=BG, height=height,
                                 highlightthickness=0)
-        bar = tk.Scrollbar(self, orient="vertical",
-                           command=self.canvas.yview, width=22)
+        self.bar = bar = tk.Scrollbar(self, orient="vertical",
+                                      command=self.canvas.yview, width=22)
         self.inner = tk.Frame(self.canvas, bg=BG)
-        self.inner.bind("<Configure>", lambda e: self.canvas.configure(
-            scrollregion=self.canvas.bbox("all")))
+
+        def inner_changed(_e):
+            self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            self.sync_bar()
+
+        def canvas_changed(e):
+            self.canvas.itemconfigure(self._win, width=e.width)
+            self.sync_bar()
+        self.inner.bind("<Configure>", inner_changed)
         self._win = self.canvas.create_window((0, 0), window=self.inner,
                                               anchor="nw")
-        self.canvas.bind("<Configure>", lambda e: self.canvas.itemconfigure(
-            self._win, width=e.width))
+        self.canvas.bind("<Configure>", canvas_changed)
         self.canvas.configure(yscrollcommand=bar.set)
         self.canvas.pack(side="left", fill="both", expand=True)
         bar.pack(side="right", fill="y")
@@ -372,6 +383,24 @@ class ScrollFrame(tk.Frame):
             w.bind("<Enter>", self._wheel_on)
             w.bind("<Leave>", self._wheel_off)
         self.inner.bind_all("<FocusIn>", self._follow_focus, add="+")
+
+    def sync_bar(self):
+        """autohide: show the bar only when the content does not fit."""
+        if not self.autohide:
+            return
+        try:
+            if self.canvas.winfo_viewable():
+                h = self.canvas.winfo_height()
+            else:                       # not on screen (yet): as configured
+                h = int(self.canvas.cget("height"))
+            need = self.inner.winfo_reqheight() > h
+            shown = bool(self.bar.winfo_manager())
+            if need and not shown:
+                self.bar.pack(side="right", fill="y")
+            elif shown and not need:
+                self.bar.pack_forget()
+        except tk.TclError:
+            pass
 
     def _wheel_on(self, _e):
         self.canvas.bind_all("<MouseWheel>", self._wheel)

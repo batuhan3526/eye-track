@@ -518,3 +518,55 @@ def test_the_wizard_fits_the_work_area(root, data_dir, monkeypatch, area):
     for i in range(len(w.steps)):
         w._show(i)
         _fits(w.win, area, w.foot, w.body_scroll)
+
+
+# 1.2.0's own heights of the wizard's two lists (KeyTable 380, Downloads 400).
+_LISTS_120 = {"tuslar": 380, "indirmeler": 400}
+
+
+def _wizard_list(w, name):
+    step = w.step(name)
+    return step, (step.table.scroll if name == "tuslar" else step.scroll)
+
+
+@pytest.mark.parametrize("area", [(0, 0, 1536, 800), (0, 0, 1536, 824),
+                                  (0, 0, 1920, 1040), (0, 0, 2560, 1400)])
+@pytest.mark.parametrize("lang", ["tr", "en"])
+def test_the_wizard_lists_keep_their_1_2_0_height(root, data_dir,
+                                                  monkeypatch, area, lang):
+    # Screens 1.2.0 fitted on: the Keys and Downloads lists at least as
+    # tall as then, the page holding the step without a second scrollbar.
+    from tests.test_ui_wizard_flow import make_wizard
+    from eye_gaze import i18n
+    from eye_gaze.ui import widgets
+    monkeypatch.setattr(widgets, "work_area", lambda win: area)
+    i18n.set_language(lang)
+    _write_config(data_dir)
+    w, _ = make_wizard(root, make_services())
+    page = int(w.body_scroll.canvas.cget("height"))
+    for name, least in _LISTS_120.items():
+        w._show(w.steps.index(w.step(name)))
+        step, scroll = _wizard_list(w, name)
+        assert int(scroll.canvas.cget("height")) >= least, (name, area)
+        assert step.frame.winfo_reqheight() <= page, (name, area)
+        assert w.body_scroll.bar.winfo_manager() == "", (name, area)
+    _fits(w.win, area, w.foot, w.body_scroll)
+
+
+@pytest.mark.parametrize("area", [(0, 0, 1024, 700), (0, 0, 1280, 680)])
+def test_on_a_small_screen_the_wizard_lists_fill_the_page(root, data_dir,
+                                                          monkeypatch, area):
+    # No double shrink: the list gets the page's height its step leaves,
+    # so the step fills the page - no empty band, no second scrollbar.
+    from tests.test_ui_wizard_flow import make_wizard
+    from eye_gaze.ui import widgets
+    monkeypatch.setattr(widgets, "work_area", lambda win: area)
+    _write_config(data_dir)
+    w, _ = make_wizard(root, make_services())
+    page = int(w.body_scroll.canvas.cget("height"))
+    for name in _LISTS_120:
+        w._show(w.steps.index(w.step(name)))
+        step, scroll = _wizard_list(w, name)
+        assert int(scroll.canvas.cget("height")) >= widgets.MIN_SCROLL
+        assert page - 2 <= step.frame.winfo_reqheight() <= page, name
+        assert w.body_scroll.bar.winfo_manager() == "", name
