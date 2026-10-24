@@ -893,10 +893,90 @@ def test_mjpg_that_brings_no_frame_is_reopened_in_the_own_format():
     assert not sw.ensure_frames()               # frames arrive: keep MJPG
 
 
+class SlowCap(SwitchCap):
+    """A capture whose first frame comes `after` s after (re)opening on a
+    fake clock (None: never in MJPG); reads cost 0.03 s."""
+
+    def __init__(self, clock, after):
+        super().__init__()
+        self.clock, self.after = clock, after
+        self.t0 = clock["t"]
+        self.reads = 0
+
+    def reopen(self, opener):
+        self.t0 = self.clock["t"]
+        return super().reopen(opener)
+
+    def read(self):
+        self.reads += 1
+        self.clock["t"] += 0.03
+        mjpg = not self.opened or self.opened[-1][2] == "MJPG"
+        late = self.after is None and mjpg
+        if not late and self.clock["t"] - self.t0 >= (self.after or 0.0):
+            self.frame_size = (1920, 1080)
+            return True, object()
+        return False, None
+
+    def get(self, prop):
+        return 0.0
+
+
+def _settle(after):
+    clock = {"t": 100.0}
+
+    def sleep(sec):
+        clock["t"] += sec
+    cap = SlowCap(clock, after)
+    rec = dict(_record(1920, 1080, NEW), fourcc="MJPG")
+    lines = []
+    sw = _switch(cap, rec, lines.append)
+    size = gd._settle_mode(sw, cap, clock=lambda: clock["t"], sleep=sleep)
+    return size, cap, rec, lines, clock["t"] - 100.0
+
+
+def test_a_first_mjpg_frame_after_3_s_keeps_mjpg():
+    size, cap, rec, lines, spent = _settle(3.0)
+    assert size == (1920, 1080)
+    assert cap.opened == [] and rec["fourcc"] == "MJPG" and lines == []
+    assert 3.0 <= spent < gd.FIRST_FRAME_WAIT
+    # polled, not hammered: far below _ResilientCapture's fail limit
+    assert cap.reads < 60
+
+
+def test_mjpg_that_never_brings_a_frame_falls_back_after_the_wait():
+    size, cap, rec, lines, spent = _settle(None)
+    assert cap.opened == [(1920, 1080, "")] and rec["fourcc"] == ""
+    assert size == (1920, 1080)             # the own format delivers
+    assert len(lines) == 2 and all(m.isascii() for m in lines)
+    assert gd.FIRST_FRAME_WAIT <= spent < gd.FIRST_FRAME_WAIT + 0.5
+    assert gd.FIRST_FRAME_WAIT == 4.0
+
+
+def test_the_first_frame_wait_is_by_the_clock_and_falls_back_to_cap_prop(
+        monkeypatch):
+    clock = {"t": 0.0}
+    monkeypatch.setattr(gd, "_camera_size", lambda cap: (640, 480))
+
+    class Dead:
+        frame_size = None
+
+        def read(self):
+            return False, None
+    slept = []
+
+    def sleep(sec):
+        slept.append(sec)
+        clock["t"] += sec
+    size = gd._first_frame_size(Dead(), clock=lambda: clock["t"], sleep=sleep)
+    assert size == (640, 480)
+    assert clock["t"] == pytest.approx(gd.FIRST_FRAME_WAIT, abs=0.11)
+    assert len(slept) < 60
+
+
 def test_main_settles_every_switch_and_goes_back_even_when_calibration_raises():
     import inspect
     src = inspect.getsource(gd.main)
-    assert src.index("modes.ensure_frames()") < src.index("_camera_report(")
+    assert src.index("first_size = _settle_mode(modes, cap)") <         src.index("_camera_report(")
     recal = src[src.index("hotkeys.take_recal()"):]
     fin = recal.index("finally:")
     assert recal.index("_switch_for_calibration(modes, cap)") < \

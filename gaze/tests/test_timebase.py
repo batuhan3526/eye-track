@@ -116,3 +116,60 @@ def test_loop_timing_converts_and_resizes():
     assert tgt.seen[-1] == pytest.approx(15.0, rel=0.01)
     small = lt.resize(hist)
     assert small.maxlen == 4 and list(small) == [3, 4, 5, 6]   # newest kept
+
+
+def _wander(lt, t, seconds, fps_a, fps_b, every=3.0):
+    """Frames at a rate that switches between fps_a and fps_b every
+    `every` s (the deep model on the CPU); the time after."""
+    end = t + seconds
+    while t < end:
+        fps = fps_a if int(t / every) % 2 == 0 else fps_b
+        lt.tick(t)
+        t += 1.0 / fps
+    return t
+
+
+def test_the_rate_line_is_said_first_then_at_most_once_a_minute():
+    said = []
+    lt = LoopTiming(timebase.ref_seconds(7), log=said.append)
+    t = _wander(lt, 0.0, 2.0, 15.0, 15.0)
+    assert len(said) == 1 and "15 fps" in said[0]      # the first value
+    assert all(line.isascii() for line in said)
+    # wandering 16 <-> 26 fps for ten minutes: republished every few
+    # seconds, said at most once per LOG_EVERY_S
+    t0 = t
+    stamps = []
+    seen = [len(said)]
+
+    def log(line):
+        said.append(line)
+        stamps.append(t_now[0])
+    t_now = [t]
+    lt._log = log
+    while t < t0 + 600.0:
+        lt.tick(t)
+        t_now[0] = t
+        t += 1.0 / (16.0 if int(t / 3.0) % 2 == 0 else 26.0)
+    assert 1 <= len(said) - seen[0] <= 600.0 / timebase.LOG_EVERY_S + 1
+    for a, b in zip(stamps, stamps[1:]):
+        assert b - a >= timebase.LOG_EVERY_S
+
+
+def test_a_settled_rate_is_said_once_the_minute_is_up():
+    said = []
+    lt = LoopTiming(timebase.ref_seconds(7), log=said.append)
+    t = _wander(lt, 0.0, 2.0, 15.0, 15.0)
+    t = _wander(lt, t, 5.0, 30.0, 30.0)      # changed within the minute
+    assert len(said) == 1
+    t = _wander(lt, t, 70.0, 30.0, 30.0)     # still 30 after it
+    assert len(said) == 2 and "30 fps" in said[1]
+    _wander(lt, t, 200.0, 30.0, 30.0)        # unchanged: nothing more
+    assert len(said) == 2
+
+
+def test_a_broken_log_never_costs_the_timing():
+    def boom(line):
+        raise RuntimeError("log gone")
+    lt = LoopTiming(timebase.ref_seconds(7), log=boom)
+    _wander(lt, 0.0, 3.0, 15.0, 15.0)
+    assert lt.median_frames == 4

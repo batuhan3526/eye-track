@@ -52,6 +52,7 @@ from eye_gaze import modelsel
 from eye_gaze import openness
 from eye_gaze import physical
 from eye_gaze import sensitivity
+from eye_gaze import textfit
 from eye_gaze import timebase
 from eye_gaze.implicit import ImplicitCorrector
 from eye_gaze import click_menu
@@ -530,12 +531,14 @@ def _keep_calibration_mode(cfg, mode_auto, machine_cam, calibration,
         return cfg, machine_cam
 
 
-def _settle_mode(modes, cap):
-    """After a camera mode switch: wait for the first frame of the new mode,
-    and reopen it in the camera's own format when MJPG brings none."""
-    _first_frame_size(cap)
+def _settle_mode(modes, cap, clock=None, sleep=None):
+    """At startup and after a camera mode switch: wait for the first frame
+    (FIRST_FRAME_WAIT), and reopen the mode in the camera's own format when
+    MJPG brought none by then. The real picture size (_first_frame_size)."""
+    size = _first_frame_size(cap, clock=clock, sleep=sleep)
     if modes.ensure_frames():
-        _first_frame_size(cap)
+        size = _first_frame_size(cap, clock=clock, sleep=sleep)
+    return size
 
 
 def _switch_for_calibration(modes, cap):
@@ -547,18 +550,32 @@ def _switch_for_calibration(modes, cap):
     return prev
 
 
-def _first_frame_size(cap, tries=60, wait=0.03):
-    """The real picture size once a frame arrives (a few tries: a camera's
-    first frames can come late), else what CAP_PROP_* says."""
-    for _ in range(int(tries)):
+# How long a freshly opened camera may take to bring its first frame (a cold
+# start, auto-exposure on some UVC cameras) - by the clock, not a count of
+# reads - before an MJPG mode is taken for dead and reopened in the camera's
+# own format for the session (slower; the next start tries MJPG again).
+FIRST_FRAME_WAIT = 4.0
+# s between failed reads: in FIRST_FRAME_WAIT far fewer than
+# _ResilientCapture's fail_limit, which would report the camera lost.
+_FIRST_FRAME_POLL = 0.1
+
+
+def _first_frame_size(cap, timeout=None, clock=None, sleep=None):
+    """The real picture size once a frame arrives (within `timeout`, default
+    FIRST_FRAME_WAIT), else what CAP_PROP_* says."""
+    clock = clock or time.monotonic
+    sleep = sleep or time.sleep
+    end = clock() + (FIRST_FRAME_WAIT if timeout is None else float(timeout))
+    while True:
         try:
             ok, _frame = cap.read()
         except Exception:
             ok = False
         if ok and getattr(cap, "frame_size", None):
             return cap.frame_size
-        time.sleep(wait)
-    return _camera_size(cap)
+        if clock() >= end:
+            return _camera_size(cap)
+        sleep(_FIRST_FRAME_POLL)
 
 
 def _camera_report(cap, req_w, req_h, req_fps, size):
@@ -1088,25 +1105,35 @@ _GRADE_KEY = {"IYI": "driver.calq.grade_iyi", "ORTA": "driver.calq.grade_orta",
               "KOTU": "driver.calq.grade_kotu"}
 
 
+# Where the result does not fit the screen (eye_gaze.textfit), the lines go
+# in this order - the most general advice first. The grade, the per-axis
+# error and the KOTU line with its key are never left out.
+_RESULT_DROP = {"hint_camera": 0, "hint_light": 1, "hint_head_still": 2,
+                "coverage": 3, "hint_reach": 4, "hint_posture": 5}
+
+
 def _cal_result_lines(q):
-    """[(text, BGR colour)] for a calquality.Summary: the grade, per-axis
-    error, how far the cursor reaches, then the hints. ASCII (i18n)."""
+    """[(text, BGR colour, drop rank or None)] for a calquality.Summary: the
+    grade, per-axis error, how far the cursor reaches, then the hints.
+    ASCII (i18n)."""
     grade = t_ascii(_GRADE_KEY[q.label]) if q.label in _GRADE_KEY else q.label
     err = "?" if not isinstance(q.err, (int, float)) else "%d" % round(q.err)
     lines = [(t_ascii("driver.calq.result", grade=grade, err=err),
-              _GRADE_COLOUR.get(q.label, (255, 255, 255)))]
+              _GRADE_COLOUR.get(q.label, (255, 255, 255)), None)]
     if q.axes:
         lines.append((t_ascii("driver.calq.axes", x=q.axes[0], y=q.axes[1]),
-                      (255, 255, 255)))
+                      (255, 255, 255), None))
     if q.coverage and None not in q.coverage:
         lines.append((t_ascii("driver.calq.coverage", x=q.coverage[0],
-                              y=q.coverage[1]), (255, 255, 255)))
+                              y=q.coverage[1]), (255, 255, 255),
+                      _RESULT_DROP["coverage"]))
     for key, fmt in q.hints:
         fmt = dict(fmt)
         if "axis" in fmt:
             fmt["axis"] = t_ascii("driver.calq." + fmt["axis"])
         lines.append((t_ascii("driver.calq." + key, **fmt),
-                      (0, 0, 255) if key == "bad" else (0, 255, 255)))
+                      (0, 0, 255) if key == "bad" else (0, 255, 255),
+                      _RESULT_DROP.get(key)))
     return lines
 
 
@@ -1120,31 +1147,32 @@ def _show_cal_result(win, sw, sh, hotkeys, mapper, feat=None, recal_key="F9"):
         lines = _cal_result_lines(q)
     except Exception:
         return
-    for text, _ in lines[1:]:            # the grade line is printed already
+    for text, _, _ in lines[1:]:         # the grade line is printed already
         print("  " + text)
     try:
-        import textwrap
-        scale = 0.9
-        width = max(30, int((sw - 80) / (20 * scale)))
+        # Wrapped and sized to the screen; on a small one the most general
+        # hints are left out (they are all on the console above).
+        placed, _dropped = textfit.fit(lines, sw, sh)
         canvas = np.zeros((sh, sw, 3), dtype=np.uint8)
-        y = max(60, sh // 6)
-        for i, (text, colour) in enumerate(lines):
-            for part in textwrap.wrap(text, width) or [""]:
-                cv2.putText(canvas, part, (40, y), cv2.FONT_HERSHEY_SIMPLEX,
-                            1.2 if i == 0 else scale, colour, 2)
-                y += 60 if i == 0 else 40
-            y += 14
+        for text, colour, scale, org in placed:
+            cv2.putText(canvas, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale,
+                        colour, textfit.THICKNESS)
         cv2.imshow(win, canvas)
         _force_topmost(win)
         # Long enough to read when there is something to act on. The
         # recalibrate key x2 here (the KOTU line asks for it) ends the screen
         # and becomes the next calibration (Hotkeys.again_requested).
+        # The click switch ends it early too (Hotkeys.result_switch): the
+        # user's own way past it, without a click on the desktop.
         hotkeys.result_showing = True
         try:
+            _result_switch(hotkeys, drain=True)   # pressed during the ball
             for _ in range(80 if q.hints else 30):
                 hotkeys.feed_window_key(cv2.waitKey(100) & 0xFF)
                 if hotkeys.quit_requested or getattr(hotkeys, "again_requested",
                                                      False):
+                    break
+                if _result_switch(hotkeys):
                     break
         finally:
             hotkeys.result_showing = False
@@ -1154,6 +1182,17 @@ def _show_cal_result(win, sw, sh, hotkeys, mapper, feat=None, recal_key="F9"):
                   % str(recal_key).upper())
     except Exception:
         pass
+
+
+def _result_switch(hotkeys, drain=False):
+    """hotkeys.result_switch(drain), if the driver set one. Never raises."""
+    poll = getattr(hotkeys, "result_switch", None)
+    if poll is None:
+        return False
+    try:
+        return bool(poll(drain))
+    except Exception:
+        return False
 
 
 def _after_first_calibration(hotkeys):
@@ -2841,6 +2880,16 @@ class _Clicker:
     def discard(self):
         self._pending.clear()
 
+    def take_dismiss(self, now, drain=False):
+        """On a calibration result screen: True when the left click switch
+        (key or pad button) was pressed - it ends the screen. Nothing is
+        clicked: every press read here is dropped. drain=True only drops
+        them (those made during the calibration itself)."""
+        self.update(now)
+        hit = "left" in self._pending and not drain
+        self._pending.clear()
+        return hit
+
     def mute(self, now, seconds=1.5):
         """Drop presses for a moment - after an overlay closed by itself the
         next press was aimed at it, not at the window that is now in front."""
@@ -3310,6 +3359,8 @@ def main():
         for bad in keys.bad_keys:
             print(f"UYARI: config'deki tus adi '{bad}' taninmadi; bu tus CALISMAYACAK.")
     clicker = _Clicker(cfg, keys=keys)
+    hotkeys.result_switch = lambda drain=False: clicker.take_dismiss(
+        time.monotonic(), drain)
     _close_guard(clicker)
     # Emergency alarm (F12 held): its own thread, so it also works while
     # calibrating, paused or with no face. start_alarm() never raises.
@@ -3369,15 +3420,14 @@ def main():
         _disarm_late_keys()     # X11: only the alarm grabbed while loading
     # The real frame, not CAP_PROP_* (some drivers echo the request): the
     # deep model's camera matrix and the calibration stamp are built from it.
-    first_size = _first_frame_size(cap)
     from eye_gaze import camera_modes
     # Only an "auto" camera mode ever switches: explicit sizes stay put.
     modes = camera_modes.ModeSwitch(
         cap, machine_cam if mode_auto else None,
         lambda w, h, fourcc: _camera_opener(
             cam_index, w, h, cam_fps, dict(machine_cam, fourcc=fourcc)))
-    if modes.ensure_frames():           # MJPG opened but brings no frame
-        first_size = _first_frame_size(cap)
+    # MJPG opened but no frame within FIRST_FRAME_WAIT: the own format.
+    first_size = _settle_mode(modes, cap)
     for line in _camera_report(cap, cam_w, cam_h, cam_fps, first_size):
         print(line)
     eyes.set_frame(first_size)
@@ -3522,6 +3572,8 @@ def main():
             _note_calibration_camera(machine_profile, machine_cam, fresh=True)
         feedback.event("cal_done")
         _after_first_calibration(hotkeys)
+        keys.clear()                # presses made during it are stale
+        clicker.discard()
     eyes.use(mapper)
     print("  " + eyes.describe())
 

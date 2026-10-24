@@ -77,6 +77,11 @@ class Hotkeys:
         # decide about it) or being dropped as stale.
         self.result_showing = False
         self.again_requested = False
+        # Set by the driver: result_switch(drain) is polled on a result
+        # screen and returns True when the left click switch (key or pad
+        # button) was pressed - that ends the screen early, and is never a
+        # click. drain=True drops the presses made before the screen.
+        self.result_switch = None
         self._armed = False
         self._removers = []
         if not defer:

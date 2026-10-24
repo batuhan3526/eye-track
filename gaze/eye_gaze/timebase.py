@@ -107,13 +107,22 @@ class FrameRate:
             return False
 
 
+# The rate line in the console / gaze.log: the first measured value, then
+# at most one line per LOG_EVERY_S. With the deep model on the CPU the rate
+# wanders (16-26 fps) and was republished, and logged, every few seconds all
+# day. A rate that changed since the last line is logged once the minute is
+# up, so the log still ends on the rate in use.
+LOG_EVERY_S = 60.0
+
+
 class LoopTiming:
     """The live loop's frame counts, kept in step with a FrameRate.
 
     `median_seconds` is the live median window as a duration; `targets` are
     objects with set_frame_rate(fps) (the stabilizer, the saccade detector).
     tick(now) returns True when the counts changed; the caller then rebuilds
-    its median history with resize(). Never raises.
+    its median history with resize(). `log` gets the rate line (see
+    LOG_EVERY_S). Never raises.
     """
 
     def __init__(self, median_seconds, targets=(), rate=None, log=None):
@@ -121,6 +130,9 @@ class LoopTiming:
         self.targets = [t for t in targets if t is not None]
         self.rate = rate if rate is not None else FrameRate()
         self._log = log
+        self._logged = None         # (fps, median frames) of the last line
+        self._logged_at = None
+        self._measured = False      # the rate has been republished once
         self._apply(self.rate.fps)
 
     def _apply(self, fps):
@@ -134,21 +146,36 @@ class LoopTiming:
                 pass
 
     def tick(self, now):
-        if not self.rate.tick(now):
-            return False
-        old = (self.median_frames, self.scroll_frames)
-        try:
-            self._apply(self.rate.fps)
-        except Exception:
-            return False
-        if self._log is not None:
+        changed = self.rate.tick(now)
+        if changed:
+            self._measured = True
+            old = (self.median_frames, self.scroll_frames)
             try:
-                self._log("Kare hizi %.0f fps: medyan %d kare (%.2f sn)."
-                          % (self.fps, self.median_frames,
-                             self.median_frames / self.fps))
+                self._apply(self.rate.fps)
             except Exception:
-                pass
-        return (self.median_frames, self.scroll_frames) != old
+                return False
+            changed = (self.median_frames, self.scroll_frames) != old
+        self._say(now)
+        return changed
+
+    def _say(self, now):
+        """The rate line: the first republished value, then at most once per
+        LOG_EVERY_S, and only when it differs from the last line."""
+        if self._log is None or not self._measured:
+            return
+        try:
+            line = (round(self.fps), self.median_frames)
+            if line == self._logged:
+                return
+            if (self._logged_at is not None
+                    and float(now) - self._logged_at < LOG_EVERY_S):
+                return
+            self._logged, self._logged_at = line, float(now)
+            self._log("Kare hizi %.0f fps: medyan %d kare (%.2f sn)."
+                      % (self.fps, self.median_frames,
+                         self.median_frames / self.fps))
+        except Exception:
+            pass
 
     def resize(self, hist):
         """`hist` as a deque of the current median length (newest kept)."""
