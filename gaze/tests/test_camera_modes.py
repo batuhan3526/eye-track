@@ -50,8 +50,12 @@ class ModeCam:
            arrive as an undecoded byte buffer.
     """
 
-    def __init__(self, native, table, clock, mjpg=None, native_fps=30.0):
+    def __init__(self, native, table, clock, mjpg=None, native_fps=30.0,
+                 fallback=None):
         self.native = (native[0], native[1], native_fps)
+        # A request in no table: the mode `fallback` answers (callable
+        # req -> (w, h, fps)), else the current mode stays.
+        self.fallback = fallback
         self.table = dict(table)
         self.mjpg = mjpg
         self.clock = clock
@@ -81,6 +85,8 @@ class ModeCam:
                 src = self.mjpg
             if req in src:
                 self.cur = src[req]
+            elif self.fallback is not None:
+                self.cur = self.fallback(req)
         return True
 
     def get(self, prop):
@@ -207,7 +213,9 @@ def test_a_stretched_mode_is_rejected():
     asked nor the camera's own 4:3 shape: a squeezed picture."""
     clock = Clock()
     table = {(1280, 960): (1280, 800, 30.0), (640, 480): (640, 480, 30.0)}
-    found = _probe(lambda: ModeCam((640, 480), table, clock), clock)
+    found = _probe(lambda: ModeCam((640, 480), table, clock,
+                                   fallback=lambda req: (640, 480, 30.0)),
+                   clock)
     cam = found[0]
     assert (cam.width, cam.height) == (640, 480)
     bad = [m for m in cam.modes if (m["width"], m["height"]) == (1280, 800)]
@@ -221,7 +229,8 @@ def test_a_16_9_only_camera_runs_at_1080p():
     found = _probe(lambda: ModeCam((1280, 720), table, clock), clock)
     cam = found[0]
     assert (cam.width, cam.height) == (1920, 1080)
-    assert cam.native == (1280, 720)
+    # Its own shape is its largest honest mode, not the mode it opened in.
+    assert cam.native == (1920, 1080)
     # The 4:3 requests fell back to a 16:9 mode: the camera's own shape,
     # so not "stretched".
     assert all(m["ok"] for m in cam.modes)
@@ -293,8 +302,60 @@ def test_choice_prefers_the_plain_format_at_equal_rate():
 
 
 def test_choice_skips_rejected_modes():
-    modes = [_m(1280, 800, 30.0, ok=False), _m(640, 480, 30.0)]
+    """A 4:3 camera that answers 1280x960 with a 1280x800 picture: its own
+    shape is 4:3 (its largest mode delivered as asked), so 1280x800 is a
+    squeezed picture and never chosen."""
+    native = dict(_m(640, 480, 30.0), request=None)
+    squeezed = dict(_m(1280, 800, 30.0), request=[1280, 960])
+    modes = [native, squeezed, _m(640, 480, 30.0)]
+    assert hw.judge_modes(modes) == (640, 480)
+    assert squeezed["ok"] is False
     assert hw.choose_mode(modes, {})["width"] == 640
+
+
+def test_a_16_10_camera_on_a_640x480_default_backend_runs_at_1920x1200():
+    """DirectShow / V4L2 open it at 640x480: judged by that, every 16:10
+    mode looked stretched and the camera fell to 640x480."""
+    clock = Clock()
+    table = {(1920, 1200): (1920, 1200, 30.0), (1280, 800): (1280, 800, 30.0),
+             (640, 480): (640, 480, 30.0)}
+
+    def nearest(req):
+        return (1920, 1200, 30.0) if req[0] >= 1920 else (1280, 800, 30.0)
+    found = _probe(lambda: ModeCam((640, 480), table, clock,
+                                   fallback=nearest), clock)
+    cam = found[0]
+    assert (cam.width, cam.height) == (1920, 1200)
+    assert cam.native == (1920, 1200)
+    # 1280x720 answered with 1280x800: the camera's own shape, not a stretch.
+    alt = [m for m in cam.modes if m["request"] == [1280, 720]]
+    assert alt and alt[0]["ok"]
+
+
+def test_a_16_9_camera_on_a_640x480_default_backend_runs_at_1080p():
+    clock = Clock()
+    table = _same([(1920, 1080), (1280, 720), (640, 480)])
+    found = _probe(lambda: ModeCam((640, 480), table, clock,
+                                   fallback=lambda req: (1280, 720, 30.0)),
+                   clock)
+    cam = found[0]
+    assert (cam.width, cam.height) == (1920, 1080)
+    assert cam.native == (1920, 1080)
+
+
+def test_choice_prefers_the_cameras_own_aspect():
+    modes = [_m(1280, 960, 30.0), _m(1280, 720, 30.0), _m(1920, 1080, 15.0)]
+    weak = {"machine": {"cpu_cores": 2}}
+    # Largest accepted mode 1920x1080 is 16:9: of the two 1280-wide modes
+    # the 16:9 one, though 1280x960 has more pixels.
+    assert (hw.choose_mode(modes, weak)["height"]) == 720
+
+
+def test_mjpg_needs_ten_percent_more_frames_to_win():
+    near = [_m(1280, 720, 26.0, ""), _m(1280, 720, 28.0, "MJPG")]
+    assert hw.choose_mode(near, {})["fourcc"] == ""
+    far = [_m(1280, 720, 26.0, ""), _m(1280, 720, 30.0, "MJPG")]
+    assert hw.choose_mode(far, {})["fourcc"] == "MJPG"
 
 
 def test_legacy_mode_is_what_1_2_0_would_have_picked():
@@ -400,7 +461,7 @@ def test_driver_keeps_explicit_camera_settings():
     out, cam = gd._keep_calibration_mode(cfg, False, rec,
                                          (True, (1280, 960)),
                                          say=lambda m: None)
-    assert out == cfg and cam is rec
+    assert out == cfg and cam == dict(rec, fourcc="")
 
 
 def test_driver_without_calibration_uses_the_new_choice():
@@ -719,5 +780,121 @@ def test_main_switches_the_mode_around_a_recalibration():
     assert "_keep_calibration_mode(" in src
     assert src.index("_keep_calibration_mode(") < src.index("_camera_request(cfg)")
     recal = src[src.index("hotkeys.take_recal()"):]
-    assert recal.index("modes.for_calibration()") < \
+    assert recal.index("_switch_for_calibration(") < \
         recal.index("run_calibration()") < recal.index("modes.back(")
+
+
+# --- fix round 1 ------------------------------------------------------------
+
+def test_a_stamp_this_probe_did_not_measure_falls_back_to_the_old_rule():
+    """A 1.2.0 stamp from a driver echoing the request, or a probe cut short:
+    not the new choice for a calibrated user, but the mode 1.2.0 ran."""
+    rec = _record(1920, 1080, NEW, legacy=(1280, 720), fourcc="MJPG")
+    kept = hw.kept_mode(rec, True, (800, 600))
+    assert (kept["width"], kept["height"], kept["fourcc"]) == (1280, 720, "")
+
+
+def test_the_kept_size_prefers_the_own_format_at_full_rate():
+    modes = [_m(1920, 1080, 30.0, "MJPG"), _m(1280, 960, 26.0),
+             _m(1280, 960, 30.0, "MJPG")]
+    rec = _record(1920, 1080, modes, fourcc="MJPG")
+    kept = hw.kept_mode(rec, True, (1280, 960))
+    assert (kept["width"], kept["fourcc"]) == (1280, "")
+    # Below MIN_FPS in its own format: MJPG keeps the calibrated size usable.
+    slow = [_m(1920, 1080, 30.0, "MJPG"), _m(1280, 960, 15.0),
+            _m(1280, 960, 30.0, "MJPG")]
+    kept = hw.kept_mode(_record(1920, 1080, slow, fourcc="MJPG"), True,
+                        (1280, 960))
+    assert kept["fourcc"] == "MJPG"
+
+
+def test_the_record_size_in_mjpg_goes_plain_for_a_calibration():
+    modes = [_m(1280, 720, 26.0), _m(1280, 720, 30.0, "MJPG")]
+    rec = _record(1280, 720, modes, fourcc="MJPG")
+    kept = hw.kept_mode(rec, True, (1280, 720))
+    assert (kept["width"], kept["fourcc"]) == (1280, "")
+    assert hw.kept_mode(dict(rec, fourcc=""), True, (1280, 720)) is None
+
+
+def test_explicit_sizes_get_no_measured_format_and_never_switch(monkeypatch):
+    rec = dict(_record(1920, 1080, NEW, fourcc="MJPG"))
+    cfg = {"camera_index": "auto", "camera_width": 1280,
+           "camera_height": 960}
+    out, cam = gd._keep_calibration_mode(cfg, False, rec,
+                                         (True, (1280, 960)),
+                                         say=lambda m: None)
+    assert out == cfg and cam["fourcc"] == "" and "choice" not in cam
+    seen = []
+
+    def fake_open(index, w, h, fps, backend=None, opener=None, fourcc=None):
+        seen.append((w, h, fourcc))
+    monkeypatch.setattr(hw, "open_capture", fake_open)
+    gd._camera_opener(0, 1280, 960, 30, cam)()
+    assert seen == [(1280, 960, None)]
+    # main hands ModeSwitch no record for explicit sizes: follow() after a
+    # load or an undo can then never reopen at the calibration's size.
+    cap = SwitchCap()
+    sw = cm.ModeSwitch(cap, None, lambda w, h, f: (lambda: (w, h, f)))
+    assert sw.follow((1920, 1080)) is False and cap.opened == []
+    import inspect
+    src = inspect.getsource(gd.main)
+    assert "machine_cam if mode_auto else None" in src
+
+
+def test_mjpg_that_brings_no_frame_is_reopened_in_the_own_format():
+    cap = SwitchCap()
+    rec = dict(_record(1920, 1080, NEW), fourcc="MJPG",
+               choice={"width": 1920, "height": 1080, "fourcc": "MJPG"})
+    lines = []
+    sw = _switch(cap, rec, lines.append)
+    assert sw.ensure_frames()
+    assert cap.opened == [(1920, 1080, "")]
+    assert rec["fourcc"] == "" and rec["choice"]["fourcc"] == ""
+    assert lines and all(m.isascii() for m in lines)
+    assert not sw.ensure_frames()               # own format now
+    cap.frame_size = (1920, 1080)
+    rec["fourcc"] = "MJPG"
+    assert not sw.ensure_frames()               # frames arrive: keep MJPG
+
+
+def test_main_settles_every_switch_and_goes_back_even_when_calibration_raises():
+    import inspect
+    src = inspect.getsource(gd.main)
+    assert src.index("modes.ensure_frames()") < src.index("_camera_report(")
+    recal = src[src.index("hotkeys.take_recal()"):]
+    fin = recal.index("finally:")
+    assert recal.index("_switch_for_calibration(modes, cap)") < \
+        recal.index("run_calibration()") < fin < recal.index("modes.back(")
+    assert recal.index("modes.back(") < recal.index("keys.clear()")
+
+
+def test_frame_cost_counts_a_decode_above_640x480(monkeypatch):
+    calls = []
+    real = cv2.imdecode
+
+    def counting(buf, flags):
+        calls.append(1)
+        return real(buf, flags)
+    monkeypatch.setattr(cv2, "imdecode", counting)
+    hw.frame_cost_ms(np.zeros((480, 640, 3), np.uint8))
+    assert calls == []
+    hw.frame_cost_ms(np.zeros((1080, 1920, 3), np.uint8))
+    assert len(calls) == 3
+
+
+def test_the_wizard_chooses_again_once_gaze_time_is_known():
+    rec = _record(1920, 1080, [_m(1920, 1080, 30.0, cost=9.0),
+                               _m(1280, 720, 30.0, cost=4.0)])
+    slow = {"gaze_ms": 1000.0 / hw.MIN_FPS - 6.0}
+    out = hw.rechoose(rec, slow)
+    assert (out["width"], out["height"]) == (1280, 720)
+    assert rec["width"] == 1920                 # a copy
+    assert hw.rechoose(_record(1280, 960), slow)["width"] == 1280
+    import inspect
+    from eye_gaze.ui import wizard
+    assert "hardware.rechoose(" in inspect.getsource(wizard.Wizard._write)
+
+
+def test_a_window_of_the_pictures_shape_is_shown_as_is():
+    frame = np.zeros((1080, 1920, 3), np.uint8)
+    assert cm.fit_to_window(frame, 800, 450) is frame

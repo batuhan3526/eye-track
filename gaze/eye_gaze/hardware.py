@@ -75,12 +75,12 @@ PROFILE_NAME = "makine.json"
 PROFILE_VERSION = 1
 FAKE_CAMERA_ENV = "GOZFARESI_FAKE_CAMERA"
 
-# Probe candidates: the 16:9 and 4:3 families up to 1920 wide (spec 6.6 said
-# 1280; a wide-angle webcam's face is ~190 px at 720p and ~285 px at 1080p,
-# and FaceLandmarker / the deep model crop it to ~256 / 224 px - 4K adds
-# little but decode time).
-CANDIDATES = ((1920, 1080), (1280, 960), (1280, 720), (960, 540), (848, 480),
-              (640, 480))
+# Probe candidates: the 16:10, 16:9 and 4:3 families up to 1920 wide (spec
+# 6.6 said 1280; a wide-angle webcam's face is ~190 px at 720p and ~285 px
+# at 1080p, and FaceLandmarker / the deep model crop it to ~256 / 224 px -
+# 4K adds little but decode time).
+CANDIDATES = ((1920, 1200), (1920, 1080), (1280, 960), (1280, 800),
+              (1280, 720), (960, 540), (640, 480))
 MAX_WIDTH = 1920
 # What 1.2.0 measured and how it chose: the mode a calibration WITHOUT a
 # camera stamp was made in (legacy_mode).
@@ -93,12 +93,15 @@ MJPG_ABOVE = 640 * 480  # MJPG is asked for above this many pixels
 MIN_FPS = 24.0          # below this the cursor visibly lags
 REQUEST_FPS = 30        # what the probe (and then the driver) asks for
 FULL_RATE = 0.9 * REQUEST_FPS   # at this rate MJPG cannot do better
+MJPG_GAIN = 1.10        # MJPG beats the own format at a size only this much
+                        # faster (it costs a decode on every frame)
 READ_SECONDS = 1.0      # frames counted per candidate mode
 WARMUP_FRAMES = 2       # first frames after a mode change come late
-PROBE_TIMEOUT_S = 30    # per camera: up to ~12 modes of READ_SECONDS each
+PROBE_TIMEOUT_S = 30    # per camera: up to ~14 modes of READ_SECONDS each
 # One frame at MIN_FPS. MediaPipe + the deep model (gaze_ms, measured by
-# benchmark_gaze) plus what a frame of that size costs to convert must fit;
-# without gaze_ms the conversion alone may take a quarter of it.
+# benchmark_gaze) plus what a frame of that size costs besides them (decode,
+# conversions, the status window; frame_cost_ms) must fit; without gaze_ms
+# that cost alone may take a quarter of it.
 FRAME_BUDGET_MS = 1000.0 / MIN_FPS
 COST_SHARE = 0.25
 
@@ -241,18 +244,30 @@ def _camera_name(index):
 
 
 def frame_cost_ms(frame):
-    """ms the driver spends on a frame of this size besides the models: the
-    mirror flip, the RGB copy MediaPipe takes and a downscale like its
-    detector's (median of 3). The size-dependent part of the per-frame
-    cost - FaceLandmarker and the deep model then work on a face crop of
-    fixed size."""
+    """ms the driver spends on a frame of this size besides the models
+    (median of 3): above 640x480 an MJPG decode of it (an MJPG mode pays it
+    on every read, and Media Foundation decodes a compressed camera format
+    inside read() too), the mirror flip, the RGB copy MediaPipe takes, a
+    downscale like its detector's and the status window's fit. The
+    size-dependent part of the per-frame cost - FaceLandmarker and the deep
+    model then work on a face crop of fixed size."""
     import cv2
+    from .camera_modes import window_size
+    h, w = frame.shape[:2]
+    jpg = None
+    if w * h > MJPG_ABOVE:
+        ok, buf = cv2.imencode(".jpg", frame)
+        jpg = buf if ok else None
+    win = window_size(w, h)
     times = []
     for _ in range(3):
         t = time.perf_counter()
+        if jpg is not None:
+            cv2.imdecode(jpg, cv2.IMREAD_COLOR)
         f = cv2.flip(frame, 1)
         rgb = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
         cv2.resize(rgb, (256, 256), interpolation=cv2.INTER_LINEAR)
+        cv2.resize(f, win, interpolation=cv2.INTER_LINEAR)
         times.append(time.perf_counter() - t)
     return statistics.median(times) * 1000.0
 
@@ -309,28 +324,52 @@ def _measure(cap, width, height, read_seconds, clock, stop, fourcc=None,
             "got": fourcc_text(cap), "cost_ms": round(ms, 2)}
 
 
-def _judge(mode, native):
-    """mode["ok"]: the delivered shape is the one asked for or the camera's
-    own (native) one. Anything else is the driver stretching or squeezing
-    the picture."""
+def _area(m):
+    return m["width"] * m["height"]
+
+
+def _honest(m):
+    """Delivered in the shape asked for (or nothing was asked)."""
     from .camera_modes import aspect, same_aspect
-    req = mode.get("request")
-    if not req:
-        mode["ok"] = True
-        return mode
-    got = aspect(mode["width"], mode["height"])
-    mode["ok"] = bool(same_aspect(got, aspect(*req)) or (
-        native is not None and same_aspect(got, aspect(*native))))
-    return mode
+    req = m.get("request")
+    return not req or same_aspect(aspect(m["width"], m["height"]),
+                                  aspect(*req))
+
+
+def native_size(modes):
+    """(w, h) of the camera's own picture shape: the largest mode delivered
+    as asked (or with nothing asked). Not the mode a capture opens in -
+    DirectShow and V4L2 often open any sensor at 640x480 (4:3), and a
+    16:10 or 16:9 camera judged by that lost every large mode. None for no
+    modes."""
+    honest = [m for m in modes or () if _honest(m)]
+    if not honest:
+        return None
+    best = max(honest, key=_area)
+    return best["width"], best["height"]
+
+
+def judge_modes(modes):
+    """Mark every mode ok / not ok (stretched): ok when its delivered aspect
+    is within 2 % of what was asked or of the camera's own (native_size).
+    Returns native_size."""
+    from .camera_modes import aspect, same_aspect
+    native = native_size(modes)
+    nat = aspect(*native) if native else 0.0
+    for m in modes or ():
+        got = aspect(m["width"], m["height"])
+        m["ok"] = bool(_honest(m) or same_aspect(got, nat))
+    return native
 
 
 def _probe_one(index, opener, read_seconds, clock, stop, out, cost=None):
     """Fill out["modes"] while measuring; always releases what it opened.
 
-    First the camera's own mode (nothing asked: its native aspect), then
-    every candidate in its own format, then - above 640x480, where its own
-    format fell short of the full rate - the same with MJPG. In that order
-    because a format once set cannot be unset on an open capture."""
+    First the camera's own mode (nothing asked), then every candidate in its
+    own format, then - above 640x480, where its own format fell short of
+    the full rate - the same with MJPG. In that order because a format once
+    set cannot be unset on an open capture. probe_cameras judges the modes
+    (judge_modes) once measuring is over."""
     for backend in default_backends():
         if stop.is_set():
             return
@@ -343,18 +382,14 @@ def _probe_one(index, opener, read_seconds, clock, stop, out, cost=None):
                 continue
             out["backend"] = backend
             out["name"] = _camera_name(index)
-            out["native"] = None
             modes = out["modes"] = []
 
             def add(m):
                 if m is not None:
                     m["backend"] = backend
-                    modes.append(_judge(m, out["native"]))
+                    modes.append(m)
                 return m
-            first = add(_measure(cap, 0, 0, read_seconds, clock, stop, None,
-                                 cost))
-            if first is not None:
-                out["native"] = (first["width"], first["height"])
+            add(_measure(cap, 0, 0, read_seconds, clock, stop, None, cost))
             plain = {}
             for w, h in CANDIDATES:
                 if stop.is_set():
@@ -397,32 +432,50 @@ def best_mode(modes, max_width=MAX_WIDTH):
     return max(narrow, key=lambda m: (m[2], m[0] * m[1]))
 
 
+def _fastest(modes):
+    return max(modes, key=lambda m: m["fps"]) if modes else None
+
+
 def _by_size(modes):
-    """One mode per delivered size: the fastest; at equal rate the camera's
-    own format (no MJPG decode on our side)."""
-    best = {}
+    """One mode per delivered size. The camera's own format, unless MJPG
+    there is at least MJPG_GAIN faster: MJPG costs a decode on every frame,
+    and every calibration before 1.3.0 was made in the own format."""
+    groups = {}
     for m in modes:
-        key = (m["width"], m["height"])
-        rank = (m["fps"], not m.get("fourcc"))
-        if key not in best or rank > best[key][0]:
-            best[key] = (rank, m)
-    return [m for _, m in best.values()]
+        groups.setdefault((m["width"], m["height"]), []).append(m)
+    out = []
+    for group in groups.values():
+        plain = _fastest([m for m in group if not m.get("fourcc")])
+        mjpg = _fastest([m for m in group if m.get("fourcc")])
+        if plain is None or (mjpg is not None
+                             and mjpg["fps"] >= plain["fps"] * MJPG_GAIN):
+            out.append(mjpg)
+        else:
+            out.append(plain)
+    return out
 
 
 def mode_at(modes, size):
-    """The best measured mode delivering exactly `size` (accepted or not -
-    a calibration made in it fits it), or None."""
+    """The measured mode to open at exactly `size` (accepted or not - a
+    calibration made in it fits it), or None. The own format whenever it
+    runs at >= MIN_FPS there: a calibration from before 1.3.0 was made in
+    it."""
     try:
         want = (int(size[0]), int(size[1]))
-        hits = _by_size([m for m in modes or () if isinstance(m, dict)
-                         and (m.get("width"), m.get("height")) == want])
+        hits = [m for m in modes or () if isinstance(m, dict)
+                and (m.get("width"), m.get("height")) == want]
     except Exception:
         return None
+    plain = _fastest([m for m in hits if not m.get("fourcc")
+                      and m.get("fps", 0) >= MIN_FPS])
+    if plain is not None:
+        return plain
+    hits = _by_size(hits)
     return hits[0] if hits else None
 
 
 def frame_budget(profile):
-    """(max_width, ms a frame's conversion may cost) on this machine.
+    """(max_width, ms a frame's own cost may take) on this machine.
 
     gaze_ms measured (benchmark_gaze): what is left of one frame at MIN_FPS
     after MediaPipe and the deep model. Not measured: a quarter of that
@@ -442,10 +495,13 @@ def frame_budget(profile):
 def choose_mode(modes, profile=None):
     """The mode to run (a mode dict), or None for no modes.
 
-    Among the accepted modes (_judge) at >= MIN_FPS: the largest whose
-    frame fits the machine's budget (frame_budget); when it fits none, the
-    largest up to 1280 wide. Without a mode at MIN_FPS: the fastest, as
-    1.2.0 did."""
+    Among the accepted modes (judge_modes) at >= MIN_FPS: the largest whose
+    frame cost (frame_cost_ms) fits the machine's budget (frame_budget) -
+    when it fits none, the largest up to 1280 wide. Widest first (the iris
+    resolution); at the same width the camera's own aspect (the largest
+    accepted mode's), then the larger picture. Without a mode at MIN_FPS:
+    the fastest, as 1.2.0 did."""
+    from .camera_modes import aspect, same_aspect
     if not modes:
         return None
     max_w, cost_cap = frame_budget(profile)
@@ -455,9 +511,30 @@ def choose_mode(modes, profile=None):
     if fast:
         pool = [m for m in fast if m.get("cost_ms", 0.0) <= cost_cap] \
             or [m for m in fast if m["width"] <= WEAK_MAX_WIDTH] or fast
-        return max(pool, key=lambda m: (m["width"] * m["height"], m["fps"]))
+        big = max(ok, key=_area)
+        nat = aspect(big["width"], big["height"])
+        return max(pool, key=lambda m: (
+            m["width"], same_aspect(aspect(m["width"], m["height"]), nat),
+            _area(m), m["fps"]))
     narrow = [m for m in ok if m["width"] <= max_w] or ok
-    return max(narrow, key=lambda m: (m["fps"], m["width"] * m["height"]))
+    return max(narrow, key=lambda m: (m["fps"], _area(m)))
+
+
+def rechoose(record, profile):
+    """makine.json's camera record with its mode chosen again from its own
+    measured modes for `profile` (the wizard measures gaze_ms only after the
+    camera step). A record without measured modes comes back as it was."""
+    if not isinstance(record, dict) or not isinstance(record.get("modes"),
+                                                      list):
+        return record
+    m = choose_mode(record["modes"], profile)
+    if m is None:
+        return record
+    out = dict(record)
+    out.update(width=int(m["width"]), height=int(m["height"]),
+               fourcc=m.get("fourcc") or "",
+               fps_measured=float(m.get("fps", 0.0)))
+    return out
 
 
 def legacy_mode(modes):
@@ -530,7 +607,7 @@ def probe_cameras(max_index=6, timeout_s=PROBE_TIMEOUT_S, opener=None,
     opener = opener or _cv_open
     found = []
     for index in (range(int(max_index)) if indices is None else indices):
-        out = {"modes": [], "backend": None, "name": "", "native": None}
+        out = {"modes": [], "backend": None, "name": ""}
         stop = threading.Event()
         t = threading.Thread(target=_probe_one, daemon=True,
                              name="kamera-sondaj-%d" % index,
@@ -545,6 +622,7 @@ def probe_cameras(max_index=6, timeout_s=PROBE_TIMEOUT_S, opener=None,
                  " KULLANILMIYOR" % index)
             continue
         modes = list(out["modes"])
+        native = judge_modes(modes)
         mode = choose_mode(modes, profile)
         if mode is None:
             continue
@@ -554,8 +632,7 @@ def probe_cameras(max_index=6, timeout_s=PROBE_TIMEOUT_S, opener=None,
         found.append(CameraInfo(index, out["backend"], mode["width"],
                                 mode["height"], round(mode["fps"], 1),
                                 out["name"], mode.get("fourcc") or "",
-                                tuple(modes), out["native"],
-                                legacy_mode(modes)))
+                                tuple(modes), native, legacy_mode(modes)))
     return found
 
 
@@ -585,12 +662,17 @@ def kept_mode(record, calibrated, cal_size):
     aspect moves every iris and head feature. So with a calibration in use
     (`calibrated`):
       - cal_size, its camera stamp (w, h): that mode, when the camera was
-        measured delivering it (else the record's mode, and the driver
-        warns about the mismatch as before);
-      - no stamp (a calibration older than stamps): the mode 1.2.0's rule
-        picks (record["legacy"]) - the one that install has been running in;
+        measured delivering it;
+      - no stamp (a calibration older than stamps), or a stamp this probe
+        did not measure (a 1.2.0 stamp from a driver echoing the request, a
+        probe cut short): the mode 1.2.0's rule picks (record["legacy"]) -
+        the one that install has been running in;
+      - neither measured: the record's mode (the driver warns about the
+        mismatch as before);
       - a record without measured modes (1.2.0's makine.json): its own mode
         IS that install's mode - None.
+    At the kept size the own format is used whenever it runs at >= MIN_FPS
+    (mode_at): that is the format a calibration before 1.3.0 was made in.
     The probe's newer choice applies to a new install and a recalibration.
     """
     if not calibrated or not isinstance(record, dict):
@@ -598,16 +680,21 @@ def kept_mode(record, calibrated, cal_size):
     modes = record.get("modes")
     if not isinstance(modes, list) or not modes:
         return None
-    size = cal_size or record.get("legacy")
-    if not size:
-        return None
     try:
-        size = (int(size[0]), int(size[1]))
-        if size == (int(record.get("width")), int(record.get("height"))):
-            return None
+        own = (int(record.get("width")), int(record.get("height")),
+               str(record.get("fourcc") or ""))
     except Exception:
         return None
-    return mode_at(modes, size)
+    for size in (cal_size, record.get("legacy")):
+        if not size:
+            continue
+        m = mode_at(modes, size)
+        if m is None:
+            continue
+        if (m["width"], m["height"], m.get("fourcc") or "") == own:
+            return None
+        return m
+    return None
 
 
 CAMERA_IDENTITY = ("index", "name", "width", "height")

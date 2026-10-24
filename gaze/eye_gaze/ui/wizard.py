@@ -966,6 +966,10 @@ class Wizard:
             except Exception as exc:
                 print("[sihirbaz] donanim okunamadi: %s" % ascii(exc))
         profile = dict(self.profile)
+        # The camera step came before the benchmark: its mode is chosen again
+        # from the measured modes now that gaze_ms is known.
+        if "camera" in profile:
+            profile["camera"] = hardware.rechoose(profile["camera"], profile)
         dec = hardware.decide(profile)
         if dec:
             profile["decisions"] = dec

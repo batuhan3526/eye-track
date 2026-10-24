@@ -496,10 +496,14 @@ def _keep_calibration_mode(cfg, mode_auto, machine_cam, calibration,
     "auto" camera mode keeps the calibration's mode while the camera still
     delivers it; the new choice is kept in the record as "choice" and
     opened for the next calibration (camera_modes.ModeSwitch). Explicit
-    camera_width/height are never touched. Never raises."""
+    camera_width/height are never touched, nor opened in a format measured
+    for another size: their record comes back without a FOURCC (1.2.0 never
+    set one). Never raises."""
     try:
-        if not mode_auto or not isinstance(machine_cam, dict):
+        if not isinstance(machine_cam, dict):
             return cfg, machine_cam
+        if not mode_auto:
+            return cfg, dict(machine_cam, fourcc="")
         calibrated, size = calibration
         kept = hardware.kept_mode(machine_cam, calibrated, size)
         if kept is None:
@@ -520,6 +524,23 @@ def _keep_calibration_mode(cfg, mode_auto, machine_cam, calibration,
         return out, cam
     except Exception:
         return cfg, machine_cam
+
+
+def _settle_mode(modes, cap):
+    """After a camera mode switch: wait for the first frame of the new mode,
+    and reopen it in the camera's own format when MJPG brings none."""
+    _first_frame_size(cap)
+    if modes.ensure_frames():
+        _first_frame_size(cap)
+
+
+def _switch_for_calibration(modes, cap):
+    """modes.for_calibration() (camera_modes.ModeSwitch), settled. The mode
+    to go back to, or None."""
+    prev = modes.for_calibration()
+    if prev is not None:
+        _settle_mode(modes, cap)
+    return prev
 
 
 def _first_frame_size(cap, tries=60, wait=0.03):
@@ -3286,14 +3307,17 @@ def main():
         _disarm_late_keys()     # X11: only the alarm grabbed while loading
     # The real frame, not CAP_PROP_* (some drivers echo the request): the
     # deep model's camera matrix and the calibration stamp are built from it.
-    for line in _camera_report(cap, cam_w, cam_h, cam_fps,
-                               _first_frame_size(cap)):
-        print(line)
+    first_size = _first_frame_size(cap)
     from eye_gaze import camera_modes
+    # Only an "auto" camera mode ever switches: explicit sizes stay put.
     modes = camera_modes.ModeSwitch(
-        cap, machine_cam,
+        cap, machine_cam if mode_auto else None,
         lambda w, h, fourcc: _camera_opener(
             cam_index, w, h, cam_fps, dict(machine_cam, fourcc=fourcc)))
+    if modes.ensure_frames():           # MJPG opened but brings no frame
+        first_size = _first_frame_size(cap)
+    for line in _camera_report(cap, cam_w, cam_h, cam_fps, first_size):
+        print(line)
     _raise_process_priority()
     per_eye = bool(cfg.get("per_eye_features", True))
     estimator = GazeEstimator(use_head_pose=use_head, head_translation=use_tr,
@@ -3398,8 +3422,8 @@ def main():
     if mapper is not None:
         # A calibration restored from a backup may have been made in another
         # camera mode than calibration.json: open that one when it exists.
-        modes.follow(getattr(mapper, "camera", None))
-        _first_frame_size(cap)
+        if modes.follow(getattr(mapper, "camera", None)):
+            _settle_mode(modes, cap)
     mapper = _fit_setup(mapper, sw, sh, _camera_size(cap))
     if mapper is not None:
         print(f"Kayitli kalibrasyon yuklendi. Yeniden kalibrasyon: '{recal_key}' x2.")
@@ -3418,8 +3442,7 @@ def main():
             while time.monotonic() < end and not hotkeys.quit_requested:
                 hotkeys.feed_window_key(cv2.waitKey(100) & 0xFF)
         # No usable calibration: this one is made in the probe's choice.
-        if modes.for_calibration() is not None:
-            _first_frame_size(cap)
+        _switch_for_calibration(modes, cap)
         mapper = _calibrate_until_done(run_calibration, hotkeys, _wait)
         if mapper is None:
             # Only reachable by the user's own quit request: exit code 0 so
@@ -3690,7 +3713,8 @@ def main():
                     if m is not None:
                         # Back to the camera mode the restored calibration
                         # was made in (when a recalibration switched it).
-                        modes.follow(getattr(m, "camera", None))
+                        if modes.follow(getattr(m, "camera", None)):
+                            _settle_mode(modes, cap)
                         feedback.event("cal_done")
                         mapper = m
                         hist.clear()
@@ -3713,13 +3737,14 @@ def main():
                     # A calibration kept in its old camera mode: the new one
                     # is made in the probe's newer choice, and the old mode
                     # comes back if it does not take.
-                    prev_mode = modes.for_calibration()
+                    prev_mode = _switch_for_calibration(modes, cap)
+                    m = None
                     try:
                         m = run_calibration()
                     finally:
                         cancelled = hotkeys.end_calibration()
-                    if m is None:
-                        modes.back(prev_mode)
+                        if m is None:       # cancelled, failed or raised
+                            modes.back(prev_mode)
                     keys.clear()            # presses made during it are stale
                     clicker.discard()
                     if m is None and cancelled:

@@ -25,6 +25,7 @@ AUTO_HFOV_DEG = 2.0 * math.degrees(math.atan(0.5))
 HFOV_RANGE = (30.0, 150.0)  # degrees a webcam lens can have (fisheye incl.)
 
 WINDOW_MAX = (800, 600)     # the status window's first size, at most
+FIT_TOL = 0.005             # window this close to the picture's shape: as is
 
 
 def aspect(w, h):
@@ -101,13 +102,15 @@ def fit_to_window(frame, win_w, win_h):
     import cv2
     import numpy as np
     fh, fw = frame.shape[:2]
-    if (fw, fh) == (win_w, win_h):
+    if (fw, fh) == (win_w, win_h) or same_aspect(
+            aspect(fw, fh), aspect(win_w, win_h), FIT_TOL):
+        # The window already has the picture's shape (the size it was
+        # given): highgui's own scaling cannot stretch it - no work here.
         return frame
     s = min(win_w / float(fw), win_h / float(fh))
     w = max(1, min(win_w, int(round(fw * s))))
     h = max(1, min(win_h, int(round(fh * s))))
-    small = cv2.resize(frame, (w, h), interpolation=cv2.INTER_AREA
-                       if s < 1.0 else cv2.INTER_LINEAR)
+    small = cv2.resize(frame, (w, h), interpolation=cv2.INTER_LINEAR)
     out = np.zeros((win_h, win_w) + frame.shape[2:], frame.dtype)
     x, y = (win_w - w) // 2, (win_h - h) // 2
     out[y:y + h, x:x + w] = small
@@ -174,18 +177,40 @@ class ModeSwitch:
 
     def follow(self, size):
         """The calibration now in use was made at `size` (its camera stamp,
-        e.g. after an undo): open that mode when the camera has it."""
+        e.g. after an undo): open that mode when the camera has it. True
+        when the camera was switched."""
         if self.record is None or not size:
-            return
+            return False
         try:
             from . import hardware
             if tuple(int(v) for v in size) == self._current()[:2]:
-                return
+                return False
             m = hardware.mode_at(self.record.get("modes"), size)
             if m is not None:
-                self._switch(_mode(m))
+                return self._switch(_mode(m))
         except Exception:
             pass
+        return False
+
+    def ensure_frames(self):
+        """A mode opened with MJPG that has brought no frame (the caller
+        waited for one): reopen it in the camera's own format, so the
+        reconnects do not retry a dead format forever. Said once per case
+        (ASCII). True when it switched."""
+        try:
+            if (self.record is None or not self.record.get("fourcc")
+                    or getattr(self.cap, "frame_size", None)):
+                return False
+            w, h, fourcc = self._current()
+            self.say("UYARI: kamera %dx%d %s ile goruntu vermedi; kendi"
+                     " bicimiyle yeniden aciliyor." % (w, h, fourcc))
+            choice = self.record.get("choice")
+            if isinstance(choice, dict) and (choice.get("width"),
+                                             choice.get("height")) == (w, h):
+                choice["fourcc"] = ""   # the same dead format: not again
+            return self._switch((w, h, ""))
+        except Exception:
+            return False
 
     def _switch(self, mode):
         try:
