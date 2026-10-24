@@ -495,12 +495,16 @@ def frame_budget(profile):
 def choose_mode(modes, profile=None):
     """The mode to run (a mode dict), or None for no modes.
 
-    Among the accepted modes (judge_modes) at >= MIN_FPS: the largest whose
-    frame cost (frame_cost_ms) fits the machine's budget (frame_budget) -
-    when it fits none, the largest up to 1280 wide. Widest first (the iris
-    resolution); at the same width the camera's own aspect (the largest
-    accepted mode's), then the larger picture. Without a mode at MIN_FPS:
-    the fastest, as 1.2.0 did."""
+    Among the accepted modes (judge_modes) at >= MIN_FPS, up to 1280 wide
+    is the floor - what 1.2.0 ran, whatever the machine. The budget
+    (frame_budget, against each mode's frame_cost_ms) only decides whether
+    to go ABOVE 1280 wide: the widest such mode that fits it, else the
+    widest up to 1280. A slower machine (a smaller budget) therefore never
+    gets a wider mode, and never a narrower one than the floor. Widest
+    first (the iris resolution); at the same width the camera's own aspect
+    (the largest accepted mode's), then the larger picture. A camera with
+    only wider modes at MIN_FPS runs one of them. Without a mode at
+    MIN_FPS: the fastest, as 1.2.0 did."""
     from .camera_modes import aspect, same_aspect
     if not modes:
         return None
@@ -509,8 +513,10 @@ def choose_mode(modes, profile=None):
         or _by_size(list(modes))
     fast = [m for m in ok if m["fps"] >= MIN_FPS and m["width"] <= max_w]
     if fast:
-        pool = [m for m in fast if m.get("cost_ms", 0.0) <= cost_cap] \
-            or [m for m in fast if m["width"] <= WEAK_MAX_WIDTH] or fast
+        above = [m for m in fast if m["width"] > WEAK_MAX_WIDTH
+                 and m.get("cost_ms", 0.0) <= cost_cap]
+        pool = above or [m for m in fast if m["width"] <= WEAK_MAX_WIDTH] \
+            or fast
         big = max(ok, key=_area)
         nat = aspect(big["width"], big["height"])
         return max(pool, key=lambda m: (

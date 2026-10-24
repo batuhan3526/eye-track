@@ -291,6 +291,42 @@ def test_choice_keeps_the_frame_within_the_measured_gaze_time():
     assert hw.choose_mode(modes, fast)["width"] == 1920
 
 
+# Measured frame costs (ms) on the development machine with real image
+# content, times a slowdown factor below.
+COSTS = {(1920, 1080): 14.2, (1280, 960): 8.5, (1280, 720): 6.7,
+         (640, 480): 0.4}
+# Profiles from the fastest machine to the slowest (smaller budget).
+PROFILES = ({"gaze_ms": 5.0}, {"gaze_ms": 10.0}, {"gaze_ms": 30.0}, {},
+            {"machine": {"cpu_cores": 2, "ram_gb": 4.0}}, {"gaze_ms": 45.0})
+
+
+@pytest.mark.parametrize("slower", [0.5, 1.0, 2.0, 4.0])
+def test_choice_is_monotonic_and_never_below_the_1280_floor(slower):
+    """The budget only decides whether to go above 1280 wide: a slower
+    machine never gets a wider mode, and no machine a narrower one than
+    the widest full-rate mode up to 1280 (what 1.2.0 ran)."""
+    modes = [_m(w, h, 30.0, cost=c * slower) for (w, h), c in COSTS.items()]
+    widths = [hw.choose_mode(modes, p)["width"] for p in PROFILES]
+    assert widths == sorted(widths, reverse=True), widths
+    assert min(widths) >= 1280, widths
+    # More cost for the same machine: never wider.
+    faster = [_m(w, h, 30.0, cost=c * slower / 2) for (w, h), c in
+              COSTS.items()]
+    for p in PROFILES:
+        assert hw.choose_mode(modes, p)["width"] <= \
+            hw.choose_mode(faster, p)["width"]
+
+
+def test_choice_floor_is_the_widest_full_rate_mode_up_to_1280():
+    modes = [_m(1920, 1080, 30.0, cost=50.0), _m(1280, 720, 15.0, cost=9.0),
+             _m(960, 540, 30.0, cost=40.0), _m(640, 480, 30.0, cost=0.4)]
+    # 1280x720 is below MIN_FPS: the floor is 960 wide, cost or not.
+    for p in PROFILES:
+        assert hw.choose_mode(modes, p)["width"] == 960
+    only_wide = [_m(1920, 1080, 30.0, cost=50.0)]
+    assert hw.choose_mode(only_wide, {})["width"] == 1920
+
+
 def test_choice_without_a_full_rate_mode_takes_the_fastest():
     modes = [_m(1280, 960, 10.0), _m(1280, 720, 15.0), _m(640, 480, 20.0)]
     assert hw.choose_mode(modes, {})["width"] == 640
