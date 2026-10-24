@@ -55,6 +55,9 @@ _ROWS = {
 FACTORY = dict(zip(KEYS, _ROWS[1]))
 FACTORY_MEDIAN_WINDOW = 7          # gaze_median_window, frames
 DEFAULT_MEDIAN_WINDOW = 5          # the driver's own fallback without the line
+# What the driver runs with when config.yaml has no such line and no level
+# either (a v1.2.0 file that lost the line): no speed limit, 20 px deadzone.
+MISSING = {"max_cursor_speed": 0.0, "deadzone": 20.0}
 
 
 def preset(level):
@@ -127,15 +130,24 @@ def _survived(key, cfg, user):
     return _same(cfg[key], f) or _same(cfg[key], round(f))
 
 
+def follows(key, value):
+    """True when a filter line holding `value` follows the level: missing
+    (None), "auto", not a usable number, or still the v1.2.0 factory value.
+    The rule resolve() applies, for the settings window to show and write."""
+    if value is None or _is_auto(value) or _number(value) is None:
+        return True
+    factory = FACTORY_MEDIAN_WINDOW if key == "gaze_median_window" else FACTORY.get(key)
+    return factory is not None and _same(value, factory)
+
+
 def _explicit(key, cfg, user):
     """True when `key` is a deliberate choice in the user's file: written,
     usable (the loader kept it), not "auto" and not the factory value."""
-    if key not in user or key not in cfg or _is_auto(cfg[key]):
+    if key not in user or key not in cfg:
         return False
     if not _survived(key, cfg, user):
         return False
-    factory = FACTORY_MEDIAN_WINDOW if key == "gaze_median_window" else FACTORY.get(key)
-    return factory is None or not _same(cfg[key], factory)
+    return not follows(key, cfg[key])
 
 
 def resolve(cfg, user):

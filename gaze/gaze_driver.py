@@ -3527,8 +3527,8 @@ def main():
 
     fx = OneEuroFilter(cfg["freq"], cfg["mincutoff"], cfg["beta"], cfg["dcutoff"])
     fy = OneEuroFilter(cfg["freq"], cfg["mincutoff"], cfg["beta"], cfg["dcutoff"])
-    limiter = SpeedLimiter(float(cfg.get("max_cursor_speed", 0)))
-    stabilizer = FixationStabilizer(float(cfg.get("deadzone", 20)))
+    limiter = SpeedLimiter(float(cfg.get("max_cursor_speed", sensitivity.MISSING["max_cursor_speed"])))
+    stabilizer = FixationStabilizer(float(cfg.get("deadzone", sensitivity.MISSING["deadzone"])))
     saccader = make_saccade_jump(cfg)   # None unless saccade_jump: true
     # Frame counts (median window, stabilizer settle, saccade confirm, gaze
     # scroll period) follow the loop's measured rate; 30 fps = as before.

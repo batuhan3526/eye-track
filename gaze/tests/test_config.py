@@ -562,3 +562,52 @@ def test_pursuit_latency_written_in_milliseconds_becomes_auto(monkeypatch,
 def test_a_sane_pursuit_latency_is_kept(monkeypatch, tmp_path):
     cfg, said = _load(monkeypatch, tmp_path, "pursuit_latency: 0.18\n")
     assert cfg["pursuit_latency"] == pytest.approx(0.18) and not said
+
+
+# --- ranges: what the settings window offers, checked on every load too ---------
+
+@pytest.mark.parametrize("body,key,want", [
+    ("deadzone: -5\n", "deadzone", 0.0),
+    ("max_cursor_speed: 99999\n", "max_cursor_speed", None),
+    ("dwell_seconds: 0.01\n", "dwell_seconds", None),
+    ("zoom_scale: 5\n", "zoom_scale", 0.9),
+    ("feedback_volume: 3\n", "feedback_volume", 1.0),
+    ("calibration_passes: 0\n", "calibration_passes", 1),
+    ("blink_closed_threshold: 2\n", "blink_closed_threshold", None),
+])
+def test_a_number_outside_its_range_is_clamped_and_named(monkeypatch,
+                                                         tmp_path, body, key,
+                                                         want):
+    cfg, said = _load(monkeypatch, tmp_path, body)
+    lo, hi = config_mod.RANGES[key]
+    assert lo <= cfg[key] <= hi
+    if want is not None:
+        assert cfg[key] == pytest.approx(want)
+    assert any(key in m for m in said)
+    assert all(m.isascii() for m in said)
+
+
+def test_a_field_of_view_no_lens_has_becomes_auto(monkeypatch, tmp_path):
+    cfg, said = _load(monkeypatch, tmp_path, "camera_hfov_deg: 500\n")
+    assert cfg["camera_hfov_deg"] == "auto"
+    assert any("camera_hfov_deg" in m for m in said)
+
+
+def test_the_range_ends_themselves_are_kept_quietly(monkeypatch, tmp_path):
+    body = "".join("%s: %s\n" % (k, v) for k, (lo, hi) in
+                   config_mod.RANGES.items() for v in (lo,))
+    cfg, said = _load(monkeypatch, tmp_path, body)
+    assert not said
+    body = "".join("%s: %s\n" % (k, hi) for k, (lo, hi) in
+                   config_mod.RANGES.items())
+    cfg, said = _load(monkeypatch, tmp_path, body)
+    assert not said
+
+
+def test_the_shipped_template_is_inside_every_range(shipped_config):
+    # read_config, not load_config: no last-known-good copy beside the
+    # template in the source tree.
+    said = []
+    _, problem = config_mod.read_config(str(shipped_config),
+                                        report=said.append)
+    assert problem is None and not said

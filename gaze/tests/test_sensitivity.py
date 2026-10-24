@@ -332,3 +332,27 @@ def test_unusable_line_without_the_key_is_v120(tmp_path, said, line, want):
     key = line.split(":")[0]
     cfg = config.load_config(_write(tmp_path, 'left_click_key: "space"\n' + line + "\n"))
     assert cfg[key] == want == config.DEFAULTS[key]
+
+
+# --- what the settings window asks ----------------------------------------------
+
+@pytest.mark.parametrize("value,follows", [
+    (None, True), ("auto", True), (" AUTO ", True), (20, True), ("20", True),
+    (20.0, True), (16, False), (0, False), ("abc", True)])
+def test_follows_is_the_rule_resolve_applies(value, follows):
+    assert sensitivity.follows("deadzone", value) is follows
+
+
+def test_the_driver_falls_back_to_missing_without_the_line():
+    # The settings window shows sensitivity.MISSING for a missing line; the
+    # driver must run with the same numbers.
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "gaze_driver.py")
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    assert ('SpeedLimiter(float(cfg.get("max_cursor_speed",'
+            ' sensitivity.MISSING["max_cursor_speed"])))') in src
+    assert ('FixationStabilizer(float(cfg.get("deadzone",'
+            ' sensitivity.MISSING["deadzone"])))') in src
+    assert sensitivity.MISSING == {"max_cursor_speed": 0.0, "deadzone": 20.0}

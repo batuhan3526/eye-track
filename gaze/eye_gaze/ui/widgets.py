@@ -94,7 +94,9 @@ def apply_theme(root):
         pass
     style.configure(".", font="TkDefaultFont", background=BG, foreground=FG)
     style.configure("TNotebook", background=BG)
-    style.configure("TNotebook.Tab", padding=(16, 8), font="TkDefaultFont",
+    # Ten settings tabs side by side must fit a 1280 px wide screen (a
+    # 1080p laptop at 150 %): less side padding, the same tall tabs.
+    style.configure("TNotebook.Tab", padding=(8, 10), font="TkDefaultFont",
                     background=PANEL, foreground=FG)
     style.map("TNotebook.Tab", background=[("selected", ACCENT)],
               foreground=[("selected", ACCENT_FG)])

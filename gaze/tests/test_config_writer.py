@@ -158,9 +158,10 @@ def test_tiny_and_huge_floats_still_read_back_as_numbers(tmp_path):
     # PyYAML reads "1e-05" (no dot) as a STRING.
     p = tmp_path / "config.yaml"
     p.write_bytes(b'left_click_key: "space"\n')
-    cw.set_values(str(p), {"beta": 0.00001, "max_cursor_speed": 1e20})
+    # saccade_velocity_px_s: a float setting with no range (config.RANGES).
+    cw.set_values(str(p), {"beta": 0.00001, "saccade_velocity_px_s": 1e20})
     raw = yaml.safe_load(p.read_text(encoding="utf-8"))
-    assert raw["beta"] == 0.00001 and raw["max_cursor_speed"] == 1e20
+    assert raw["beta"] == 0.00001 and raw["saccade_velocity_px_s"] == 1e20
 
 
 @pytest.mark.parametrize("bad", [None, [1, 2], {"a": 1}, float("nan"),

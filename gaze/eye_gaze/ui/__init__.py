@@ -144,6 +144,18 @@ class Services:
         return _config.read_config(self.config_path(),
                                    report=lambda message: None)
 
+    def read_file_values(self):
+        """{setting: value} as config.yaml itself writes them (no defaults
+        merged); {} when it cannot be read. Which lines exist decides what
+        cursor_sensitivity does to the filter lines (eye_gaze.sensitivity)."""
+        try:
+            import yaml
+            with open(self.config_path(), encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+        except Exception:
+            return {}
+        return dict(data) if isinstance(data, dict) else {}
+
     def set_values(self, values):
         from eye_gaze import config_writer
         config_writer.set_values(self.config_path(), values)

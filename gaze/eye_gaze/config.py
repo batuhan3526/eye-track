@@ -5,7 +5,7 @@ import os
 
 import yaml
 
-from eye_gaze import sensitivity
+from eye_gaze import camera_modes, sensitivity
 from eye_gaze.i18n import t
 
 DEFAULTS = {
@@ -161,6 +161,33 @@ _POSITIVE_KEYS = frozenset(
     "freq mincutoff dcutoff pursuit_speed gaze_median_seconds".split())
 _MAX_LATENCY = 0.5   # s; pursuit_latency above this is ms written as seconds
 
+# What a number may be at all (pixel ones in reference pixels, before
+# eye_gaze.physical scales them for the screen). Wide on purpose: only a
+# value no one could mean is touched - a typo (dwell_seconds: 0.01, a
+# volume of 3), a sign - and it is clamped to the nearest end and named on
+# the console, never fatal. The settings window's sliders sit inside these
+# ranges. The camera's field of view outside what a lens has means "auto"
+# (camera_modes.hfov_setting reads it the same way).
+RANGES = {
+    "deadzone": (0.0, 200.0),               # px; 0 = off
+    "max_cursor_speed": (0.0, 10000.0),     # px/s; 0 = no limit
+    "snap_radius": (0.0, 600.0),            # px
+    "dwell_seconds": (0.2, 10.0),
+    "dwell_radius": (5.0, 400.0),           # px
+    "dwell_ring_px": (12, 400),             # dwell_ring.MIN_PX / MAX_PX
+    "blink_hold_seconds": (0.1, 5.0),
+    "blink_closed_threshold": (0.05, 0.6),  # old normalised openness scale
+    "zoom_scale": (0.1, 0.9),               # what the magnifier clamps to
+    "zoom_timeout": (1.0, 300.0),
+    "pursuit_speed": (50.0, 3000.0),        # px/s
+    "calibration_passes": (1, 5),
+    "feedback_volume": (0.0, 1.0),
+    "tts_speed": (0.3, 3.0),
+    "tts_volume": (0.0, 2.0),
+    "camera_hfov_deg": camera_modes.HFOV_RANGE,
+}
+_RANGE_AUTO = frozenset(("camera_hfov_deg",))
+
 # Settings that may say "auto" instead of a value. The camera, deep-model and
 # dictation lines depend on the machine, so a new install's template
 # (config.default.yaml, spec 6.9) ships them as "auto" and the driver picks
@@ -267,6 +294,16 @@ def _coerce_numbers(cfg, user, report=None):
             say(t("config.bad_latency", value=user[key],
                   max="%s" % _MAX_LATENCY))
             cfg[key] = "auto"
+        elif key in RANGES and not RANGES[key][0] <= v <= RANGES[key][1]:
+            lo, hi = RANGES[key]
+            if key in _RANGE_AUTO:
+                cfg[key] = "auto"
+                say(t("config.out_of_range_auto", key=key, value=user[key],
+                      lo="%g" % lo, hi="%g" % hi))
+            else:
+                cfg[key] = kind(min(max(v, lo), hi))
+                say(t("config.out_of_range", key=key, value=user[key],
+                      lo="%g" % lo, hi="%g" % hi, used="%g" % cfg[key]))
 
 
 def _can_click(cfg):
