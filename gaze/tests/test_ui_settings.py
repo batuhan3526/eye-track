@@ -456,6 +456,41 @@ def test_the_settings_window_fits_the_work_area(root, data_dir, monkeypatch,
     _fits(s.win, area, s.footer, s.notebook)
 
 
+@pytest.mark.parametrize("lang", ["tr", "en"])
+def test_a_narrow_screen_narrows_the_tab_strip_and_a_wide_one_gets_it_back(
+        root, data_dir, monkeypatch, lang):
+    """Linux fonts made the one-row tab strip wider than a 1024 px screen.
+    There it gives up padding, the language tab's bilingual part and a few
+    points of font (never below TAB_FONT_MIN); a wide screen keeps all."""
+    from tkinter import ttk
+    import tkinter.font as tkfont
+    from eye_gaze import i18n
+    from eye_gaze.ui import settings, widgets
+    i18n.set_language(lang)
+    _write_config(data_dir)
+    tab = settings.TAB_STYLE + ".Tab"
+
+    def build(area):
+        monkeypatch.setattr(widgets, "work_area", lambda win: area)
+        s = make_settings(root, make_services(), FakeSup())
+        _fits(s.win, area, s.footer, s.notebook)
+        names = [s.notebook.tab(x, "text") for x in s.notebook.tabs()]
+        return s, names, str(ttk.Style(s.win).lookup(tab, "font"))
+
+    s, names, font = build((0, 0, 1024, 700))
+    assert len(names) == 10 and all(names)
+    assert names[-1] in (i18n.t("settings.tab.language"),
+                         i18n.t("settings.tab_short.language"))
+    if font != "TkDefaultFont":
+        assert tkfont.nametofont(font, root=root).actual()["size"] >=             settings.TAB_FONT_MIN
+    s, names, font = build((0, 0, 2560, 1400))
+    assert names[-1] == i18n.t("settings.tab.language")
+    assert font == "TkDefaultFont"
+    pad = ttk.Style(s.win).lookup(tab, "padding")
+    pad = pad if isinstance(pad, (tuple, list)) else str(pad).split()
+    assert str(pad[0]) == str(settings.TAB_PADDING[0])
+
+
 def test_the_tabs_change_by_keyboard(root, data_dir):
     _write_config(data_dir)
     s = make_settings(root, make_services(), FakeSup())

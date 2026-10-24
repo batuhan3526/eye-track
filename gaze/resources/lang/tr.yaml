@@ -236,6 +236,9 @@ settings:
     advanced: "Gelişmiş"
     missing: "Eksikler"
     language: "Dil (Language)"
+  # the language tab where the tab strip is too wide for the screen
+  tab_short:
+    language: "Dil"
   camera:
     now_auto: "Şu an: kamera {index} ({width}x{height}), kendiliğinden seçildi."
     now_searching: "Şu an: kamera kendiliğinden aranıyor."

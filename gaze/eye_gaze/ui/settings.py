@@ -38,6 +38,7 @@ read-only file, a value outside config.RANGES or the last click route) and
 Supervisor.restart().
 """
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk
 
 from eye_gaze import camera_modes
@@ -52,12 +53,17 @@ _MISSING = object()
 SENS = sensitivity.KEY
 
 # The window on any screen (widgets.fit_to_work_area): pages PAGE_H tall where
-# there is room, shorter (they scroll) where there is not; the tab strip's
-# side padding goes down before the tabs would make the window too wide.
+# there is room, shorter (they scroll) where there is not. The tab strip is
+# what makes the window wide (ttk tabs have one row; Linux fonts are wider
+# than Segoe UI), so where it does not fit it gives up, in this order: its
+# side padding, the language tab's bilingual part ("Dil (Language)" ->
+# "Dil"), then a few points of its font - never below TAB_FONT_MIN.
 PAGE_H = 440
 MIN_SIZE = (1000, 760)
 TAB_STYLE = "Settings.TNotebook"
 TAB_PADDING = (16, 8, 4, 2)
+TAB_FONT_SIZES = (14, 13, 12)
+TAB_FONT_MIN = TAB_FONT_SIZES[-1]
 
 # Sliders: (lo, hi, step, kind) - inside config.RANGES (a file value outside
 # them widens the slider instead of being moved).
@@ -223,6 +229,8 @@ class SettingsWindow:
             tab = tk.Frame(self.notebook, bg=BG, padx=16, pady=12)
             build(tab)
             self.notebook.add(tab, text=t("settings.tab." + key))
+            if key == "language":
+                self._language_tab = tab
         # The button row and the message are packed BEFORE the tabs (made
         # after them, so Tab still reaches the tabs first): a window held
         # smaller than its content takes the height from the tabs, whose
@@ -238,18 +246,47 @@ class SettingsWindow:
         self._fit(place=first)
 
     def _fit(self, place):
-        """The whole window on the work area: narrower tabs first, then
-        shorter pages (widgets.fit_to_work_area)."""
+        """The whole window on the work area: narrower tabs first (see
+        TAB_PADDING), then shorter pages (widgets.fit_to_work_area)."""
         area = widgets.work_area(self.win)
         room = area[2] - widgets.DECOR[0]
         style = ttk.Style(self.win)
-        for pad in TAB_PADDING:
-            style.configure(TAB_STYLE + ".Tab", padding=(pad, 10))
+        last = TAB_PADDING[-1]
+        steps = ([(pad, None, False) for pad in TAB_PADDING]
+                 + [(last, None, True)]
+                 + [(last, size, True) for size in TAB_FONT_SIZES])
+        for pad, size, short in steps:
+            style.configure(TAB_STYLE + ".Tab", padding=(pad, 10),
+                            font=self._tab_font(size))
+            self._tab_labels(short)
             self.win.update_idletasks()
             if self.win.winfo_reqwidth() <= room:
                 break
         widgets.fit_to_work_area(self.win, self._scrolls, MIN_SIZE, area,
                                  place=place)
+
+    def _tab_font(self, size):
+        """The tab strip's font: the default one (None) or a smaller copy,
+        cached on the root - the style outlives this window."""
+        if size is None:
+            return "TkDefaultFont"
+        root = self.win._root()
+        cache = getattr(root, "_gozfaresi_tab_fonts", None)
+        if cache is None:
+            cache = root._gozfaresi_tab_fonts = {}
+        if size not in cache:
+            fam = widgets.fonts(root)["body"].actual().get("family")
+            cache[size] = tkfont.Font(root=root, family=fam, size=int(size))
+        return cache[size]
+
+    def _tab_labels(self, short):
+        """The language tab names the other language too, so a person who
+        cannot read this one finds it; `short` drops that part."""
+        key = "settings.tab_short.language" if short else             "settings.tab.language"
+        try:
+            self.notebook.tab(self._language_tab, text=t(key))
+        except (tk.TclError, AttributeError):
+            pass
 
     # --- the driver around a capture or a camera search -------------------
 

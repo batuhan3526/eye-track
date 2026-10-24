@@ -229,6 +229,9 @@ settings:
     advanced: "Advanced"
     missing: "Missing"
     language: "Language (Dil)"
+  # the language tab where the tab strip is too wide for the screen
+  tab_short:
+    language: "Language"
   camera:
     now_auto: "Now: camera {index} ({width}x{height}), chosen automatically."
     now_searching: "Now: the camera is found automatically."
