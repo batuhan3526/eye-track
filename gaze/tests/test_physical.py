@@ -68,15 +68,52 @@ def test_same_panel_at_150_percent_scaling_is_the_reference():
 
 
 def test_inside_the_band_is_exactly_one():
-    # 27" 1920x1080: 0.311 mm/px -> 0.75 (applied); 32" 2560x1440 -> 0.84
-    # (applied); 25" 2560x1440 -> 1.08 (inside, untouched)
+    # 25" 2560x1440 -> 1.08 (inside, untouched)
     s = physical.detect((2560, 1440), candidates=[("EDID", (553, 311))])
-    assert 0.85 <= s.raw <= 1.18 and s.factor == 1.0 and not s.applied
+    assert physical.BAND[0] <= s.raw <= physical.BAND[1]
+    assert s.factor == 1.0 and not s.applied
 
 
 def test_band_edges():
-    for raw, applied in ((0.849, True), (0.85, False), (1.18, False), (1.181, True)):
+    assert physical.BAND == (0.80, 1.25)
+    for raw, applied in ((0.799, True), (0.80, False), (1.25, False), (1.251, True)):
         assert physical.apply_band(raw) == (raw if applied else 1.0)
+
+
+def _panel(diag_in, aspect=(16, 9)):
+    """(w_mm, h_mm) of a panel from its diagonal and aspect ratio."""
+    k = diag_in * 25.4 / math.hypot(*aspect)
+    return (aspect[0] * k, aspect[1] * k)
+
+
+# (name, diagonal ", logical px the DPI-unaware process sees, scaled?)
+COMMON_SCREENS = [
+    ('21.5" 1080p', 21.5, (1920, 1080), False),     # 0.94
+    ('23.8" 1080p', 23.8, (1920, 1080), False),     # 0.85
+    ('24" 1080p', 24.0, (1920, 1080), False),       # 0.84
+    ('27" 1080p', 27.0, (1920, 1080), True),        # 0.75
+    ('27" 1440p', 27.0, (2560, 1440), False),       # 1.00
+    ('32" 1440p', 32.0, (2560, 1440), False),       # 0.84
+    ('27" 4K at 100 %', 27.0, (3840, 2160), True),  # 1.50
+    ('32" 4K at 100 %', 32.0, (3840, 2160), True),  # 1.26
+    ('27" 4K at 150 %', 27.0, (2560, 1440), False), # 1.00
+    ('13.3" 1080p at 150 %', 13.3, (1280, 720), False),   # 1.01
+    ('14" 1080p at 150 %', 14.0, (1280, 720), False),     # 0.96
+    ('15.6" 1080p at 125 %', 15.6, (1536, 864), False),   # 1.04
+    ('15.6" 1080p at 100 %', 15.6, (1920, 1080), True),   # 1.30
+]
+
+
+@pytest.mark.parametrize("name,diag,px,scaled", COMMON_SCREENS,
+                         ids=[c[0] for c in COMMON_SCREENS])
+def test_common_screens(name, diag, px, scaled):
+    s = physical.detect(px, candidates=[("EDID", _panel(diag))])
+    assert s.source == "EDID"
+    assert s.applied is scaled, (name, s.raw)
+    if not scaled:
+        assert s.factor == 1.0
+        cfg = {"deadzone": 20, "max_cursor_speed": 1200, "beta": 0.002}
+        assert physical.scaled_config(cfg, s.factor) is cfg   # bit for bit
 
 
 def test_clamped_to_its_range():

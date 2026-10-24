@@ -4,7 +4,7 @@
 Every pixel constant of the cursor chain (deadzone 20 px, dwell radius 40 px,
 max speed 1200 px/s, ...) was tuned on one kind of screen: about 0.233 mm per
 logical pixel (a 27" 2560x1440, or a 27" 4K at 150 %). On a 4K 27" at 100 %
-the same 20 px is a third smaller on the glass; on a 24" 1080p it is a sixth
+the same 20 px is a third smaller on the glass; on a 27" 1080p it is a third
 larger. The factor here is REF_MM_PER_PX / (this screen's mm per logical
 pixel): the pixel constants are multiplied by it, so they keep their size in
 millimetres - which is what the eye's jitter and the user's aim are measured
@@ -26,9 +26,11 @@ A size that is missing or implausible (no EDID, a projector's 0x0, an EDID
 that stores the aspect ratio "16x9 cm", a panel that does not match the
 screen's shape) means factor 1.0.
 
-The factor is clamped to CLAMP, and inside BAND it is exactly 1.0: screens
-close to the reference (typical desktops) keep the v1.2.0 numbers bit for
-bit, and only a screen physically far from it is scaled. The mapping outlier
+The factor is clamped to CLAMP, and inside BAND it is exactly 1.0: common
+desktop screens (21.5-24" 1080p at 0.84-0.94, 27-32" 1440p, laptops at their
+usual Windows scaling) keep the v1.2.0 numbers bit for bit, and only a screen
+physically far from the reference is scaled (27" 1080p 0.75, 4K at 100 %
+1.26-1.50, 13-15" 1080p at 100 % 1.3-1.5). The mapping outlier
 floor (eye_gaze.mapping, 60 px) is NOT scaled: it is part of every fit, and
 scaling it would change the refit of an existing calibration.
 
@@ -41,7 +43,7 @@ import sys
 
 REF_MM_PER_PX = 0.2331          # 27" 2560x1440: 596.7 mm / 2560 px
 CLAMP = (0.6, 1.6)
-BAND = (0.85, 1.18)             # inside: exactly 1.0
+BAND = (0.80, 1.25)             # inside: exactly 1.0
 
 # A monitor's diagonal outside this is a wrong reading, not a monitor.
 _MIN_DIAG_MM = 250.0            # ~10"
