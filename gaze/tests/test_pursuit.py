@@ -135,11 +135,21 @@ def _kept_motion(p, step=1 / 30.0):
     return h, v
 
 
-def test_the_default_path_is_the_grid():
+def test_the_default_path_is_the_rows():
     p = PursuitPath(2560, 1440, 480.0)
-    g = PursuitPath(2560, 1440, 480.0, layout="grid")
-    assert p._pts == g._pts
-    assert p._pts != PursuitPath(2560, 1440, 480.0, layout="rows")._pts
+    assert pursuit.DEFAULT_LAYOUT == "rows"
+    assert p._pts == PursuitPath(2560, 1440, 480.0, layout="rows")._pts
+    assert p._pts != PursuitPath(2560, 1440, 480.0, layout="grid")._pts
+
+
+def test_no_setting_and_the_factory_setting_both_mean_rows():
+    import os
+    import yaml
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(here, "config.default.yaml"), encoding="utf-8") as f:
+        factory = yaml.safe_load(f)
+    assert pursuit.layout_of(factory.get("calibration_path")) == "rows"
+    assert pursuit.layout_of({}.get("calibration_path")) == "rows"
 
 
 def test_the_rows_layout_is_the_old_path_unchanged():
@@ -151,7 +161,7 @@ def test_the_rows_layout_is_the_old_path_unchanged():
 
 @pytest.mark.parametrize("sw,sh", _SCREENS)
 def test_grid_covers_the_same_envelope_as_the_rows(sw, sh):
-    pts = _trace(PursuitPath(sw, sh, 480.0))
+    pts = _trace(PursuitPath(sw, sh, 480.0, layout="grid"))
     xs, ys = [x for x, _ in pts], [y for _, y in pts]
     assert min(xs) == pytest.approx(0.06 * sw) and max(xs) == pytest.approx(0.94 * sw)
     assert min(ys) == pytest.approx(0.08 * sh) and max(ys) == pytest.approx(0.92 * sh)
@@ -159,14 +169,14 @@ def test_grid_covers_the_same_envelope_as_the_rows(sw, sh):
 
 @pytest.mark.parametrize("sw,sh", _SCREENS)
 def test_grid_is_about_as_long_as_the_rows(sw, sh):
-    grid = PursuitPath(sw, sh, 480.0)
+    grid = PursuitPath(sw, sh, 480.0, layout="grid")
     rows = PursuitPath(sw, sh, 480.0, layout="rows")
     assert 0.85 * rows.length <= grid.length <= 1.15 * rows.length
 
 
 @pytest.mark.parametrize("sw,sh", _SCREENS)
 def test_grid_sweeps_the_full_height_in_several_columns(sw, sh):
-    p = PursuitPath(sw, sh, 480.0)
+    p = PursuitPath(sw, sh, 480.0, layout="grid")
     cols = set()
     for a, b in zip(p._pts, p._pts[1:]):
         if abs(a[0] - b[0]) < 1e-9 and abs(a[1] - b[1]) >= 0.4 * sh:
@@ -177,7 +187,7 @@ def test_grid_sweeps_the_full_height_in_several_columns(sw, sh):
 @pytest.mark.parametrize("sw,sh", [(1366, 768), (1920, 1080), (2560, 1440)])
 def test_grid_keeps_far_more_vertical_pursuit_than_the_rows(sw, sh):
     _, v_rows = _kept_motion(PursuitPath(sw, sh, 480.0, layout="rows"))
-    h, v = _kept_motion(PursuitPath(sw, sh, 480.0))
+    h, v = _kept_motion(PursuitPath(sw, sh, 480.0, layout="grid"))
     assert v >= 3.0 * max(v_rows, 0.5)
     assert v >= 0.25 * (h + v)          # a real share, not a token
 
@@ -202,10 +212,12 @@ def test_a_waypoint_on_a_straight_line_is_no_turn():
     assert not p.near_turn(5.0)
 
 
+@pytest.mark.parametrize("layout", ["rows", "grid"])
 @pytest.mark.parametrize("speed", [380.0, 480.0, 600.0, 900.0])
-def test_the_guard_shrinks_on_short_segments_so_half_of_each_survives(speed):
-    # A small screen: the vertical half-columns last well under a second.
-    p = PursuitPath(1024, 768, speed)
+def test_the_guard_shrinks_on_short_segments_so_half_of_each_survives(speed,
+                                                                      layout):
+    # A small screen: the vertical links last well under a second.
+    p = PursuitPath(1024, 768, speed, layout=layout)
     for i, (a, b) in enumerate(zip(p._cum, p._cum[1:])):
         dur = (b - a) / speed
         ts = [a / speed + dur * k / 200.0 for k in range(1, 200)]
@@ -214,7 +226,7 @@ def test_the_guard_shrinks_on_short_segments_so_half_of_each_survives(speed):
 
 
 def test_on_a_large_screen_the_guard_is_the_full_one():
-    p = PursuitPath(2560, 1440, 480.0)
+    p = PursuitPath(2560, 1440, 480.0, layout="grid")
     before, after = pursuit.TURN_GUARD
     c = p._cum[1] / p.speed               # first corner (a real turn)
     assert p.near_turn(c - 0.9 * before) and p.near_turn(c + 0.9 * after)
@@ -230,7 +242,7 @@ def test_a_path_without_a_turn_guard_keeps_the_old_rule():
 
 
 @pytest.mark.parametrize("value,want", [
-    (None, "grid"), ("", "grid"), ("grid", "grid"), (" Grid ", "grid"),
+    (None, "rows"), ("", "rows"), ("grid", "grid"), (" Grid ", "grid"),
     ("izgara", "grid"), ("rows", "rows"), ("ROWS", "rows"), ("satir", "rows")])
 def test_calibration_path_setting(value, want):
     said = []
@@ -238,8 +250,8 @@ def test_calibration_path_setting(value, want):
     assert said == []
 
 
-def test_an_unknown_calibration_path_says_so_and_uses_the_grid():
+def test_an_unknown_calibration_path_says_so_and_uses_the_rows():
     said = []
-    assert pursuit.layout_of("zigzag", say=said.append) == "grid"
+    assert pursuit.layout_of("zigzag", say=said.append) == "rows"
     assert len(said) == 1 and "zigzag" in said[0]
     said[0].encode("ascii")

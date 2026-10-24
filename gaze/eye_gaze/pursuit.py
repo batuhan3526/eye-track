@@ -8,14 +8,15 @@ far less tiring than staring at dots.
 
 Two layouts (config calibration_path):
 
-- "grid" (default): the outer frame plus the middle row and the middle
-  column - three full-width rows AND three full-height columns, the middle
-  column swept twice. The vertical model learns from sweeps over the whole
-  height instead of four row levels.
-- "rows": the earlier boustrophedon over four rows plus a return to center.
-  Its short vertical links were mostly lost to the turn guard, so the
-  vertical model saw four levels only - a tester's cursor then reached
-  about a fifth of the screen height.
+- "rows" (default): the boustrophedon over four rows plus a return to
+  center that every calibration so far was made with.
+- "grid": the outer frame plus the middle row and the middle column -
+  three full-width rows AND three full-height columns, the middle column
+  swept twice, so the vertical model is trained on vertical motion over
+  the whole height. Selectable, not the default: in simulation (synthetic
+  eye through the real model selection, tests/test_pursuit_sim.py) it was
+  no more accurate than the rows - four well-spread rows already pin a
+  linear or quadratic vertical fit - and it has no field record yet.
 
 Both cover the same 6%-94% (x) / 8%-92% (y) envelope, and the grid is
 about as long as the rows (within 15% on landscape screens from 5:4 to 32:9),
@@ -45,7 +46,7 @@ _GRID = [(_X[i], _Y[j]) for i, j in
 
 LAYOUTS = {"grid": _GRID, "rows": _ROWS}
 _ALIASES = {"izgara": "grid", "satir": "rows", "satirlar": "rows"}
-DEFAULT_LAYOUT = "grid"
+DEFAULT_LAYOUT = "rows"      # also when config.yaml has no calibration_path
 
 # Turn guard (s of ball time, i.e. after the eye lag is taken off): the eye
 # keeps smooth pursuit up to the turn and needs a catch-up saccade after it,
@@ -72,9 +73,10 @@ def layout_of(value, say=print):
     if v in LAYOUTS:
         return v
     try:
-        say("UYARI: calibration_path '%s' taninmadi; \"grid\" kullaniliyor"
-            " (\"grid\" ya da \"rows\" yazin)."
-            % str(value).encode("ascii", "replace").decode("ascii"))
+        say("UYARI: calibration_path '%s' taninmadi; \"%s\" kullaniliyor"
+            " (\"rows\" ya da \"grid\" yazin)."
+            % (str(value).encode("ascii", "replace").decode("ascii"),
+               DEFAULT_LAYOUT))
     except Exception:
         pass
     return DEFAULT_LAYOUT

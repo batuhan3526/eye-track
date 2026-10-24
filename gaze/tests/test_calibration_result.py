@@ -83,15 +83,15 @@ def test_the_window_says_it_is_calculating_then_shows_the_result(monkeypatch,
                       y=q.coverage[1]) in out
 
 
-def test_the_default_path_is_the_grid_and_rows_can_be_chosen(monkeypatch):
+def test_the_default_path_is_the_rows_and_grid_can_be_chosen(monkeypatch):
     m, _ = _run_pursuit(monkeypatch)
-    grid = PursuitPath(1280, 720, 900.0)
-    assert m.cal_samples.meta["path_pts"] == [list(p) for p in grid._pts]
-    assert m.cal_samples.meta["guard"] == list(pursuit.TURN_GUARD)
-    assert m.cal_samples.meta["screen"] == [1280, 720]
-    m, _ = _run_pursuit(monkeypatch, layout="rows")
     rows = PursuitPath(1280, 720, 900.0, layout="rows")
     assert m.cal_samples.meta["path_pts"] == [list(p) for p in rows._pts]
+    assert m.cal_samples.meta["guard"] == list(pursuit.TURN_GUARD)
+    assert m.cal_samples.meta["screen"] == [1280, 720]
+    m, _ = _run_pursuit(monkeypatch, layout="grid")
+    grid = PursuitPath(1280, 720, 900.0, layout="grid")
+    assert m.cal_samples.meta["path_pts"] == [list(p) for p in grid._pts]
 
 
 def _bad_mapper():

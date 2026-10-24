@@ -22,7 +22,7 @@ deadzone: 20             # fiksasyon sabitleyici (px): bakis sabitken imlec TAST
 calibration_mode: "pursuit"  # "pursuit" = ekranda suzulen TOPU gozle takip et (cok daha fazla veri, daha az yorucu). "dots" = klasik sabit noktalar
 pursuit_speed: 480       # topun hizi (px/sn); takip zorlaniyorsa 380, cok uzun geliyorsa 600
 pursuit_latency: "auto"  # goz tepki gecikmesi: "auto" = kalibrasyonda kisiye ozel OGRENILIR (onerilen); sabit sayi da yazilabilir (or. 0.15)
-calibration_path: "grid" # topun yolu: "grid" = 3 yatay satir + 3 dikey sutun (dikey isabet icin onerilen); "rows" = eski 4 yatay satir
+calibration_path: "rows" # topun yolu: "rows" = 4 yatay satir (varsayilan, sahada denenmis); "grid" = 3 yatay satir + 3 dikey sutun (deneme)
 calibration_points: 16   # (dots modu) 16 = sik 4x4 izgara; 9 = eski hizli mod
 calibration_poly2: true  # egrisel (quadratic) kalibrasyon: kenar/kose isabetini artirir. Sorun olursa false
 calibration_passes: 2    # 2 = noktalar iki tur gosterilir, turlar arasi hafif pozisyon degistirin (yaslanma telafisi OGRENILIR). Hizli: 1

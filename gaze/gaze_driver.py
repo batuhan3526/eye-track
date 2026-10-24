@@ -987,7 +987,7 @@ _PURSUIT_MIN_EARLY = 15   # ... with fewer usable frames than this: stop
 
 def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
                       passes=1, speed=480.0, latency="auto", closed_thr=0.18,
-                      feat=None, layout="grid", recal_key="F9"):
+                      feat=None, layout="rows", recal_key="F9"):
     """Smooth-pursuit calibration: the user follows a gliding ball; every
     frame contributes a (gaze, ball position) pair. The user's eye lag is
     LEARNED from the data (latency='auto': several candidate lags are fitted
