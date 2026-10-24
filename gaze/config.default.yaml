@@ -14,7 +14,7 @@ camera_width: "auto"     # kamera cozunurlugu. "auto" = kameranin GERCEKTE verdi
 camera_height: "auto"    #   sonradan degistirirseniz (or. 1280x720) goruntu orani degisir ve YENIDEN KALIBRASYON gerekir
 camera_fps: "auto"       # kare hizi. Karanlik odada kameranin otomatik pozlamasi hizi 15-20 fps'e dusurebilir (isik ekleyin)
                          # "auto" mod: KAYITLI KALIBRASYON HANGI MODDA YAPILDIYSA kamera o modda acilir (kamera o modu hala
-                         # veriyorsa) - yeniden kamera aramasi (sihirbaz, Ayarlar > Kamera ara) kalibrasyonu bozmaz. Yeni secilen
+                         # veriyorsa) - yeniden kamera aramasi (sihirbaz, Ayarlar > Kameralari ara) kalibrasyonu bozmaz. Yeni secilen
                          # mod (or. 1920x1080) yeni kurulumda ve bir sonraki yeniden kalibrasyonda (F9 x2) kullanilir.
                          # Kamera aramasi her modu olcer (en fazla 1920 genislik; yavas modlarda MJPG de denenir) ve
                          # goruntusu GERILMIS modlari hic secmez. Bulunan modlar Ayarlar > Kamera sekmesinde listelenir

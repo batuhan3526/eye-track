@@ -100,7 +100,7 @@ Sürüm numarası: `eye_gaze/__init__.py` → `__version__`. Çıktılar `../dis
 
 - **Paket denetimi** (`python packaging/hazirla.py denetle <onedir>`, iki betik de çalıştırır): pakette derleyen bilgisayara ait hiçbir şey (kalibrasyon, `.npz`, `gaze.log`, `makine.json`, `config.yaml`, `cache/`) olmamalı; gereken her dosya (modeller, ses, kataloglar, `config.default.yaml`, `lisanslar/`) olmalı.
 - **Lisanslar:** `hazirla.py lisanslar` paketin yanına `lisanslar/` klasörünü (her bağımlılığın tam lisans metni) koyar; lisans dosyası bulunamayan yeni bir bağımlılık derlemeyi durdurur. `hazirla.py gpl-kaynak` piper-tts ve espeak-ng'nin kaynak arşivlerini (SHA ile sabit) paketlerin yanına koyar.
-- Ölçülen boyutlar (1.2.0, Görev 16): Kurulum.exe 241 MB, taşınabilir zip 306 MB, AppImage 571 MB, tar.gz 617 MB, kaynak zip 1,7 MB. Sınırlar: Windows < 600 MB, AppImage < 700 MB.
+- Ölçülen boyutlar (1.2.0): Kurulum.exe 241 MB, taşınabilir zip 306 MB, AppImage 571 MB, tar.gz 617 MB, kaynak zip 1,7 MB. Sınırlar: Windows < 600 MB, AppImage < 700 MB.
 - Derleme ve smoke'lar GPU kullanmaz (`CUDA_VISIBLE_DEVICES` boş / `-1`).
 - **Derin model sabit:** `hazirla.py onnx-denetle` ONNX'i yalnız kendi `.sha256` dosyasıyla değil, `ONNX_SHA` (bugüne kadar gönderilen, torch modeliyle doğrulanmış model, `add49768…`) ile de karşılaştırır. Model Hugging Face `hysts/ptgaze-eth-xgaze-resnet18` revizyon `5b6aebd0…` ağırlıklarından (sha256 `d1c91b2a…`) torch 2.5.1 ile çevrildi; başka ağırlıklardan ya da başka bir torch ile çıkan bir model derlemeyi durdurur (derin kalibrasyonlar bu modelin çıktısına göre yapılmıştır).
 

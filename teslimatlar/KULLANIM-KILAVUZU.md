@@ -51,7 +51,7 @@ Ayrıntılı, adım adım anlatım paketin içindeki **`BENI-OKU-KURULUM.txt`** 
 1. Webcam yüzü **önden** görsün; ışık **önden/yumuşak** olsun (gözlüğe yansımasın).
 2. `gaze\BASLAT.bat` → **çift tıkla**. (Paketten kurduysanız: masaüstündeki / Başlat menüsündeki **Göz Faresi** kısayolu. Linux'ta AppImage ya da `gozfaresi`.)
 3. **Kalibrasyon:** ekranda **süzülen yeşil TOPU gözünle takip et** (~25 sn × 2 tur; turlar arasında "pozisyonunu hafifçe değiştir" der — yaslanma telafisi böyle öğrenilir). Klasik sabit-nokta modu istersen: `config.yaml` → `calibration_mode: "dots"`.
-4. Bitince birkaç saniye **sonuç ekranı** görünür (aşağıda 4. bölüm): not (İYİ / ORTA / KÖTÜ), yatay ve dikey hata, imlecin ekranın ne kadarına ulaşabildiği, gerekirse ipuçları. Sonra **imleç gözünle gelir**.
+4. Bitince birkaç saniye **sonuç ekranı** görünür (aşağıda 4. bölüm): not (IYI / ORTA / KOTU), yatay ve dikey hata, imlecin ekranın ne kadarına ulaşabildiği, gerekirse ipuçları. Sonra **imleç gözünle gelir**.
 
 > 💾 Kalibrasyon **kaydedilir**; sonraki açılışlarda **otomatik yüklenir** (her seferinde tekrar kalibre etmen gerekmez). Takip bozulursa **`F8` ile duraklatıp** ya da **`F9` ×2 ile yeniden kalibre** et.
 
@@ -106,11 +106,11 @@ Ayrıntılı, adım adım anlatım paketin içindeki **`BENI-OKU-KURULUM.txt`** 
 ---
 
 ## 4. Takip kötüyse — hızlı düzeltme (sırayla dene)
-1. **Önce `F7`×2 dene** (2 saniyelik tek-nokta düzeltme — gün içinde kayma olduysa çoğu zaman yeter). Yetmezse **`F9`×2** ile tam kalibrasyon. Bitince **sonuç ekranı** çıkar:
-   - **Not:** İYİ / ORTA / KÖTÜ ve "hata … px" (kalibrasyonun görmediği noktalarda ölçülür; sınırlar ekranın boyutuna göre ölçeklenir).
-   - **"Görmediği noktalarda hata: yatay … px, dikey … px"** ve **"İmleç ekranın yatayda %…, dikeyde %… kadarına ulaşabiliyor"**. Yüzde düşükse imleç o yönde kenarlara ulaşamaz.
-   - **KÖTÜ** ise kırmızı yazıyla tekrar denemeniz istenir: sonuç ekranı açıkken **`F9`×2** basın, yeni kalibrasyon hemen başlar. Önce ekrandaki ipuçlarını uygulayın: ışık yüze **önden** gelsin (arkada pencere olmasın, gözlükte yansıma olmasın); kamera ekranın **üst ortasında** dursun; topu takip ederken **başınızı sabit** tutup yalnız gözlerinizi oynatın; iki tur arasında yalnız **hafifçe** kıpırdayın (oturuşunuz çok değiştiyse ayrıca söylenir).
-   - Ekran ipucu varsa 8 sn, yoksa 3 sn kalır; okumayı bakım veren de yapabilir (aynı satırlar konsolda/`gaze.log`'da da yazar).
+1. **Önce `F7`×2 dene** (2 saniyelik tek-nokta düzeltme — gün içinde kayma olduysa çoğu zaman yeter). Yetmezse **`F9`×2** ile tam kalibrasyon. Bitince **sonuç ekranı** çıkar (ekran Türkçe harfleri noktasız/çengelsiz yazar: KOTU = KÖTÜ):
+   - **Not:** IYI / ORTA / KOTU ve "hata … px" (kalibrasyonun görmediği noktalarda ölçülür; sınırlar ekranın boyutuna göre ölçeklenir).
+   - **"Gormedigi noktalarda hata: yatay … px, dikey … px"** ve **"Imlec ekranin yatayda %…, dikeyde %… kadarina ulasabiliyor"**. Yüzde düşükse imleç o yönde kenarlara ulaşamaz.
+   - **KOTU** ise kırmızı yazıyla tekrar denemeniz istenir: sonuç ekranı açıkken **`F9`×2** basın, yeni kalibrasyon hemen başlar. Önce ekrandaki ipuçlarını uygulayın: ışık yüze **önden** gelsin (arkada pencere olmasın, gözlükte yansıma olmasın); kamera ekranın **üst ortasında** dursun; topu takip ederken **başınızı sabit** tutup yalnız gözlerinizi oynatın; iki tur arasında yalnız **hafifçe** kıpırdayın (oturuşunuz çok değiştiyse ayrıca söylenir).
+   - Ekran ipucu varsa 8 sn, yoksa 3 sn kalır; **sol tık tuşu** (Space / switch ya da gamepad düğmesi) onu hemen kapatır, masaüstüne tıklamaz. Okumayı bakım veren de yapabilir (aynı satırlar konsolda/`gaze.log`'da da yazar; küçük ekranda genel ipuçları ekrana sığmazsa yalnız orada kalır).
    - **Yeni kalibrasyon eskisinden kötü çıktıysa:** `F2` → **Kalibrasyonu geri al** → önceki kalibrasyona dönülür. Tekrar seçersen yenisine geri gelir (yanlışlıkla seçmek zarar vermez). KÖTÜ notlu bir kalibrasyon çalışan kalibrasyonun üstüne zaten yazılmaz; en iyi kalibrasyonun kopyası da (`calibration.json.11.en-iyi`) hiç silinmez.
    - Windows **ölçek/çözünürlüğü değişirse** yeniden kalibrasyon gerekmez: kalibrasyon yeni ekrana otomatik ölçeklenir.
 2. **Kenarlara/köşelere ulaşamıyorsan:** yeniden kalibre et (noktalar artık kenarlara yakın); yetmezse `config.yaml` → `reach_margin: 0.35`.
