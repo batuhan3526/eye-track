@@ -291,3 +291,44 @@ def test_disarmed_hotkeys_unhook_and_arm_again(monkeypatch):
     assert len(removed) == 4
     hk.arm()
     assert kb.hooked == ["f10", "f9", "f8", "f7"] * 2
+
+
+# --- the recalibrate key on a calibration's result screen ---------------------
+#
+# A KOTU result screen says "press F9 twice to try again". Pressed there, it
+# must ask for another calibration - not cancel the one just finished (which
+# is kept and handled by the save rules), and not be dropped as stale.
+
+
+def test_recal_twice_on_the_result_screen_asks_for_another_one(monkeypatch):
+    hk, kb = _global_hotkeys(monkeypatch)
+    hk.calibrating = True               # in-session F9
+    hk.result_showing = True
+    _press(kb, "f9")
+    _press(kb, "f9")
+    assert hk.again_requested
+    assert not hk.quit_requested and not hk.cancel_requested
+    hk.result_showing = False
+    assert hk.end_calibration() is False     # finished, not cancelled
+    assert hk.take_recal() is True           # the next loop starts one
+    assert hk.again_requested is False
+
+
+def test_recal_twice_on_the_first_result_screen_is_kept(monkeypatch):
+    hk, kb = _global_hotkeys(monkeypatch)
+    hk.result_showing = True            # first calibration: not "calibrating"
+    _press(kb, "f9")
+    _press(kb, "f9")
+    assert hk.take_again() is True and hk.take_again() is False
+    assert hk.recal_requested is False
+
+
+def test_recal_twice_during_the_ball_still_cancels(monkeypatch):
+    hk, kb = _global_hotkeys(monkeypatch)
+    hk.calibrating = True
+    _press(kb, "f9")
+    _press(kb, "f9")
+    hk.result_showing = True            # a result screen after it changes nothing
+    hk.result_showing = False
+    assert hk.end_calibration() is True
+    assert hk.take_recal() is False and hk.take_again() is False

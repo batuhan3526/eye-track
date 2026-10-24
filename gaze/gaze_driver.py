@@ -953,13 +953,32 @@ def _show_cal_result(win, sw, sh, hotkeys, mapper, feat=None, recal_key="F9"):
             y += 14
         cv2.imshow(win, canvas)
         _force_topmost(win)
-        # Long enough to read when there is something to act on.
-        for _ in range(80 if q.hints else 30):
-            hotkeys.feed_window_key(cv2.waitKey(100) & 0xFF)
-            if hotkeys.quit_requested:
-                break
+        # Long enough to read when there is something to act on. The
+        # recalibrate key x2 here (the KOTU line asks for it) ends the screen
+        # and becomes the next calibration (Hotkeys.again_requested).
+        hotkeys.result_showing = True
+        try:
+            for _ in range(80 if q.hints else 30):
+                hotkeys.feed_window_key(cv2.waitKey(100) & 0xFF)
+                if hotkeys.quit_requested or getattr(hotkeys, "again_requested",
+                                                     False):
+                    break
+        finally:
+            hotkeys.result_showing = False
+        if getattr(hotkeys, "again_requested", False):
+            print("Yeni kalibrasyon istendi (%s x2): biri birazdan baslayacak;"
+                  " bu kalibrasyon kayit kurallarina gore saklanir."
+                  % str(recal_key).upper())
     except Exception:
         pass
+
+
+def _after_first_calibration(hotkeys):
+    """An F9 x2 pressed while following the first calibration's ball must
+    not start a second full one the moment it ends - but one pressed on its
+    result screen ("press F9 twice to try again") must."""
+    hotkeys.recal_requested = bool(hotkeys.take_again())
+    hotkeys.drift_requested = False
 
 
 def _pass_change_screen(win, sw, sh, hotkeys, pass_i, total_passes):
@@ -3241,10 +3260,7 @@ def main():
         if save_cal and _save_calibration(cal_file, mapper, feat=feat_id):
             _note_calibration_camera(machine_profile, machine_cam, fresh=True)
         feedback.event("cal_done")
-        # An F9 x2 pressed during the first calibration must not start a
-        # second full one the moment it ends.
-        hotkeys.recal_requested = False
-        hotkeys.drift_requested = False
+        _after_first_calibration(hotkeys)
 
     fx = OneEuroFilter(cfg["freq"], cfg["mincutoff"], cfg["beta"], cfg["dcutoff"])
     fy = OneEuroFilter(cfg["freq"], cfg["mincutoff"], cfg["beta"], cfg["dcutoff"])

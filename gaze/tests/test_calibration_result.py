@@ -184,3 +184,116 @@ def test_a_broken_stored_guard_falls_back_to_the_legacy_rule():
     for bad in ("x", [1], [float("nan"), 1.0], [-1, 0.3], None):
         assert caldata._guard(bad) is None
     assert caldata._guard([0.1, 0.35]) == (0.1, 0.35)
+
+
+# --- "press F9 twice to try again" works on the result screen -----------------
+
+
+class KeyCv2(TextCv2):
+    """Reports the window-mode recalibrate key: always, or only on the
+    result screen (the only place that waits 100 ms per key)."""
+
+    def __init__(self, char, only_result=False):
+        super().__init__()
+        self.char, self.only_result = char, only_result
+
+    def waitKey(self, ms):
+        if self.only_result and ms != 100:
+            return -1
+        return ord(self.char)
+
+
+def _window_hotkeys(monkeypatch):
+    from eye_gaze import hotkeys as hk_mod
+    monkeypatch.setattr(hk_mod._platform, "keyboard_api",
+                        lambda: (_ for _ in ()).throw(ImportError("none")))
+    hk = hk_mod.Hotkeys("f10", "f9", "f8", interval=1.0, drift_key="f7")
+    assert hk.mode == "window"
+    return hk
+
+
+def test_recal_on_the_result_screen_ends_it_and_asks_again(monkeypatch, capsys):
+    hk = _window_hotkeys(monkeypatch)
+    cv = KeyCv2(hk.recal_char)
+    monkeypatch.setattr(gd, "cv2", cv)
+    monkeypatch.setattr(gd, "_force_topmost", lambda *a, **k: None)
+    hk.calibrating = True                       # an in-session F9
+    gd._show_cal_result("w", 2560, 1440, hk, _bad_mapper())
+    assert hk.again_requested and hk.result_showing is False
+    assert not hk.quit_requested                # not a cancel
+    assert hk.end_calibration() is False
+    assert hk.take_recal() is True
+    capsys.readouterr().out.encode("ascii")
+
+
+def test_in_session_recal_on_the_result_screen_keeps_the_finished_one(monkeypatch):
+    """The calibration just finished comes back (the save rules decide about
+    it), and the next loop starts a fresh one."""
+    hk = _window_hotkeys(monkeypatch)
+    cv = KeyCv2(hk.recal_char, only_result=True)
+    monkeypatch.setattr(gd, "cv2", cv)
+    monkeypatch.setattr(gd, "_force_topmost", lambda *a, **k: None)
+    monkeypatch.setattr(gd, "_pass_change_screen", lambda *a, **k: True)
+    clock = {"t": 1000.0}
+
+    def fake_time():
+        clock["t"] += 1 / 60.0
+        return clock["t"]
+    monkeypatch.setattr(gd.time, "time", fake_time)
+    monkeypatch.setattr(gd.time, "monotonic", fake_time)
+
+    class BallEstimator(kv.DotEstimator):
+        def estimate(self, frame):
+            return kv._gaze_of(*self.cv.dot, sw=1280, sh=720)
+    hk.calibrating = True
+    m = gd.calibrate_pursuit(BallEstimator(cv), kv.FakeCap(), 1280, 720, hk,
+                             0.25, passes=1, speed=900.0, latency=0.06)
+    assert m is not None
+    assert hk.end_calibration() is False
+    assert hk.take_recal() is True
+
+
+def test_recal_during_the_ball_still_cancels(monkeypatch):
+    hk = _window_hotkeys(monkeypatch)
+    cv = KeyCv2(hk.recal_char)
+    monkeypatch.setattr(gd, "cv2", cv)
+    monkeypatch.setattr(gd, "_force_topmost", lambda *a, **k: None)
+    clock = {"t": 1000.0}
+
+    def fake_time():
+        clock["t"] += 1 / 60.0
+        return clock["t"]
+    monkeypatch.setattr(gd.time, "time", fake_time)
+    monkeypatch.setattr(gd.time, "monotonic", fake_time)
+
+    class BallEstimator(kv.DotEstimator):
+        def estimate(self, frame):
+            return kv._gaze_of(*self.cv.dot, sw=1280, sh=720)
+    hk.calibrating = True
+    m = gd.calibrate_pursuit(BallEstimator(cv), kv.FakeCap(), 1280, 720, hk,
+                             0.25, passes=1, speed=900.0, latency=0.06)
+    assert m is None
+    assert hk.end_calibration() is True
+    assert hk.take_recal() is False
+
+
+def test_first_calibration_recal_on_the_result_screen_starts_another(monkeypatch):
+    hk = _window_hotkeys(monkeypatch)
+    monkeypatch.setattr(gd, "cv2", KeyCv2(hk.recal_char))
+    monkeypatch.setattr(gd, "_force_topmost", lambda *a, **k: None)
+    gd._show_cal_result("w", 2560, 1440, hk, _bad_mapper())
+    gd._after_first_calibration(hk)
+    assert hk.take_recal() is True
+
+
+def test_first_calibration_recal_during_the_ball_is_still_dropped():
+    class H:
+        recal_requested = True          # F9 x2 while following the ball
+        drift_requested = True
+        again_requested = False
+
+        def take_again(self):
+            return False
+    h = H()
+    gd._after_first_calibration(h)
+    assert h.recal_requested is False and h.drift_requested is False

@@ -70,6 +70,13 @@ class Hotkeys:
         # old calibration" when cancel_requested is set.
         self.calibrating = False
         self.cancel_requested = False
+        # Set by the driver while a finished calibration's result is on
+        # screen. The recalibrate key pressed twice there asks for ANOTHER
+        # calibration - the KOTU screen tells the user to do exactly that -
+        # instead of cancelling the one just finished (kept; the save rules
+        # decide about it) or being dropped as stale.
+        self.result_showing = False
+        self.again_requested = False
         self._armed = False
         self._removers = []
         if not defer:
@@ -137,7 +144,9 @@ class Hotkeys:
 
     def _fire_recal(self):
         if self._recal_dp.press(self._time.time()):
-            if self.calibrating:
+            if self.result_showing:
+                self.again_requested = True
+            elif self.calibrating:
                 self.cancel_requested = True
                 self.quit_requested = True
             elif not self.paused:
@@ -181,17 +190,26 @@ class Hotkeys:
             return True
         return False
 
+    def take_again(self):
+        """Consume a recalibrate request made on a result screen."""
+        if self.again_requested:
+            self.again_requested = False
+            return True
+        return False
+
     def end_calibration(self):
         """After an in-session F9/F7: True when it was cancelled (by the
         recalibrate key or the quit key). Either way the driver keeps
         running - quitting there used to exit with code 0, which BASLAT.bat
         does not restart, leaving the user with no cursor. Requests latched
-        during it are stale and dropped."""
+        during it are stale and dropped - except a recalibrate asked for on
+        the result screen, which becomes the next recalibration."""
         self.calibrating = False
+        self.result_showing = False
         cancelled = self.cancel_requested or self.quit_requested
         self.cancel_requested = False
         self.quit_requested = False
-        self.recal_requested = False
+        self.recal_requested = self.take_again()
         self.drift_requested = False
         return cancelled
 
