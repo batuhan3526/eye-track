@@ -13,20 +13,47 @@ the whole fixation (it stops where the slack runs out). So once the target
 has stayed inside the deadzone for a few frames, the lock is eased onto the
 MEAN of those recent positions - the fixation point, not any one noisy
 sample - and then holds still again (a small hysteresis keeps it calm).
+
+The settle counts were tuned at 30 fps (5 frames, 25 % per frame, a 12-frame
+memory). set_frame_rate() turns them into the same DURATIONS at the loop's
+measured rate; at 30 fps they are exactly the numbers above.
 """
 import math
 from collections import deque
+
+from eye_gaze import timebase
+
+_INSIDE_FRAMES = 12     # memory of recent inside samples, frames at 30 fps
 
 
 class FixationStabilizer:
     def __init__(self, deadzone_px=20, settle_frames=5, settle_eps=4.0,
                  settle_rate=0.25):
         self.deadzone = float(deadzone_px)
-        self._settle_frames = int(settle_frames)
+        # The given counts mean frames at timebase.REF_FPS.
+        self._base_frames = int(settle_frames)
+        self._base_rate = float(settle_rate)
+        self._settle_frames = self._base_frames
         self._settle_eps = float(settle_eps)
-        self._settle_rate = float(settle_rate)
-        self._inside = deque(maxlen=12)
+        self._settle_rate = self._base_rate
+        self._inside = deque(maxlen=_INSIDE_FRAMES)
         self._lock = None
+
+    def set_frame_rate(self, fps):
+        """Re-express the settle counts at `fps` (same durations)."""
+        fps = float(fps)
+        if fps == timebase.REF_FPS:
+            self._settle_frames = self._base_frames
+            self._settle_rate = self._base_rate
+            window = _INSIDE_FRAMES
+        else:
+            self._settle_frames = timebase.frames(
+                timebase.ref_seconds(self._base_frames), fps)
+            self._settle_rate = timebase.per_frame_rate(self._base_rate, fps)
+            window = max(self._settle_frames, timebase.frames(
+                timebase.ref_seconds(_INSIDE_FRAMES), fps))
+        if window != self._inside.maxlen:
+            self._inside = deque(self._inside, maxlen=window)
 
     def reset(self):
         self._lock = None

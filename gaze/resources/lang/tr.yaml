@@ -366,6 +366,7 @@ config:
   not_number: "UYARI: '{key}: {value}' bir sayi degil - bu satir GORMEZDEN GELINIYOR, varsayilan deger kullaniliyor. (Ondalik icin 0.15 ya da 0,15 yazabilirsiniz.)"
   not_positive: "UYARI: '{key}: {value}' sifirdan BUYUK olmali - bu satir GORMEZDEN GELINIYOR, varsayilan deger kullaniliyor."
   bad_latency: "UYARI: 'pursuit_latency: {value}' saniye cinsinden 0 ile {max} arasi olmali (or. 0.12) - \"auto\" kullaniliyor."
+  bad_sensitivity: "UYARI: 'cursor_sensitivity: {value}' 1 ile 5 arasi bir tam sayi ya da \"auto\" olmali - {used} kullaniliyor."
   unreadable: "{path} okunamadi ({error}): {detail}"
   not_a_map: "{path} beklenen bicimde degil (anahtar: deger satirlari olmali)."
   only_defaults: "{path} icinde varsayilandan FARKLI hicbir ayar bulunamadi (dosya bos ya da yalniz yorum satiri olabilir; icinde satirlar gorunuyorsa hepsi zaten varsayilan degerdedir)."

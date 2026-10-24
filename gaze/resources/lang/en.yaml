@@ -359,6 +359,7 @@ config:
   not_number: "WARNING: '{key}: {value}' is not a number - this line is IGNORED and the default is used. (For decimals write 0.15 or 0,15.)"
   not_positive: "WARNING: '{key}: {value}' must be GREATER than zero - this line is IGNORED and the default is used."
   bad_latency: "WARNING: 'pursuit_latency: {value}' must be between 0 and {max} seconds (e.g. 0.12) - \"auto\" is used."
+  bad_sensitivity: "WARNING: 'cursor_sensitivity: {value}' must be a whole number from 1 to 5 or \"auto\" - {used} is used."
   unreadable: "{path} could not be read ({error}): {detail}"
   not_a_map: "{path} is not in the expected shape (it should be key: value lines)."
   only_defaults: "{path} holds no setting DIFFERENT from the defaults (the file may be empty or only comments; if you see lines in it, they all already hold the default value)."

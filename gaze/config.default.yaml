@@ -19,12 +19,16 @@ camera_fps: "auto"       # kare hizi. Karanlik odada kameranin otomatik pozlamas
 camera_hfov_deg: "auto"  # kameranin yatay goris acisi (derece; derin model icin). "auto" = bugunku varsayim (~53 derece).
                          # Sayi yazarsaniz (or. 78) yalnizca YENI kalibrasyonla gecerli olur: eski kalibrasyon o ayarla
                          # kullanilmaz (yedegi saklanir, "auto"ya donunce geri gelir). Emin degilseniz "auto" birakin
-freq: 30.0               # tahmini kare hizi (1-Euro icin)
-mincutoff: 0.2           # 1-Euro: DUSUK = daha cok yumusatma (imlec sakinler). Hala cok hizliysa 0.15, gec kaliyorsa 0.4
-beta: 0.002              # 1-Euro: DUSUK = daha az zipla/sicrama. Imlec gec kaliyorsa 0.01'e cikarin
+freq: 30.0               # tahmini kare hizi (1-Euro icin; gercek kare hizi calisirken olculur)
+cursor_sensitivity: "auto"  # IMLEC HASSASIYETI: 1 = en sakin (eski surumun hissi) ... 5 = en hizli. "auto" = 3:
+                         #   kucuk bir nisan duzeltmesi 1 saniyeden kisa surede oturur. Imlec titrekse 2 ya da 1; hala agir geliyorsa 4.
+                         #   Asagidaki bes satir "auto" kaldikca bu ayara uyar; birine SAYI yazarsaniz o satir icin sizin sayiniz gecerlidir.
+                         #   Piksel degerleri ekranin fiziksel boyutuna gore kendiliginden olceklenir (cok kucuk/buyuk piksellerde)
+mincutoff: "auto"        # 1-Euro: DUSUK = daha cok yumusatma (imlec sakinler). Eski surum 0.2; gec kaliyorsa 0.4
+beta: "auto"             # 1-Euro: DUSUK = daha az zipla/sicrama. Eski surum 0.002; imlec gec kaliyorsa 0.01
 dcutoff: 1.0             # 1-Euro turev kesim
-max_cursor_speed: 1200   # imlec azami hizi (px/sn): isinlanmak yerine bakilan yere KAYAR. Daha yavas: 800, kapali: 0
-deadzone: 20             # fiksasyon sabitleyici (px): bakis sabitken imlec TASTAN OYNAMAZ; buyuk hedeflerde 30, kapali: 0
+max_cursor_speed: "auto" # imlec azami hizi (px/sn): isinlanmak yerine bakilan yere KAYAR. Eski surum 1200, daha yavas: 800, kapali: 0
+deadzone: "auto"         # fiksasyon sabitleyici (px): bakis sabitken imlec TASTAN OYNAMAZ. Eski surum 20; buyuk hedeflerde 30, kapali: 0
 calibration_mode: "pursuit"  # "pursuit" = ekranda suzulen TOPU gozle takip et (cok daha fazla veri, daha az yorucu). "dots" = klasik sabit noktalar
 pursuit_speed: 480       # topun hizi (px/sn); takip zorlaniyorsa 380, cok uzun geliyorsa 600
 pursuit_latency: "auto"  # goz tepki gecikmesi: "auto" = kalibrasyonda kisiye ozel OGRENILIR (onerilen); sabit sayi da yazilabilir (or. 0.15)
@@ -47,7 +51,8 @@ ignore_injected_keys: true  # ekran klavyesinin (OSK) / OptiKey'in GONDERDIGI tu
 reach_margin: 0.25       # ekran kenarlarina ulasmak icin kalibrasyon araligi disina tasma payi (0=kapali, 0.25 onerilir)
 use_head_pose: true      # bas-pozu (donme) telafisi (kafasi oynayabilen kullanici icin onemli). Sorun cikarsa false yapin
 head_translation: true   # kafa KAYMASI/mesafe telafisi (istemsiz kayan/sallanan kafa icin). Degistirince yeniden kalibrasyon gerekir
-gaze_median_window: 7    # canli medyan filtre (gozluk/titreme sicramalarini keser); artirmak daha sakin ama daha gec (titrekse 9)
+gaze_median_seconds: "auto"  # canli medyan filtre suresi (sn; gozluk/titreme sicramalarini keser). Artirmak daha sakin ama daha gec
+                         #   (eski surum 0.23 = 30 fps'te 7 kare; titrekse 0.3). Eski "gaze_median_window" (kare) satiri da okunur
 calibration_samples: 25  # her kalibrasyon noktasinda toplanan ornek sayisi (medyani alinir)
 
 # --- TIKLAMA (parmak switch: klavye tusu ve/veya XInput gamepad) ---

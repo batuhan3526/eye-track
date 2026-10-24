@@ -419,6 +419,7 @@ class X11Backend:
         self._screens_at = 0.0
         self._screens = None
         self._primary = None
+        self._primary_mm = None
         self._closed = False
         self.keyboard = X11Keyboard(self._display_name)
 
@@ -436,12 +437,19 @@ class X11Backend:
             self._refresh_screens()
             return self._primary
 
+    def primary_mm(self):
+        """(width_mm, height_mm) of the primary monitor as Xrandr reports
+        it, or None (no RandR, or the server does not know)."""
+        with self._lock:
+            self._refresh_screens()
+            return self._primary_mm
+
     def _refresh_screens(self):
         now = time.monotonic()
         if self._screens is not None and now - self._screens_at < _SCREENS_TTL:
             return
         self._drain()
-        found, primary = [], None
+        found, primary, mm = [], None, {}
         if self._randr:
             try:
                 for m in self._root.xrandr_get_monitors(is_active=True).monitors:
@@ -449,15 +457,21 @@ class X11Backend:
                             int(m.height_in_pixels))
                     if rect[2] > 0 and rect[3] > 0:
                         found.append(rect)
+                        try:
+                            mm[rect] = (int(m.width_in_millimeters),
+                                        int(m.height_in_millimeters))
+                        except Exception:
+                            pass
                         if m.primary and primary is None:
                             primary = rect
             except Exception:
-                found, primary = [], None
+                found, primary, mm = [], None, {}
         if not found:
             g = self._root.get_geometry()
             found = [(0, 0, int(g.width), int(g.height))]
         self._screens = found
         self._primary = primary or found[0]
+        self._primary_mm = mm.get(self._primary)
         self._screens_at = now
 
     def _drain(self):

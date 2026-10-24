@@ -378,3 +378,44 @@ def test_offline_eval_no_extra_jitter_during_fixation():
         # wander more than a deadzone or two while the filters warm up again
         j_land = _path_length(on, T_SACC + 0.15, T_SACC + 1.0)
         assert j_land <= 60.0, (seed, j_land)
+
+
+# --- frame counts follow the real frame rate --------------------------------
+
+def test_30_fps_keeps_todays_counts_and_decisions():
+    rnd = random.Random(7)
+    pts = (_noisy(rnd, 300, 300, 40) + _noisy(rnd, 900, 500, 40)
+           + [(900, 300)] + _noisy(rnd, 900, 500, 20))
+    plain = SaccadeDetector(velocity_px_s=1500, min_px=120)
+    timed = SaccadeDetector(velocity_px_s=1500, min_px=120)
+    timed.set_frame_rate(30.0)
+    assert (timed.confirm_frames, timed.rearm_frames, timed._fix.maxlen) == (2, 2, 5)
+    assert _feed(plain, pts) == _feed(timed, pts)
+
+
+def test_counts_are_durations_at_other_rates():
+    det = SaccadeDetector(velocity_px_s=1500, min_px=120)
+    det.set_frame_rate(60.0)
+    assert (det.confirm_frames, det.rearm_frames, det._fix.maxlen) == (4, 4, 10)
+    det.set_frame_rate(15.0)
+    # never a one-sample "confirmation": a single glint must not jump
+    assert det.confirm_frames == 2
+    assert det.rearm_frames == 1
+    assert det._fix.maxlen >= 3
+
+
+def test_a_spike_still_cannot_fire_at_15_fps():
+    det = SaccadeDetector(velocity_px_s=1500, min_px=120)
+    det.set_frame_rate(15.0)
+    pts = [(300, 300)] * 10 + [(900, 300)] + [(300, 300)] * 10
+    assert not any(_feed(det, pts, dt=1 / 15.0))
+
+
+def test_a_real_jump_at_60_fps_fires_within_the_same_time():
+    det = SaccadeDetector(velocity_px_s=1500, min_px=120)
+    det.set_frame_rate(60.0)
+    pts = [(300, 300)] * 20 + [(900, 500)] * 20
+    fired = _feed(det, pts, dt=1 / 60.0)
+    assert fired.count(True) == 1
+    # 30 fps: confirmed on the 2nd landing frame (1/30 s); 60 fps: 4th (3/60)
+    assert (fired.index(True) - 20) / 60.0 <= 2 / 30.0 + 1e-9

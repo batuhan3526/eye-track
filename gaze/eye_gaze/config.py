@@ -5,6 +5,7 @@ import os
 
 import yaml
 
+from eye_gaze import sensitivity
 from eye_gaze.i18n import t
 
 DEFAULTS = {
@@ -82,6 +83,7 @@ BACKUP_KEY = "_from_backup"
 KNOWN_KEYS = frozenset("""
 camera_index camera_width camera_height camera_fps camera_hfov_deg
 freq mincutoff beta dcutoff max_cursor_speed deadzone
+cursor_sensitivity gaze_median_seconds
 calibration_mode calibration_points calibration_poly2 calibration_passes
 calibration_samples calibration_file save_calibration
 pursuit_speed pursuit_latency calibration_path reach_margin screen_margin
@@ -126,6 +128,7 @@ _FLOAT_KEYS = frozenset("""
 camera_hfov_deg
 freq mincutoff beta dcutoff max_cursor_speed deadzone pursuit_speed
 reach_margin hotkey_double_interval scroll_zone blink_closed_threshold
+gaze_median_seconds
 blink_hold_seconds dwell_radius dwell_seconds zoom_scale zoom_timeout
 aac_timeout tts_speed tts_volume stt_silence_seconds stt_max_seconds
 saccade_velocity_px_s saccade_min_px
@@ -154,7 +157,8 @@ _FALSE_WORDS = frozenset("false no off 0 hayir hayır kapali kapalı".split())
 # Settings that raise (or divide by zero) when not strictly positive - and
 # they raise AFTER the calibration loaded, on every restart, so BASLAT.bat's
 # watchdog would loop forever with no cursor.
-_POSITIVE_KEYS = frozenset("freq mincutoff dcutoff pursuit_speed".split())
+_POSITIVE_KEYS = frozenset(
+    "freq mincutoff dcutoff pursuit_speed gaze_median_seconds".split())
 _MAX_LATENCY = 0.5   # s; pursuit_latency above this is ms written as seconds
 
 # Settings that may say "auto" instead of a value. The camera, deep-model and
@@ -163,11 +167,13 @@ _MAX_LATENCY = 0.5   # s; pursuit_latency above this is ms written as seconds
 # the value; pursuit_latency's "auto" is learnt during calibration. Without
 # this, camera_index: "auto" is "not a number": dropped with a warning on
 # every start of every fresh install. blink_closed_threshold's "auto" is a
-# fraction of the person's own open eye (eye_gaze.openness).
+# fraction of the person's own open eye (eye_gaze.openness). The cursor
+# filter lines' "auto" follows cursor_sensitivity (eye_gaze.sensitivity).
 _AUTO_KEYS = frozenset("""
 camera_index camera_width camera_height camera_fps camera_hfov_deg
 deep_gaze deep_device stt_model stt_device
 pursuit_latency blink_closed_threshold
+mincutoff beta max_cursor_speed deadzone gaze_median_seconds
 """.split())
 
 
@@ -215,6 +221,13 @@ def _coerce_numbers(cfg, user, report=None):
     for key in list(user):
         if key in _AUTO_KEYS and is_auto(cfg[key]):
             cfg[key] = "auto"
+            continue
+        if key == sensitivity.KEY:
+            value, bad = sensitivity.coerce(cfg[key])
+            if bad:
+                say(t("config.bad_sensitivity", value=user[key],
+                      used=value))
+            cfg[key] = value
             continue
         if key in _BOOL_KEYS:
             try:
@@ -336,8 +349,13 @@ def _report_unknown_keys(user, path):
                     " GORMEZDEN GELINIYOR.")
 
 
-def _read_into_defaults(path, announce=False, report=None):
+def _read_into_defaults(path, announce=False, report=None, effective=False):
     """Read one YAML file over DEFAULTS.
+
+    effective=True also resolves cursor_sensitivity into the five filter
+    settings (eye_gaze.sensitivity) - what the driver runs with. Without it
+    the values are the file's own ("auto" stays "auto"), which is what the
+    settings writer must compare against.
 
     Returns (cfg, problem, headline). `problem` is None only when the file
     supplied at least one setting that differs from DEFAULTS; otherwise it is
@@ -387,10 +405,12 @@ def _read_into_defaults(path, announce=False, report=None):
     if cfg == DEFAULTS:
         return (cfg, t("config.only_defaults", path=path),
                 "DIKKAT: config.yaml GECERLI AYAR ICERMIYOR")
+    if effective:
+        sensitivity.resolve(cfg, user)
     return cfg, None, None
 
 
-def read_config(path, report=None):
+def read_config(path, report=None, effective=False):
     """(cfg, problem) for one file, merged and coerced exactly as load_config
     would use it - but with no fallback, and without writing
     config.son-iyi.yaml (keeping that copy is the driver's job: only a file the
@@ -401,8 +421,13 @@ def read_config(path, report=None):
     drops (e.g. a word where a number belongs) is reported the way
     load_config reports it - on the console, or to `report(message)` when
     given (a settings window must not print a line on every save).
+
+    effective=True: the values the driver would run with (cursor_sensitivity
+    resolved); the default is the file's own values, which the settings
+    writer compares against.
     """
-    cfg, problem, _ = _read_into_defaults(path, report=report)
+    cfg, problem, _ = _read_into_defaults(path, report=report,
+                                          effective=effective)
     return cfg, problem
 
 
@@ -478,7 +503,8 @@ def load_config(path=None):
     if not path:
         # An explicit "give me the defaults" call, not a failed load.
         return dict(DEFAULTS)
-    cfg, problem, headline = _read_into_defaults(path, announce=True)
+    cfg, problem, headline = _read_into_defaults(path, announce=True,
+                                                 effective=True)
     if problem is None:
         # "Last known good" is loaded later as the settings that were WORKING,
         # and the driver starts on it without asking anything else. A file that
@@ -498,7 +524,7 @@ def load_config(path=None):
         return cfg
     _report(problem)
     bak = backup_path(path)
-    bcfg, bproblem, _ = _read_into_defaults(bak)
+    bcfg, bproblem, _ = _read_into_defaults(bak, effective=True)
     if bproblem is None:
         bcfg[BACKUP_KEY] = True
         _announce_backup(path, bak)

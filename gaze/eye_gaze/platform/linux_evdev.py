@@ -516,6 +516,18 @@ class EvdevBackend:
             self._refresh_screens()
             return self._primary
 
+    def primary_mm(self):
+        """The primary monitor's size in mm from the X server (X11 or
+        XWayland), or None - pure Wayland tells this program nothing."""
+        x = self._x
+        if x is None:
+            return None
+        try:
+            fn = getattr(x, "primary_mm", None)
+            return fn() if fn is not None else None
+        except Exception:
+            return None
+
     def _refresh_screens(self):
         now = time.monotonic()
         if self._screens is not None and now - self._screens_at < _SCREENS_TTL:

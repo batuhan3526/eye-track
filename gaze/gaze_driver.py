@@ -50,6 +50,9 @@ from eye_gaze import caldata
 from eye_gaze import calquality
 from eye_gaze import modelsel
 from eye_gaze import openness
+from eye_gaze import physical
+from eye_gaze import sensitivity
+from eye_gaze import timebase
 from eye_gaze.implicit import ImplicitCorrector
 from eye_gaze import click_menu
 from eye_gaze import paths
@@ -3198,7 +3201,8 @@ def main():
     reach_margin = float(cfg.get("reach_margin", 0.25))
     use_head = bool(cfg.get("use_head_pose", True))
     use_tr = bool(cfg.get("head_translation", True))
-    win_n = max(1, int(cfg.get("gaze_median_window", 5)))
+    # The live median window is a duration: frames follow the measured rate.
+    median_s = sensitivity.median_seconds(cfg)
     cal_samples = int(cfg.get("calibration_samples", 25))
     save_cal = bool(cfg.get("save_calibration", True))
     # Defence in depth behind the early return above: a defaults-only config
@@ -3326,6 +3330,13 @@ def main():
     sw, sh = cursor.screen_size()
     primary = _primary_rect()
     ox, oy = primary[0], primary[1]     # (0, 0) on Windows
+    # cursor_sensitivity (already resolved by load_config), then the pixel
+    # constants scaled for a screen physically far from the reference -
+    # typical desktops keep every number exactly (eye_gaze.physical).
+    print(sensitivity.describe(cfg))
+    screen_scale = physical.detect((primary[2], primary[3]))
+    print(physical.describe(screen_scale))
+    cfg = physical.scaled_config(cfg, screen_scale.factor)
     _SCREEN_ORIGIN = (ox, oy)
     # cursor bounds: primary monitor, or the whole virtual desktop
     bx, by, bw, bh = _gaze_bounds(multi_mon, primary)
@@ -3519,6 +3530,11 @@ def main():
     limiter = SpeedLimiter(float(cfg.get("max_cursor_speed", 0)))
     stabilizer = FixationStabilizer(float(cfg.get("deadzone", 20)))
     saccader = make_saccade_jump(cfg)   # None unless saccade_jump: true
+    # Frame counts (median window, stabilizer settle, saccade confirm, gaze
+    # scroll period) follow the loop's measured rate; 30 fps = as before.
+    timing = timebase.LoopTiming(
+        median_s, targets=(stabilizer, getattr(saccader, "detector", None)),
+        log=print)
     zoomer = _ZoomClick(sw, sh, float(cfg.get("zoom_scale", 0.25)),
                         float(cfg.get("zoom_timeout", 8)), multi_mon,
                         origin=(ox, oy))
@@ -3724,7 +3740,7 @@ def main():
         else:
             actions.left_click()
             feedback.event("click")
-    hist = deque(maxlen=win_n)
+    hist = deque(maxlen=timing.median_frames)
     drift = (0.0, 0.0)  # one-point correction offset (px), reset on recalibration
 
     if aacgrid is not None and aacgrid.ready:
@@ -3885,6 +3901,8 @@ def main():
                     inst = 1.0 / (now - prev_t)
                     fps_ema = inst if fps_ema == 0.0 else 0.9 * fps_ema + 0.1 * inst
                 prev_t = now
+                if timing.tick(now):            # never raises
+                    hist = timing.resize(hist)
                 frame = cv2.flip(frame, 1)
                 g = source.estimate(frame)
                 # The one closed-eye threshold of this frame (eye_gaze.openness).
@@ -3931,7 +3949,7 @@ def main():
                                     for o in (aacgrid, zoomer, clickmenu)))
                         px, py = cursor.set_cursor(lx, ly, virtual=multi_mon)
                         zoomer.gaze_hint = (raw_gaze, (px, py))
-                        if gaze_scroll and (loop_i % 4 == 0):
+                        if gaze_scroll and (loop_i % timing.scroll_frames == 0):
                             yr = (sy - by) / max(1, bh - 1)
                             if yr <= scroll_zone:
                                 actions.scroll(scroll_speed * 120)

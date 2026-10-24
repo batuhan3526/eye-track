@@ -29,12 +29,19 @@ Hysteresis: after firing, the detector re-arms only once the eye has settled
 (rearm_frames samples within min_px/2 of the new anchor), so the landing
 itself and a quick look back can never fire twice.
 
+The frame counts were tuned at 30 fps; set_frame_rate() turns them into the
+same durations at the loop's measured rate (exactly today's counts at 30 fps).
+A confirmation always takes at least two samples, whatever the rate: one
+sample is a glint, not a landing.
+
 SaccadeJump is the driver glue. It never raises: a fault switches the
 feature off for the session and the cursor carries on exactly as before.
 """
 import math
 import statistics
 from collections import deque
+
+from eye_gaze import timebase
 
 DEFAULT_VELOCITY = 1500.0   # px/s (logical px - the driver is DPI-unaware)
 DEFAULT_MIN_PX = 120.0
@@ -76,8 +83,23 @@ class SaccadeDetector:
         self.rearm_frames = max(1, int(rearm_frames))
         self.max_gap = _positive(max_gap_s, 0.25)
         self._fix = deque(maxlen=max(1, int(anchor_frames)))
+        # The counts above mean frames at timebase.REF_FPS.
+        self._base = (self.confirm_frames, self._fix.maxlen, self.rearm_frames)
         self.target = None          # where the eye landed (on the firing frame)
         self.reset()
+
+    def set_frame_rate(self, fps):
+        """Re-express confirm/anchor/rearm counts at `fps` (same durations)."""
+        confirm, anchor, rearm = self._base
+        fps = float(fps)
+        if fps != timebase.REF_FPS:
+            sec = timebase.ref_seconds
+            confirm = timebase.frames(sec(confirm), fps, minimum=min(2, confirm))
+            anchor = timebase.frames(sec(anchor), fps, minimum=min(3, anchor))
+            rearm = timebase.frames(sec(rearm), fps)
+        self.confirm_frames, self.rearm_frames = confirm, rearm
+        if anchor != self._fix.maxlen:
+            self._fix = deque(self._fix, maxlen=anchor)
 
     def reset(self):
         self._state = _FIX
