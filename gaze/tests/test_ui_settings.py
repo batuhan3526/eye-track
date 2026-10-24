@@ -77,7 +77,7 @@ def test_the_window_has_the_new_tabs_in_order(root, data_dir):
     s = make_settings(root, make_services(), FakeSup())
     tabs = [s.notebook.tab(t, "text") for t in s.notebook.tabs()]
     assert tabs == ["Tuşlar", "İmleç", "Tıklama", "Büyüteç", "Kalibrasyon",
-                    "Kamera", "Ses", "Gelişmiş", "Bu bilgisayarda olmayanlar",
+                    "Kamera", "Ses", "Gelişmiş", "Eksikler",
                     "Dil (Language)"]
 
 
@@ -412,3 +412,74 @@ def test_the_window_fits_a_1280_wide_screen(root, data_dir):
     s = make_settings(root, make_services(), FakeSup())
     s.win.update_idletasks()
     assert s.win.winfo_reqwidth() <= 1240
+
+
+# --- small screens: the whole window, Kaydet included, on the work area -------
+
+AREAS = [(0, 0, 1024, 700), (0, 0, 1280, 680), (0, 0, 1366, 728),
+         (0, 0, 1093, 700), (0, 0, 1093, 614), (0, 0, 2560, 1400),
+         (100, 40, 1024, 700)]
+
+
+def _fits(win, area, footer, content):
+    """req size inside the work area (minus the frame and title bar), the
+    footer packed before the content so a squeeze never takes it."""
+    from eye_gaze.ui import widgets
+    win.update_idletasks()
+    aw, ah = area[2] - widgets.DECOR[0], area[3] - widgets.DECOR[1]
+    assert win.winfo_reqwidth() <= aw, (win.winfo_reqwidth(), area)
+    assert win.winfo_reqheight() <= ah, (win.winfo_reqheight(), area)
+    slaves = footer.master.pack_slaves()
+    assert slaves.index(footer) < slaves.index(content)
+    maxw, maxh = (int(v) for v in win.maxsize())
+    minw, minh = (int(v) for v in win.minsize())
+    assert maxw <= aw and maxh <= ah and minw <= aw and minh <= ah
+    geo = win.geometry()            # "WxH+X+Y"; the position is ours
+    x, y = (int(v) for v in geo.split("+")[1:3])
+    assert area[0] <= x and area[1] <= y
+
+
+@pytest.mark.parametrize("area", AREAS)
+@pytest.mark.parametrize("lang", ["tr", "en"])
+def test_the_settings_window_fits_the_work_area(root, data_dir, monkeypatch,
+                                                area, lang):
+    from eye_gaze import i18n
+    from eye_gaze.ui import widgets
+    monkeypatch.setattr(widgets, "work_area", lambda win: area)
+    i18n.set_language(lang)
+    _write_config(data_dir)
+    s = make_settings(root, make_services(), FakeSup())
+    _fits(s.win, area, s.footer, s.notebook)
+    if area[2] >= 1920:                 # a large screen keeps the roomy look
+        assert s.win.winfo_reqheight() >= 760
+    s._build_content()                  # a language switch builds again
+    _fits(s.win, area, s.footer, s.notebook)
+
+
+def test_the_tabs_change_by_keyboard(root, data_dir):
+    _write_config(data_dir)
+    s = make_settings(root, make_services(), FakeSup())
+    # ttk's enable_traversal: Ctrl+Tab / Ctrl+Shift+Tab on the window.
+    assert s.win.bind("<Control-Key-Tab>")
+
+
+def test_the_work_area_never_raises(root, monkeypatch):
+    from eye_gaze.ui import widgets
+
+    def broken():
+        raise OSError("no user32")
+    monkeypatch.setattr(widgets, "_windows_work_area", broken)
+    x, y, w, h = widgets.work_area(root)
+    assert w > 0 and h > 0
+
+
+@pytest.mark.parametrize("area", AREAS)
+def test_the_wizard_fits_the_work_area(root, data_dir, monkeypatch, area):
+    from tests.test_ui_wizard_flow import make_wizard
+    from eye_gaze.ui import widgets
+    monkeypatch.setattr(widgets, "work_area", lambda win: area)
+    _write_config(data_dir)
+    w, _ = make_wizard(root, make_services())
+    for i in range(len(w.steps)):
+        w._show(i)
+        _fits(w.win, area, w.foot, w.body_scroll)

@@ -227,7 +227,7 @@ settings:
     camera: "Camera"
     sound: "Sound"
     advanced: "Advanced"
-    missing: "Not on this computer"
+    missing: "Missing"
     language: "Language (Dil)"
   camera:
     now_auto: "Now: camera {index} ({width}x{height}), chosen automatically."
@@ -367,7 +367,7 @@ keymap:
 keycapture:
   no_keyboard: "The keyboard cannot be read ({error}); write the key into config.yaml by hand."
   keyboard_failed: "The keyboard cannot be read: {error}"
-  no_permission: "The keyboard cannot be read in this session (no permission); see the “Not on this computer” tab."
+  no_permission: "The keyboard cannot be read in this session (no permission); see the “Missing” tab."
   no_pad: "No gamepad or switch interface is plugged in. Plug one in and try again."
 
 autostart:

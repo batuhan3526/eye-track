@@ -94,9 +94,7 @@ def apply_theme(root):
         pass
     style.configure(".", font="TkDefaultFont", background=BG, foreground=FG)
     style.configure("TNotebook", background=BG)
-    # Ten settings tabs side by side must fit a 1280 px wide screen (a
-    # 1080p laptop at 150 %): less side padding, the same tall tabs.
-    style.configure("TNotebook.Tab", padding=(8, 10), font="TkDefaultFont",
+    style.configure("TNotebook.Tab", padding=(16, 10), font="TkDefaultFont",
                     background=PANEL, foreground=FG)
     style.map("TNotebook.Tab", background=[("selected", ACCENT)],
               foreground=[("selected", ACCENT_FG)])
@@ -164,6 +162,83 @@ def fonts(root):
         }
         root._gozfaresi_fonts = cache
     return cache
+
+
+# --- fitting a window on the screen ------------------------------------------
+# The process is DPI-unaware: a 1080p laptop at 150 % is a 1280x720 screen to
+# it, taskbar included, and a 1366x768 one at 125 % is 1093x614. The launcher's
+# windows are sized from the work area (the screen minus the taskbar), so the
+# whole window - its Kaydet / İleri row included - is on the screen.
+
+DECOR = (16, 40)            # px a window's frame and title bar add, at most
+LINUX_MARGIN = 64           # px of panels / docks assumed on X11 and others
+MIN_SCROLL = 120            # px a scrolling area keeps on any screen
+SPI_GETWORKAREA = 0x0030
+
+
+def _windows_work_area():
+    """(x, y, w, h) of the primary monitor's work area, or None."""
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    fn = user32.SystemParametersInfoW
+    fn.argtypes = (wintypes.UINT, wintypes.UINT, ctypes.c_void_p,
+                   wintypes.UINT)
+    fn.restype = wintypes.BOOL
+    rect = wintypes.RECT()
+    if not fn(SPI_GETWORKAREA, 0, ctypes.byref(rect), 0):
+        return None
+    return (rect.left, rect.top, rect.right - rect.left,
+            rect.bottom - rect.top)
+
+
+def work_area(win):
+    """(x, y, w, h) a window may use: the work area on Windows, the screen
+    less LINUX_MARGIN elsewhere. Never raises."""
+    try:
+        sw, sh = int(win.winfo_screenwidth()), int(win.winfo_screenheight())
+    except (tk.TclError, TypeError, ValueError, AttributeError):
+        sw, sh = 1024, 700
+    if sys.platform == "win32":
+        try:
+            got = _windows_work_area()
+            if got and got[2] >= 320 and got[3] >= 240:
+                return tuple(int(v) for v in got)
+        except Exception:
+            pass
+        return (0, 0, sw, sh)
+    return (0, 0, sw, max(240, sh - LINUX_MARGIN))
+
+
+def fit_to_work_area(win, scrolls, min_size, area=None, place=True):
+    """Make `win` fit the work area: every ScrollFrame in `scrolls` gives up
+    the height the window has too much (down to MIN_SCROLL), min/maxsize
+    stay inside the area and, with `place`, the window is put in its middle.
+    A window that still cannot fit is held to the area by maxsize; packing
+    its button row first keeps that row on the screen."""
+    x, y, w, h = area or work_area(win)
+    aw, ah = max(320, w - DECOR[0]), max(240, h - DECOR[1])
+    for _ in range(3):
+        win.update_idletasks()
+        excess = win.winfo_reqheight() - ah
+        if excess <= 0:
+            break
+        for s in scrolls:
+            try:
+                cur = int(s.canvas.cget("height"))
+                s.canvas.configure(height=max(MIN_SCROLL, cur - excess))
+            except tk.TclError:
+                pass
+    win.update_idletasks()
+    minw, minh = min(min_size[0], aw), min(min_size[1], ah)
+    win.minsize(minw, minh)
+    win.maxsize(aw, ah)
+    if place:
+        gw = min(max(win.winfo_reqwidth(), minw), aw)
+        gh = min(max(win.winfo_reqheight(), minh), ah)
+        win.geometry("+%d+%d" % (x + max(0, (w - DECOR[0] - gw) // 2),
+                                 y + max(0, (h - DECOR[1] - gh) // 2)))
+    return aw, ah
 
 
 def toplevel(parent, title):
@@ -567,7 +642,7 @@ class KeyTable(tk.Frame):
                self.reset_defaults).pack(side="right")
         text(top, "body", value=t("widgets.keytable.intro"),
              wrap=WRAP - 240).pack(side="left", fill="x", expand=True)
-        scroll = ScrollFrame(self, height=height)
+        self.scroll = scroll = ScrollFrame(self, height=height)
         scroll.pack(fill="both", expand=True)
         group = None
         for a in ACTIONS:

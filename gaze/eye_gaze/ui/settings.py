@@ -18,7 +18,7 @@
               lens's field of view (Otomatik or a number)
   Ses         click sounds and their volume, speech speed and volume
   Gelişmiş    deep model, Whisper size, start with the computer
-  Bu bilgisayarda olmayanlar   every capability that is missing, and why
+  Eksikler    every capability that is missing on this computer, and why
   Dil         the program's language: on Kaydet the launcher's windows switch
               at once (this one is built again), the driver at the restart
               Kaydet gives it
@@ -50,6 +50,14 @@ from eye_gaze.ui.widgets import BG
 
 _MISSING = object()
 SENS = sensitivity.KEY
+
+# The window on any screen (widgets.fit_to_work_area): pages PAGE_H tall where
+# there is room, shorter (they scroll) where there is not; the tab strip's
+# side padding goes down before the tabs would make the window too wide.
+PAGE_H = 440
+MIN_SIZE = (1000, 760)
+TAB_STYLE = "Settings.TNotebook"
+TAB_PADDING = (16, 8, 4, 2)
 
 # Sliders: (lo, hi, step, kind) - inside config.RANGES (a file value outside
 # them widens the slider instead of being moved).
@@ -178,16 +186,17 @@ class SettingsWindow:
         self._outer = None
         self._build_content()
         self.win.protocol("WM_DELETE_WINDOW", self.close)
-        self.win.minsize(1000, 760)
         widgets.show(self.win)
 
     def _build_content(self):
         """Everything inside the window, in the current language (built
         again after a language change; values / original / profile stay)."""
-        if self._outer is not None:
+        first = self._outer is None
+        if not first:
             self._outer.destroy()
         self._vars = {}
         self.controls = {}
+        self._scrolls = []
         self.win.title(t("settings.window_title"))
         self._outer = outer = tk.Frame(self.win, bg=BG, padx=20, pady=16)
         outer.pack(fill="both", expand=True)
@@ -196,8 +205,11 @@ class SettingsWindow:
             self.note_var.set(t("settings.source_note"))
             widgets.text(outer, "warn", textvariable=self.note_var).pack(
                 fill="x", pady=(0, 8))
-        self.notebook = ttk.Notebook(outer)
+        self.notebook = ttk.Notebook(outer, style=TAB_STYLE)
         self.notebook.pack(fill="both", expand=True)
+        # Ctrl+Tab / Ctrl+Shift+Tab change the tab from anywhere in the
+        # window (a narrow screen may also cut the last tabs off).
+        self.notebook.enable_traversal()
         for key, build in (("keys", self._build_keys),
                            ("cursor", self._build_cursor),
                            ("click", self._build_click),
@@ -211,14 +223,33 @@ class SettingsWindow:
             tab = tk.Frame(self.notebook, bg=BG, padx=16, pady=12)
             build(tab)
             self.notebook.add(tab, text=t("settings.tab." + key))
-        widgets.text(outer, "bold", textvariable=self.message_var).pack(
-            fill="x", pady=(10, 4))
-        foot = tk.Frame(outer, bg=BG)
-        foot.pack(fill="x")
+        # The button row and the message are packed BEFORE the tabs (made
+        # after them, so Tab still reaches the tabs first): a window held
+        # smaller than its content takes the height from the tabs, whose
+        # pages scroll, never from Kaydet.
+        self.footer = foot = tk.Frame(outer, bg=BG)
+        foot.pack(fill="x", side="bottom", before=self.notebook)
         widgets.button(foot, t("settings.save"), self.save,
                        primary=True).pack(side="right")
         widgets.button(foot, t("settings.close"), self.close).pack(
             side="right", padx=12)
+        widgets.text(outer, "bold", textvariable=self.message_var).pack(
+            fill="x", pady=(10, 4), side="bottom", before=self.notebook)
+        self._fit(place=first)
+
+    def _fit(self, place):
+        """The whole window on the work area: narrower tabs first, then
+        shorter pages (widgets.fit_to_work_area)."""
+        area = widgets.work_area(self.win)
+        room = area[2] - widgets.DECOR[0]
+        style = ttk.Style(self.win)
+        for pad in TAB_PADDING:
+            style.configure(TAB_STYLE + ".Tab", padding=(pad, 10))
+            self.win.update_idletasks()
+            if self.win.winfo_reqwidth() <= room:
+                break
+        widgets.fit_to_work_area(self.win, self._scrolls, MIN_SIZE, area,
+                                 place=place)
 
     # --- the driver around a capture or a camera search -------------------
 
@@ -239,6 +270,7 @@ class SettingsWindow:
             self.worker, before_capture=self._pause_driver,
             after_capture=self._resume_driver, height=430)
         self.keys.pack(fill="both", expand=True)
+        self._scrolls.append(self.keys.scroll)
 
     # --- building blocks ----------------------------------------------------
 
@@ -256,8 +288,9 @@ class SettingsWindow:
             self.values[key] = new
 
     def _scrolled(self, tab):
-        scroll = widgets.ScrollFrame(tab, height=440)
+        scroll = widgets.ScrollFrame(tab, height=PAGE_H)
         scroll.pack(fill="both", expand=True)
+        self._scrolls.append(scroll)
         return scroll.inner
 
     def _heading(self, parent, key):
@@ -704,6 +737,7 @@ class SettingsWindow:
         self._slider(body, "tts_volume", t("settings.sound.volume"))
 
     def _build_advanced(self, tab):
+        tab = self._scrolled(tab)
         deep = tk.StringVar(tab, _deep_choice(self.values.get("deep_gaze")))
         self._vars["_deep"] = deep
 
@@ -745,16 +779,15 @@ class SettingsWindow:
         return "\n\n".join(lines)
 
     def _build_missing(self, tab):
-        scroll = widgets.ScrollFrame(tab, height=440)
-        scroll.pack(fill="both", expand=True)
-        widgets.text(scroll.inner, "body", value=self.missing_text()).pack(
-            anchor="w")
+        widgets.text(self._scrolled(tab), "body",
+                     value=self.missing_text()).pack(anchor="w")
 
     def _language_now(self):
         want = i18n.normalize(self.values.get("language"))
         return want if want in dict(i18n.available()) else i18n.language()
 
     def _build_language(self, tab):
+        tab = self._scrolled(tab)
         var = tk.StringVar(tab, self._language_now())
         self._vars["language"] = var
 

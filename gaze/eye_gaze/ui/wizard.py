@@ -561,7 +561,7 @@ class DownloadStep(Step):
         # The rows scroll in a fixed height: three of them (GPU pack,
         # Whisper, the English voice) made the wizard ~1170 px tall, its
         # buttons below the edge of a 1080p screen at 125 % (Task 16).
-        scroll = widgets.ScrollFrame(f, height=self.ROWS_H)
+        self.scroll = scroll = widgets.ScrollFrame(f, height=self.ROWS_H)
         scroll.pack(fill="both", expand=True)
         self.rows_frame = scroll.inner
 
@@ -757,14 +757,17 @@ class Wizard:
             anchor="w")
         widgets.text(outer, "title", textvariable=self.title_var).pack(
             anchor="w", pady=(0, 12))
-        self.body = tk.Frame(outer, bg=BG)
-        self.body.pack(fill="both", expand=True)
+        # Every step on one page that scrolls: as tall as the tallest step
+        # where the screen has room, shorter where it has not (_fit).
+        self.body_scroll = widgets.ScrollFrame(outer, height=400)
+        self.body_scroll.pack(fill="both", expand=True)
+        self.body = self.body_scroll.inner
         # The buttons are packed BEFORE the step body: when the window is
         # smaller than its content (maxsize below, a small screen), pack
         # takes the missing height from the body, never from Geri/İleri.
         # Created after it, so Tab still reaches the step's controls first.
-        foot = tk.Frame(outer, bg=BG, pady=12)
-        foot.pack(fill="x", side="bottom", before=self.body)
+        self.foot = foot = tk.Frame(outer, bg=BG, pady=12)
+        foot.pack(fill="x", side="bottom", before=self.body_scroll)
         self.back_button = widgets.button(foot, t("wizard.back"), self.back)
         self.back_button.pack(side="left")
         self.next_button = widgets.button(foot, t("wizard.next"), self.next,
@@ -773,14 +776,28 @@ class Wizard:
         self.skip_button = widgets.button(foot, t("wizard.skip"), self.skip)
         self.skip_button.pack(side="right", padx=12)
         self.win.protocol("WM_DELETE_WINDOW", self.request_close)
-        self.win.minsize(980, 760)
-        self.win.maxsize(self.win.winfo_screenwidth(),
-                         self.win.winfo_screenheight())
 
         self.steps = [cls(self) for cls in self.STEPS]
         self.index = -1
+        self._fit(place=True)
         self._show(0)
         widgets.show(self.win)
+
+    MIN_SIZE = (980, 760)
+
+    def _fit(self, place):
+        """The page as large as the largest step, then the whole window on
+        the work area (widgets.fit_to_work_area): the page and the steps'
+        own scrolling lists give up the height a small screen lacks."""
+        self.win.update_idletasks()
+        frames = [s.frame for s in self.steps]
+        self.body_scroll.canvas.configure(
+            width=max(f.winfo_reqwidth() for f in frames),
+            height=max(f.winfo_reqheight() for f in frames))
+        scrolls = [self.body_scroll, self.step("tuslar").table.scroll,
+                   self.step("indirmeler").scroll]
+        widgets.fit_to_work_area(self.win, scrolls, self.MIN_SIZE,
+                                 place=place)
 
     @property
     def current(self):
@@ -822,6 +839,7 @@ class Wizard:
             s.frame.destroy()
         self.steps = [cls(self) for cls in self.STEPS]
         self.index = -1
+        self._fit(place=False)
         try:
             self.win.title(t("wizard.window_title"))
             self.back_button.configure(text=t("wizard.back"))
@@ -838,6 +856,7 @@ class Wizard:
         self.counter_var.set(t("wizard.counter", i=i + 1, n=len(self.steps)))
         self.title_var.set(step.title)
         step.frame.pack(fill="both", expand=True)
+        self.body_scroll.canvas.yview_moveto(0)
         last = i == len(self.steps) - 1
         self.back_button.configure(state="normal" if i > 0 else "disabled")
         self.next_button.configure(text=t("wizard.start") if last

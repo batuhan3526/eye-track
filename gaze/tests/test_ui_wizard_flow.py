@@ -1179,11 +1179,12 @@ def test_the_download_step_does_not_grow_with_its_rows(root, data_dir,
         return w.win.winfo_reqheight()
 
     assert height_with(1) == height_with(4)
-    slaves = w.body.master.pack_slaves()
-    assert slaves.index(w.next_button.master) < slaves.index(w.body)
+    # (The steps sit on one scrolling page, w.body_scroll.)
+    slaves = w.body_scroll.master.pack_slaves()
+    assert slaves.index(w.next_button.master) < slaves.index(w.body_scroll)
     # ... while Tab keeps its order: the step's controls, then the buttons.
-    kids = w.body.master.winfo_children()
-    assert kids.index(w.body) < kids.index(w.next_button.master)
+    kids = w.body_scroll.master.winfo_children()
+    assert kids.index(w.body_scroll) < kids.index(w.next_button.master)
     max_w, max_h = w.win.maxsize()
     assert max_w <= w.win.winfo_screenwidth()
     assert max_h <= w.win.winfo_screenheight()

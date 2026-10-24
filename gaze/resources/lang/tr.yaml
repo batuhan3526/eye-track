@@ -234,7 +234,7 @@ settings:
     camera: "Kamera"
     sound: "Ses"
     advanced: "Gelişmiş"
-    missing: "Bu bilgisayarda olmayanlar"
+    missing: "Eksikler"
     language: "Dil (Language)"
   camera:
     now_auto: "Şu an: kamera {index} ({width}x{height}), kendiliğinden seçildi."
@@ -374,7 +374,7 @@ keymap:
 keycapture:
   no_keyboard: "Klavye dinlenemiyor ({error}); tuşu config.yaml'a elle yazın."
   keyboard_failed: "Klavye dinlenemiyor: {error}"
-  no_permission: "Bu oturumda klavye dinlenemiyor (izin yok); 'Bu bilgisayarda olmayanlar' sekmesine bakın."
+  no_permission: "Bu oturumda klavye dinlenemiyor (izin yok); «Eksikler» sekmesine bakın."
   no_pad: "Takılı bir gamepad ya da switch arayüzü bulunamadı. Takıp yeniden deneyin."
 
 autostart:

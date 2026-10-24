@@ -428,7 +428,7 @@ def test_the_settings_window_in_english(root, data_dir):
     s = flow.make_settings(root, flow.make_services(), flow.FakeSup())
     tabs = [s.notebook.tab(t, "text") for t in s.notebook.tabs()]
     assert tabs == ["Keys", "Cursor", "Clicking", "Magnifier", "Calibration",
-                    "Camera", "Sound", "Advanced", "Not on this computer",
+                    "Camera", "Sound", "Advanced", "Missing",
                     "Language (Dil)"]
     assert s.win.title() == "Göz Faresi — Settings"
     assert s.missing_text() == "Every feature works on this computer."
