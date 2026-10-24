@@ -117,8 +117,8 @@ def test_common_screens(name, diag, px, scaled):
 
 
 def test_clamped_to_its_range():
-    tv = physical.detect((1920, 1080), candidates=[("EDID", (1439, 809))])  # 65" TV
-    assert tv.factor == physical.CLAMP[0] and tv.applied
+    big = physical.detect((1920, 1080), candidates=[("EDID", _panel(40.0))])
+    assert big.factor == physical.CLAMP[0] and big.applied    # 40" 1080p: 0.50
     tiny = physical.detect((3840, 2160), candidates=[("EDID", (294, 165))])  # 13" 4K
     assert tiny.factor == physical.CLAMP[1]
 
@@ -351,3 +351,34 @@ def test_driver_frame_counts_follow_the_measured_rate():
     assert "if timing.tick(now):" in src and "hist = timing.resize(hist)" in src
     assert "loop_i % timing.scroll_frames == 0" in src
     assert "loop_i % 4 ==" not in src
+
+
+# --- TVs and projectors: the mm model assumes desk viewing distance ---------------
+
+def test_a_tv_counts_as_unknown():
+    s = physical.detect((1920, 1080), candidates=[("EDID", _panel(55.0))])
+    assert s.factor == 1.0 and not s.applied
+    assert s.raw is None and s.source == "EDID"     # measured, but not used
+    line = physical.describe(s)
+    assert line.isascii() and "TV" in line and "x1.00" in line
+
+
+def test_a_tv_stops_the_search():
+    s = physical.detect((1920, 1080), candidates=[
+        ("EDID", _panel(55.0)), ("GetDeviceCaps", _panel(24.0))])
+    assert s.factor == 1.0 and s.source == "EDID"
+
+
+def test_43_inch_is_the_last_monitor():
+    at = physical.detect((1920, 1080), candidates=[("EDID", _panel(43.0))])
+    assert at.raw is not None and at.applied            # 1092 mm: a monitor
+    over = physical.detect((1920, 1080), candidates=[("EDID", _panel(44.0))])
+    assert over.raw is None and over.factor == 1.0     # 1118 mm: a TV
+    assert physical.MAX_DESK_DIAG_MM == 1100.0
+
+
+def test_a_40_inch_monitor_is_still_scaled_by_the_band():
+    lo = physical.detect((1920, 1080), candidates=[("EDID", _panel(40.0))])
+    assert lo.applied and lo.factor == physical.CLAMP[0]
+    k4 = physical.detect((3840, 2160), candidates=[("EDID", _panel(40.0))])
+    assert not k4.applied and k4.raw is not None and k4.factor == 1.0   # 1.01

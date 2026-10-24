@@ -304,3 +304,31 @@ def test_settle_time_falls_with_each_level():
 def test_preset_3_stays_quick_at_other_frame_rates(fps):
     times = [settle_time(sensitivity.preset(3), fps=fps, seed=s) for s in SEEDS]
     assert max(times) <= 1.2, times
+
+
+# --- an unusable filter line under a preset follows the preset ---------------------
+
+@pytest.mark.parametrize("line", ["mincutoff: abc", "mincutoff: 0",
+                                  "mincutoff: -0.5", "beta: abc"])
+def test_unusable_line_under_a_preset_follows_it(tmp_path, said, line):
+    key = line.split(":")[0]
+    cfg = config.load_config(_write(
+        tmp_path, 'left_click_key: "space"\ncursor_sensitivity: 3\n' + line + "\n"))
+    assert cfg[key] == sensitivity.preset(3)[key]
+    assert any(key in m for m in said)              # still said on the console
+
+
+def test_a_real_number_under_a_preset_still_wins(tmp_path, said):
+    cfg = config.load_config(_write(
+        tmp_path, 'left_click_key: "space"\ncursor_sensitivity: 3\n'
+        "mincutoff: 1.0\nbeta: 0,007\ngaze_median_window: 9.0\n"))
+    assert cfg["mincutoff"] == 1.0 and cfg["beta"] == 0.007
+    assert sensitivity.median_seconds(cfg) == pytest.approx(9 / 30.0)
+
+
+@pytest.mark.parametrize("line,want", [("mincutoff: abc", 1.0), ("mincutoff: 0", 1.0),
+                                       ("mincutoff: -0.5", 1.0), ("beta: abc", 0.007)])
+def test_unusable_line_without_the_key_is_v120(tmp_path, said, line, want):
+    key = line.split(":")[0]
+    cfg = config.load_config(_write(tmp_path, 'left_click_key: "space"\n' + line + "\n"))
+    assert cfg[key] == want == config.DEFAULTS[key]

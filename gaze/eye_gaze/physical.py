@@ -24,7 +24,9 @@ Where the size comes from:
   other   - nothing.
 A size that is missing or implausible (no EDID, a projector's 0x0, an EDID
 that stores the aspect ratio "16x9 cm", a panel that does not match the
-screen's shape) means factor 1.0.
+screen's shape) means factor 1.0. So does a diagonal above MAX_DESK_DIAG_MM
+(~43"): the mm model assumes desk viewing distance, and a TV or projector is
+seen from much further away (logged as such).
 
 The factor is clamped to CLAMP, and inside BAND it is exactly 1.0: common
 desktop screens (21.5-24" 1080p at 0.84-0.94, 27-32" 1440p, laptops at their
@@ -48,6 +50,9 @@ BAND = (0.80, 1.25)             # inside: exactly 1.0
 # A monitor's diagonal outside this is a wrong reading, not a monitor.
 _MIN_DIAG_MM = 250.0            # ~10"
 _MAX_DIAG_MM = 2600.0           # ~100"
+# Above this (~43") it is a TV or a projector: watched from the sofa, not
+# from a desk, so its millimetres say nothing about the user's aim -> 1.0.
+MAX_DESK_DIAG_MM = 1100.0
 _ASPECT_TOL = 0.15              # panel shape vs screen shape
 
 ScreenScale = collections.namedtuple(
@@ -320,6 +325,9 @@ def detect(px, candidates=None):
             fit = _plausible(mm, px)
             if fit is None:
                 continue
+            if math.hypot(*fit) > MAX_DESK_DIAG_MM:
+                # A real reading of a TV/projector: the answer is "unknown".
+                return ScreenScale(1.0, None, None, fit, px, source, False)
             mmpp = math.hypot(*fit) / math.hypot(*px)
             raw = min(CLAMP[1], max(CLAMP[0], REF_MM_PER_PX / mmpp))
             factor = apply_band(raw)
@@ -336,6 +344,12 @@ def describe(scale):
         if scale.source is None:
             return ("Ekran olcegi: fiziksel boyut bilinmiyor - piksel ayarlari"
                     " oldugu gibi (x1.00).")
+        if scale.raw is None:
+            return ("Ekran olcegi: %dx%d mm (%s), kosegen %.0f inc - TV ya da"
+                    " projektor (masa ekrani degil); piksel ayarlari oldugu"
+                    " gibi (x1.00)."
+                    % (round(scale.mm[0]), round(scale.mm[1]), scale.source,
+                       math.hypot(*scale.mm) / 25.4))
         head = ("Ekran olcegi: %dx%d mm (%s), %.4f mm/piksel, oran x%.2f"
                 % (round(scale.mm[0]), round(scale.mm[1]), scale.source,
                    scale.mm_per_px, scale.raw))

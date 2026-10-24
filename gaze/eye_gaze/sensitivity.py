@@ -117,10 +117,22 @@ def _same(a, b):
                                           abs_tol=1e-12)
 
 
+def _survived(key, cfg, user):
+    """True when the loader kept the file's own number for `key`. A line it
+    could not use is dropped or REPLACED by DEFAULTS' value (mincutoff: abc
+    or 0 -> 1.0), and that stand-in is nobody's choice."""
+    f = _number(user.get(key))
+    if f is None:
+        return False
+    return _same(cfg[key], f) or _same(cfg[key], round(f))
+
+
 def _explicit(key, cfg, user):
     """True when `key` is a deliberate choice in the user's file: written,
     usable (the loader kept it), not "auto" and not the factory value."""
     if key not in user or key not in cfg or _is_auto(cfg[key]):
+        return False
+    if not _survived(key, cfg, user):
         return False
     factory = FACTORY_MEDIAN_WINDOW if key == "gaze_median_window" else FACTORY.get(key)
     return factory is None or not _same(cfg[key], factory)
@@ -144,7 +156,7 @@ def resolve(cfg, user):
     for key in ("mincutoff", "beta", "max_cursor_speed", "deadzone"):
         if not _explicit(key, cfg, user):
             cfg[key] = values[key]
-    if "gaze_median_seconds" in user and "gaze_median_seconds" in cfg             and not _is_auto(cfg["gaze_median_seconds"]):
+    if "gaze_median_seconds" in user and "gaze_median_seconds" in cfg             and not _is_auto(cfg["gaze_median_seconds"])             and _survived("gaze_median_seconds", cfg, user):
         pass                                        # explicit seconds win
     elif _explicit("gaze_median_window", cfg, user):
         cfg["gaze_median_seconds"] = median_seconds(
