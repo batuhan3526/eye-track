@@ -538,3 +538,68 @@ def test_the_startup_upgrade_keeps_the_old_calibration_as_backup(tmp_path):
     assert back.axes == out.axes and d["sel"]["posture"]["cv"] == "pass"
     assert out.err_cv < 40
     assert any("->" in line for line in said)
+
+
+# --- calibration.json versions: 2 (1.2.0) and 3 (per-axis) ------------------
+
+
+def _per_axis():
+    g, s = [], []
+    for i in range(5):
+        for j in range(5):
+            x, y = 20 + i * 70, 20 + j * 50
+            g.append(_gaze_of(x, y))
+            s.append((x, y))
+    m = GazeMapper(reach_margin=0.25,
+                   axes=(((0,), None, 1e-3), ((1,), (0, 1), 1e-2)))
+    m.fit(g, s)
+    m.err_cv = 50
+    return m
+
+
+def test_a_version_3_file_loads_and_predicts_as_saved(tmp_path):
+    cal = str(tmp_path / "calibration.json")
+    m = _per_axis()
+    assert gd._save_calibration(cal, m, feat="pe0-hp0-ht0-dg0")
+    d = json.loads(open(cal, encoding="utf-8").read())
+    assert d["v"] == 3
+    back, problem, _ = gd._read_calibration(cal)
+    assert problem is None and back.axes == m.axes
+    assert back.predict((0.01, 0.02)) == m.predict((0.01, 0.02))
+
+
+def test_version_and_content_must_agree(tmp_path):
+    p = tmp_path / "calibration.json"
+    d = _per_axis().to_dict()
+    p.write_text(json.dumps(dict(d, v=2)), encoding="utf-8")
+    assert gd._read_calibration(str(p))[0] is None       # axes under a 2
+    no_axes = {k: v for k, v in d.items() if k != "axes"}
+    p.write_text(json.dumps(no_axes), encoding="utf-8")
+    assert gd._read_calibration(str(p))[0] is None       # a 3 without axes
+    p.write_text(json.dumps(dict(d, v=4)), encoding="utf-8")
+    assert gd._read_calibration(str(p))[0] is None       # unknown version
+
+
+def test_a_version_3_file_is_backed_up_in_its_feature_slot(tmp_path):
+    cal = str(tmp_path / "calibration.json")
+    assert gd._save_calibration(cal, _per_axis(), feat="pe0-hp0-ht0-dg0")
+    v3 = open(cal, "rb").read()
+    assert gd._stored_n_inputs(v3) == 2
+    assert gd._save_calibration(cal, _fitted(), feat="pe0-hp0-ht0-dg0")
+    assert open(gd._calibration_backup(cal, 2), "rb").read() == v3
+    # "geri al" swaps it back in, and it loads as the per-axis model
+    restored = gd._undo_calibration(cal, gd._read_calibration(cal)[0], 2)[0]
+    assert restored is not None and restored.axes is not None
+
+
+def test_a_loader_that_knows_only_version_2_rejects_the_upgrade(tmp_path):
+    """What 1.2.0 does with the file (its rule: anything but "v": 2 is
+    refused), and that the backup it then restores is the 1.2.0 file."""
+    cal = str(tmp_path / "calibration.json")
+    old = _fitted()
+    old.err_cv = 60
+    gd._save_calibration(cal, old, feat="pe0-hp0-ht0-dg0")
+    gd._save_calibration(cal, _per_axis(), feat="pe0-hp0-ht0-dg0")
+    assert json.loads(open(cal, encoding="utf-8").read())["v"] != 2
+    bak = json.loads(open(gd._calibration_backup(cal, 2), encoding="utf-8").read())
+    assert bak["v"] == 2 and "axes" not in bak

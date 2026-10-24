@@ -211,7 +211,12 @@ class GazeMapper:
     def to_dict(self):
         if self._cx is None:
             raise RuntimeError("GazeMapper not fitted; nothing to save")
-        d = {"v": 2,  # fit-algorithm version (2 = ridge); loaders reject older
+        # Format version: 2 = ridge, one model over every input; 3 = per-axis
+        # models (`axes`). A 3 must never reach a loader that only knows 2:
+        # 1.2.0 would ignore `axes`, predict with the wrong feature vector
+        # and stop the cursor loop - it rejects the 3 and restores its own
+        # backup instead.
+        d = {"v": 3 if self.axes is not None else 2,
              "cx": self._cx.tolist(), "cy": self._cy.tolist(),
              "lo": self._lo.tolist(), "hi": self._hi.tolist(),
              "reach": self._reach, "poly2": self._poly2}

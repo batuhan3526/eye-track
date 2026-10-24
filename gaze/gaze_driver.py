@@ -1175,6 +1175,11 @@ def _feature_id(per_eye, use_head, use_tr, deep_on):
                                     bool(use_head and use_tr), bool(deep_on))
 
 
+# calibration.json format versions this build reads: 2 = one ridge model
+# over every input (1.2.0), 3 = per-axis models (eye_gaze.modelsel).
+_CAL_VERSIONS = (2, 3)
+
+
 def _read_calibration(path):
     """(mapper, problem, raw dict); problem is None on success.
 
@@ -1189,8 +1194,10 @@ def _read_calibration(path):
             d = json.load(f)
     except Exception as exc:
         return None, "okunamadi (%s)" % type(exc).__name__, None
-    if not isinstance(d, dict) or d.get("v") != 2:
+    if not isinstance(d, dict) or d.get("v") not in _CAL_VERSIONS:
         return None, "eski algoritmayla alinmis", None
+    if (d.get("v") == 3) != ("axes" in d):
+        return None, "bozuk (surum ve icerik uyusmuyor)", None
     try:
         m = GazeMapper.from_dict(d)
     except Exception as exc:
@@ -1247,7 +1254,7 @@ def _stored_n_inputs(raw):
     """Feature count recorded in raw calibration JSON bytes, or None."""
     try:
         d = json.loads(raw.decode("utf-8"))
-        if d.get("v") == 2 and isinstance(d.get("lo"), list):
+        if d.get("v") in _CAL_VERSIONS and isinstance(d.get("lo"), list):
             return len(d["lo"])
     except Exception:
         pass

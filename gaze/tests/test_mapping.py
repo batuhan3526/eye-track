@@ -421,3 +421,17 @@ def test_predict_many_matches_predict_row_by_row():
         many = m.predict_many(rows)
         one = np.array([m.predict(v) for v in rows])
         assert np.allclose(many, one, rtol=1e-12, atol=1e-9)
+
+
+def test_a_per_axis_mapper_is_written_as_version_3():
+    """1.2.0 reads any "v": 2 file and ignores keys it does not know: a
+    per-axis file written as 2 would be predicted with the wrong feature
+    vector there. As 3 it is rejected and 1.2.0 restores its own backup."""
+    g, s = _axes_data()
+    m = GazeMapper(axes=(((0, 2), None, 1e-3), ((1,), None, 1e-2)))
+    m.fit(g, s)
+    assert m.to_dict()["v"] == 3
+    assert GazeMapper.from_dict(_V2_FILE).to_dict()["v"] == 2
+    plain = GazeMapper()
+    plain.fit(g, s)
+    assert plain.to_dict()["v"] == 2
