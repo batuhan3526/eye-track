@@ -17,6 +17,11 @@ HELD-OUT points, and only installed when it is not clearly worse.
 The feature vector itself cannot change this way: samples are keyed by the
 feature stamp and their feature count, exactly like the calibration backups.
 
+A calibration fitted before the per-axis model selection (eye_gaze.modelsel)
+existed is refitted from its samples once at startup the same way, and only
+installed when it is not clearly worse - both measured on the same held-out
+passes.
+
 Nothing here raises into the driver. A failure to save samples costs only the
 convenience they offer; it must never cost the calibration.
 """
@@ -30,14 +35,18 @@ from collections import namedtuple
 
 import numpy as np
 
+from . import modelsel
 from .mapping import fit_with_rejection, holdout_error
-from .pursuit import PursuitPath, best_latency_fit, pursuit_pairs
+from .pursuit import PursuitPath, best_latency_fit, pursuit_keep, pursuit_pairs
 
 _VERSION = 1
 _CV_GOOD, _CV_BAD = 100.0, 200.0     # same grades as gaze_driver._cal_label
 _WORSE = 1.25                        # same tolerance as gaze_driver._should_save
 
-RefitResult = namedtuple("RefitResult", "mapper err err_cv latency")
+# report: what modelsel measured (per-axis held-out error, coverage slope,
+# chosen inputs; see modelsel.select), or None for a fit without selection.
+RefitResult = namedtuple("RefitResult", "mapper err err_cv latency report",
+                         defaults=(None,))
 
 
 def _say(message):
@@ -55,41 +64,45 @@ class CalSamples:
                     (restarting each pass); the screen target is the ball
                     position at t - latency, so the PATH is kept instead of the
                     targets and the latency can be relearned.
+    group: pass index per sample, or None (files from before it was kept,
+    and single-pass dots).
     """
 
-    def __init__(self, kind, gaze, t, screen, meta):
+    def __init__(self, kind, gaze, t, screen, meta, group=None):
         self.kind = kind
         self.gaze = np.asarray(gaze, dtype=float)
         self.t = np.asarray(t, dtype=float)
         self.screen = (np.zeros((0, 2)) if screen is None
                        else np.asarray(screen, dtype=float).reshape(-1, 2))
         self.meta = dict(meta)
+        self.group = _group(group, len(self.gaze))
 
     # The two builders run INSIDE the calibration routines, right after the
     # fit the user just paid for. They return None instead of raising: a
     # fault here may cost the samples, never the calibration.
 
     @classmethod
-    def dots(cls, gaze_pts, screen_pts, stamps, opts):
+    def dots(cls, gaze_pts, screen_pts, stamps, opts, groups=None):
         try:
             n = len(gaze_pts)
             t = list(stamps) if stamps is not None and len(stamps) == n \
                 else list(range(n))
             return cls("dots", [tuple(g) for g in gaze_pts], t,
                        [tuple(s) for s in screen_pts],
-                       {"kind": "dots", "opts": dict(opts)})
+                       {"kind": "dots", "opts": dict(opts)}, group=groups)
         except Exception:
             return None
 
     @classmethod
-    def pursuit(cls, samples, path, latency_used, opts):
+    def pursuit(cls, samples, path, latency_used, opts, groups=None):
         try:
             pts = [list(map(float, p)) for p in getattr(path, "_pts")]
             return cls("pursuit", [tuple(g) for g, _ in samples],
                        [float(t) for _, t in samples], None,
                        {"kind": "pursuit", "opts": dict(opts),
                         "latency_used": float(latency_used),
-                        "speed": float(path.speed), "path_pts": pts})
+                        "speed": float(path.speed), "path_pts": pts},
+                       group=groups)
         except Exception:
             return None
 
@@ -114,12 +127,46 @@ class CalSamples:
         return ([tuple(g) for g in self.gaze.tolist()],
                 [tuple(s) for s in self.screen.tolist()])
 
+    def groups(self):
+        """Pass index per sample: as recorded; for a pursuit file from before
+        it was recorded, read from the t restarts; else None (dots: one
+        pass, or passes not recorded)."""
+        if self.group is not None:
+            return self.group
+        if self.kind == "pursuit":
+            return modelsel.groups_from_t(self.t)
+        return None
+
+    def grouped_pairs(self, latency=None):
+        """pairs() plus the pass index of each pair (or None)."""
+        grp = self.groups()
+        if self.kind == "pursuit":
+            lat = self.meta["latency_used"] if latency is None else float(latency)
+            raw = self.raw()
+            idx, s_pts = pursuit_keep(raw, self.path(), lat)
+            return ([raw[i][0] for i in idx], s_pts,
+                    None if grp is None else [int(grp[i]) for i in idx])
+        g, s_pts = self.pairs()
+        return g, s_pts, None if grp is None else [int(v) for v in grp]
+
     def with_opts(self, opts, **meta):
         m = dict(self.meta)
         m["opts"] = dict(opts)
         m.update(meta)
         return CalSamples(self.kind, self.gaze, self.t,
-                          self.screen if self.kind == "dots" else None, m)
+                          self.screen if self.kind == "dots" else None, m,
+                          group=self.group)
+
+
+def _group(group, n):
+    """A usable pass-index array of length n, or None."""
+    if group is None:
+        return None
+    try:
+        g = np.asarray(group).astype(int).reshape(-1)
+        return g if len(g) == n else None
+    except Exception:
+        return None
 
 
 # --- files ---------------------------------------------------------------------
@@ -142,7 +189,10 @@ def mapper_sig(mapper):
     the one that was saved, and any refit has a different one.
     """
     d = mapper.to_dict()
-    blob = json.dumps([d["cx"], d["cy"], d["lo"], d["hi"], bool(d["poly2"])])
+    items = [d["cx"], d["cy"], d["lo"], d["hi"], bool(d["poly2"])]
+    if "axes" in d:     # absent from older files: their signature is unchanged
+        items.append(d["axes"])
+    blob = json.dumps(items)
     return hashlib.sha1(blob.encode("ascii")).hexdigest()[:16]
 
 
@@ -156,9 +206,10 @@ def safe_sig(mapper):
 
 def _to_bytes(samples, meta):
     buf = io.BytesIO()
+    extra = {} if samples.group is None else {"group": samples.group}
     np.savez_compressed(buf, gaze=samples.gaze, t=samples.t,
                         screen=samples.screen,
-                        meta=np.array(json.dumps(meta)))
+                        meta=np.array(json.dumps(meta)), **extra)
     return buf.getvalue()
 
 
@@ -172,6 +223,7 @@ def load_samples(path):
         with np.load(io.BytesIO(data), allow_pickle=False) as z:
             meta = json.loads(str(z["meta"]))
             gaze, t, screen = z["gaze"], z["t"], z["screen"]
+            group = z["group"] if "group" in z.files else None
         if not isinstance(meta, dict) or meta.get("v") != _VERSION:
             return None
         kind = meta.get("kind")
@@ -182,7 +234,8 @@ def load_samples(path):
             return None
         if kind == "pursuit" and not (meta.get("path_pts") and meta.get("speed")):
             return None
-        return CalSamples(kind, gaze, t, screen if kind == "dots" else None, meta)
+        return CalSamples(kind, gaze, t, screen if kind == "dots" else None, meta,
+                          group=group)
     except Exception:
         return None
 
@@ -286,45 +339,117 @@ def _is_auto(latency):
     return isinstance(latency, str) and latency.strip().lower() == "auto"
 
 
-def refit(samples, reach_margin, poly2, latency="auto"):
-    """Fit a mapper from saved samples with the given mapping options.
-
-    Same procedure as the live calibration (outlier rejection; for pursuit the
-    eye lag is rescanned unless fixed), and graded the same honest way: on
-    points the fit did not see. Returns RefitResult or None; never raises.
-    """
+def _select(samples, reach_margin, poly2, latency, feat):
+    """The per-axis selection (modelsel); RefitResult or None. poly2 = the
+    quadratic candidates are allowed at all."""
     try:
         if samples.kind == "pursuit":
-            raw, path = samples.raw(), samples.path()
-            if _is_auto(latency):
-                mapper, err, lat = best_latency_fit(
-                    raw, path, reach_margin=reach_margin, poly2=poly2)
-            else:
-                mapper, err, lat = best_latency_fit(
-                    raw, path, reach_margin=reach_margin, poly2=poly2,
-                    candidates=(float(latency),))
-            if mapper is None:
-                return None
-            g, s = pursuit_pairs(raw, path, lat)
-            err_cv = holdout_error(g, s, reach_margin=reach_margin,
-                                   poly2=poly2, blocks=10)
+            lats = (modelsel.LATENCIES if _is_auto(latency)
+                    else (float(latency),))
+            sel, lat = modelsel.select_pursuit(
+                samples.raw(), samples.path(), samples.groups(), feat=feat,
+                reach=reach_margin, allow_quad=poly2, latencies=lats)
         else:
-            g, s = samples.pairs()
-            mapper, err = fit_with_rejection(g, s, reach_margin=reach_margin,
-                                             poly2=poly2)
-            if mapper is None:
-                return None
-            lat = None
-            err_cv = holdout_error(g, s, reach_margin=reach_margin, poly2=poly2)
+            g, s, grp = samples.grouped_pairs()
+            sel, lat = modelsel.select(g, s, grp, feat=feat, reach=reach_margin,
+                                       allow_quad=poly2), None
+        if sel is None:
+            return None
+        return RefitResult(sel.mapper, sel.err, sel.err_cv, lat, sel.report)
+    except Exception:
+        return None
+
+
+def _legacy_fit(samples, reach_margin, poly2, latency):
+    """The single all-inputs model of earlier versions: the fallback when
+    nothing could be validated per axis."""
+    if samples.kind == "pursuit":
+        raw, path = samples.raw(), samples.path()
+        if _is_auto(latency):
+            mapper, err, lat = best_latency_fit(
+                raw, path, reach_margin=reach_margin, poly2=poly2)
+        else:
+            mapper, err, lat = best_latency_fit(
+                raw, path, reach_margin=reach_margin, poly2=poly2,
+                candidates=(float(latency),))
+        if mapper is None:
+            return None
+        g, s = pursuit_pairs(raw, path, lat)
+        err_cv = holdout_error(g, s, reach_margin=reach_margin,
+                               poly2=poly2, blocks=10)
+    else:
+        g, s = samples.pairs()
+        mapper, err = fit_with_rejection(g, s, reach_margin=reach_margin,
+                                         poly2=poly2)
+        if mapper is None:
+            return None
+        lat = None
+        err_cv = holdout_error(g, s, reach_margin=reach_margin, poly2=poly2)
+    return RefitResult(mapper, err, err_cv, lat, None)
+
+
+def refit(samples, reach_margin, poly2, latency="auto", feat=None):
+    """Fit a mapper from saved samples with the given mapping options.
+
+    Same procedure as the live calibration: the per-axis model selection
+    (modelsel; for pursuit the eye lag too, unless fixed), graded the honest
+    way - on passes (or blocks) the fit did not see. Should the selection be
+    impossible, the earlier single model is fitted instead. feat names the
+    inputs (default: the stamp the samples were saved under). Returns
+    RefitResult or None; never raises.
+    """
+    try:
+        if feat is None:
+            feat = samples.meta.get("feat")
+        r = _select(samples, reach_margin, poly2, latency, feat)
+        if r is None:
+            r = _legacy_fit(samples, reach_margin, poly2, latency)
+        if r is None:
+            return None
+        mapper, err, err_cv, lat = r.mapper, r.err, r.err_cv, r.latency
         opts = {"poly2": bool(poly2), "reach": float(reach_margin),
                 "latency": latency if _is_auto(latency) else
                 (None if latency is None else float(latency))}
         extra = {} if lat is None else {"latency_used": float(lat)}
         mapper.err_cv = err_cv
         mapper.cal_samples = samples.with_opts(opts, **extra)
-        return RefitResult(mapper, err, err_cv, lat)
+        return RefitResult(mapper, err, err_cv, lat, r.report)
     except Exception:
         return None
+
+
+def score_of(mapper, samples):
+    """The held-out error of the model `mapper` was fitted as, re-measured
+    on its own samples with today's validation (modelsel.validate): the
+    number a refit is compared against. None when not measurable."""
+    try:
+        d = mapper.to_dict()
+        g, s, grp = samples.grouped_pairs()
+        rep = modelsel.validate(g, s, grp, reach=float(d.get("reach", 0.0)),
+                                poly2=bool(d.get("poly2")),
+                                axes=getattr(mapper, "axes", None))
+        return None if rep is None else rep["err"]
+    except Exception:
+        return None
+
+
+def describe(report):
+    """One ASCII line: per axis the chosen inputs, held-out error and how
+    much of the calibrated range the cursor spans. "" without a report."""
+    try:
+        parts = []
+        for ax in ("x", "y"):
+            a = report[ax]
+            slope = a.get("slope")
+            parts.append("%s: %s%s %.0f px, kapsama %s" % (
+                ax, "+".join(a.get("groups") or ["?"]),
+                " (kare)" if a.get("quad") else "", a["rmse"],
+                "?" if slope is None else "%.2f" % slope))
+        how = ("turlar arasi" if report.get("cv") == "pass"
+               else "zaman bloklari")
+        return "Model (%s dogrulama) | %s" % (how, " | ".join(parts))
+    except Exception:
+        return ""
 
 
 _OPT_NAMES = (("poly2", "calibration_poly2"), ("reach", "reach_margin"),
@@ -377,8 +502,12 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
               log=_say):
     """Startup: make the calibration in use match today's mapping options.
 
+    Also, once per calibration, a loaded calibration from before the
+    per-axis model selection is refitted from its samples with it.
+
     mapper: the calibration that was loaded, or None when none could be.
-    should_save(err_cv) -> (ok, reason); save(mapper) -> bool.
+    should_save(err_cv, ref) -> (ok, reason), ref = the loaded calibration's
+    error measured the same way (or None); save(mapper) -> bool.
     Returns the mapper to use. Never raises: on any fault the loaded
     calibration is returned untouched.
     """
@@ -390,7 +519,7 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
             cs = find_samples(cal_path, feat, n_inputs)
             if cs is None:
                 return None
-            r = refit(cs, reach, poly2, latency)
+            r = refit(cs, reach, poly2, latency, feat)
             if r is None:
                 return None
             save(r.mapper)
@@ -399,6 +528,8 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
                 " YENIDEN KALIBRASYON GEREKMEDI."
                 % ("?" if r.err_cv is None else "%.0f" % r.err_cv,
                    _label(r.err_cv)))
+            if r.report:
+                log("  " + describe(r.report))
             if r.err_cv is None or r.err_cv >= _CV_BAD:
                 log("  Imlec belirgin sekilde kayiyorsa F9 x2 ile yeniden"
                     " kalibre edin.")
@@ -407,24 +538,51 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
         if cs is None:
             return mapper
         changed = options_changed(cs.meta.get("opts"), opts, cs.kind)
-        if not changed:
+        upgrade = (not changed and getattr(mapper, "axes", None) is None
+                   and not cs.meta.get("sel_tried"))
+        if not changed and not upgrade:
             return mapper
+        if upgrade:
+            # Once per calibration. Marked BEFORE the attempt, so neither a
+            # refusal nor a later "geri al" back to this calibration (its
+            # samples then come back from the previous generation, mark
+            # and all) brings the attempt back on every startup.
+            save_samples(cal_path, cs.with_opts(cs.meta.get("opts") or {},
+                                                sel_tried=modelsel._VERSION),
+                         mapper, feat=feat)
         names = ", ".join(changed)
-        r = refit(cs, reach, poly2, latency)
+        r = refit(cs, reach, poly2, latency, feat)
         if r is None or r.err_cv is None:
-            log("Ayar degisti (%s), ama kayitli orneklerden yeniden"
-                " hesaplanamadi; kayitli kalibrasyon KULLANILIYOR." % names)
+            if changed:
+                log("Ayar degisti (%s), ama kayitli orneklerden yeniden"
+                    " hesaplanamadi; kayitli kalibrasyon KULLANILIYOR." % names)
             return mapper
-        stored = _num(getattr(mapper, "err_cv", None))
+        if upgrade and not r.report:
+            return mapper       # no per-axis model came out: nothing to gain
+        # Both measured on the same held-out passes: the grade stored with
+        # the loaded calibration may come from an earlier, more lenient
+        # validation, so it is the fallback only.
+        ref = score_of(mapper, cs)
+        new = r.err_cv if r.report else score_of(r.mapper, r.mapper.cal_samples)
+        if ref is None or new is None:
+            ref, new = None, r.err_cv
+        stored = ref
         if stored is None:
-            stored = _num(cs.meta.get("err_cv"))
-        if stored is not None and r.err_cv > _WORSE * stored:
-            log("Ayar degisti (%s): yeni ayarla hata %.0f px, kayitli"
-                " kalibrasyon %.0f px - daha iyi olan kayitli kalibrasyon"
-                " KULLANILIYOR (yeni ayar uygulanmadi)."
-                % (names, r.err_cv, stored))
+            stored = _num(getattr(mapper, "err_cv", None))
+            if stored is None:
+                stored = _num(cs.meta.get("err_cv"))
+        if stored is not None and new > _WORSE * stored:
+            if changed:
+                log("Ayar degisti (%s): yeni ayarla hata %.0f px, kayitli"
+                    " kalibrasyon %.0f px - daha iyi olan kayitli kalibrasyon"
+                    " KULLANILIYOR (yeni ayar uygulanmadi)."
+                    % (names, new, stored))
+            else:
+                log("Yeni kalibrasyon modeli kayitli orneklerden denendi: hata"
+                    " %.0f px, kayitli kalibrasyon %.0f px - kayitli"
+                    " kalibrasyon KULLANILIYOR." % (new, stored))
             return mapper
-        ok, why = should_save(r.err_cv)
+        ok, why = should_save(r.err_cv, ref)
         if not ok:
             if why:
                 log(why)
@@ -433,10 +591,21 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
         r.mapper.screen = getattr(mapper, "screen", None)
         r.mapper.camera = getattr(mapper, "camera", None)
         save(r.mapper)
-        log("Ayar degisti (%s): kalibrasyon KAYITLI ORNEKLERDEN yeniden"
-            " hesaplandi, hata %.0f px [%s]%s. YENIDEN KALIBRASYON GEREKMEDI."
-            % (names, r.err_cv, _label(r.err_cv),
-               "" if stored is None else " (onceki %.0f px)" % stored))
+        if changed:
+            log("Ayar degisti (%s): kalibrasyon KAYITLI ORNEKLERDEN yeniden"
+                " hesaplandi, hata %.0f px [%s]%s. YENIDEN KALIBRASYON"
+                " GEREKMEDI."
+                % (names, r.err_cv, _label(r.err_cv),
+                   "" if stored is None else " (onceki %.0f px)" % stored))
+        else:
+            log("Kalibrasyon modeli KAYITLI ORNEKLERDEN yenilendi (eksen"
+                " basina ozellik secimi): hata %s -> %.0f px [%s], ikisi de"
+                " gormedigi veride ayni sekilde olculdu. YENIDEN KALIBRASYON"
+                " GEREKMEDI; eskisi yedekte."
+                % ("?" if stored is None else "%.0f" % stored, new,
+                   _label(r.err_cv)))
+        if r.report:
+            log("  " + describe(r.report))
         return r.mapper
     except Exception:
         return mapper
@@ -477,6 +646,8 @@ def main(argv=None):
          % (poly2, reach, lat, r.err,
             "?" if r.err_cv is None else "%.0f" % r.err_cv, _label(r.err_cv),
             "" if r.latency is None else "; goz gecikmesi %.2f sn" % r.latency))
+    if r.report:
+        _say(describe(r.report))
     return 0
 
 

@@ -6,6 +6,10 @@ feature vector is (gx, gy) for eye-only gaze, or (gx, gy, hx, hy) when head-pose
 proxies are included so the fit can compensate for head movement. Affine keeps
 the mapping stable (no wild extrapolation that flings the cursor to an edge).
 
+Each screen axis may instead use its own subset of the inputs, its own
+quadratic pair and its own ridge strength (`axes`), as chosen per person by
+eye_gaze.modelsel. A file without them is read and predicts exactly as before.
+
 Incoming features are clamped to the calibrated range expanded by `reach_margin`
 so the user can reach the very edges/corners by looking slightly beyond
 calibration. to_dict/from_dict let a good calibration be saved and reloaded.
@@ -20,10 +24,76 @@ import math
 import numpy as np
 
 
+def _axis_spec(spec):
+    """(inputs, quad, lam) normalised: inputs a tuple of input indices, quad
+    None or a pair of them, lam the ridge strength."""
+    inputs, quad, lam = spec
+    inputs = tuple(int(i) for i in inputs)
+    quad = None if quad is None else (int(quad[0]), int(quad[1]))
+    lam = float(lam)
+    if not inputs or min(inputs) < 0 or lam < 0 or not math.isfinite(lam) \
+            or (quad is not None and min(quad) < 0):
+        raise ValueError("bad axis spec")
+    return inputs, quad, lam
+
+
+def axis_row(g, spec):
+    """Feature row (bias first) of one axis for the raw gaze vector g."""
+    inputs, quad, _ = spec
+    f = [1.0] + [g[i] for i in inputs]
+    if quad is not None:
+        a, b = g[quad[0]], g[quad[1]]
+        f += [a * a, b * b, a * b]
+    return f
+
+
+def axis_design(g, spec):
+    """axis_row for every row of the (N, n) array g, as an (N, m) array."""
+    inputs, quad, _ = spec
+    g = np.asarray(g, dtype=float)
+    cols = [np.ones(len(g))] + [g[:, i] for i in inputs]
+    if quad is not None:
+        a, b = g[:, quad[0]], g[:, quad[1]]
+        cols += [a * a, b * b, a * b]
+    return np.column_stack(cols)
+
+
+def ridge(a, y, lam):
+    """Ridge regression with unpenalised intercept, solved on standardised
+    features but returned as raw-feature coefficients. a includes the bias
+    column 0."""
+    return ridge_path(a, y, (lam,))[0]
+
+
+def ridge_path(a, y, lams):
+    """ridge() for several strengths, sharing the standardisation."""
+    f = a[:, 1:]
+    mu = f.mean(axis=0)
+    sd = f.std(axis=0)
+    sd = np.where(sd < 1e-9, 1.0, sd)  # constant column -> weight becomes 0
+    z = (f - mu) / sd
+    ym = float(y.mean())
+    n, m = z.shape
+    zz, zy = z.T @ z, z.T @ (y - ym)
+    out = []
+    for lam in lams:
+        w = np.linalg.solve(zz + lam * n * np.eye(m), zy)
+        coefs = w / sd
+        bias = ym - float(coefs @ mu)
+        out.append(np.concatenate(([bias], coefs)))
+    return out
+
+
 class GazeMapper:
-    def __init__(self, reach_margin=0.0, poly2=False):
+    def __init__(self, reach_margin=0.0, poly2=False, axes=None):
         self._reach = float(reach_margin)
         self._poly2 = bool(poly2)
+        # ((inputs, quad, lam) for x, the same for y), or None: every input,
+        # quadratic eye terms when poly2, the class ridge strength.
+        self.axes = None if axes is None else tuple(_axis_spec(a) for a in axes)
+        # What eye_gaze.modelsel measured when it chose `axes` (a JSON-safe
+        # dict), or None.
+        self.selection = None
         self._cx = None
         self._cy = None
         self._lo = None
@@ -59,35 +129,35 @@ class GazeMapper:
 
     @classmethod
     def _ridge_fit(cls, a, y):
-        """Ridge regression with unpenalised intercept, solved on
-        standardised features but returned as raw-feature coefficients so
-        predict()/to_dict() stay unchanged. a includes the bias column 0."""
-        f = a[:, 1:]
-        mu = f.mean(axis=0)
-        sd = f.std(axis=0)
-        sd = np.where(sd < 1e-9, 1.0, sd)  # constant column -> weight becomes 0
-        z = (f - mu) / sd
-        ym = float(y.mean())
-        n, m = z.shape
-        gram = z.T @ z + cls._RIDGE * n * np.eye(m)
-        w = np.linalg.solve(gram, z.T @ (y - ym))
-        coefs = w / sd
-        bias = ym - float(coefs @ mu)
-        return np.concatenate(([bias], coefs))
+        """ridge() at the class strength."""
+        return ridge(a, y, cls._RIDGE)
 
     def fit(self, gaze_points, screen_points):
         if len(gaze_points) != len(screen_points):
             raise ValueError("gaze_points and screen_points length mismatch")
         if not gaze_points:
             raise ValueError("no calibration points")
-        n_features = len(self._features(gaze_points[0]))
-        if len(gaze_points) < n_features:
-            raise ValueError("need at least %d calibration points" % n_features)
-        a = np.array([self._features(g) for g in gaze_points], dtype=float)
         sx = np.array([p[0] for p in screen_points], dtype=float)
         sy = np.array([p[1] for p in screen_points], dtype=float)
-        self._cx = self._ridge_fit(a, sx)
-        self._cy = self._ridge_fit(a, sy)
+        if self.axes is None:
+            n_features = len(self._features(gaze_points[0]))
+            if len(gaze_points) < n_features:
+                raise ValueError("need at least %d calibration points" % n_features)
+            a = np.array([self._features(g) for g in gaze_points], dtype=float)
+            self._cx = self._ridge_fit(a, sx)
+            self._cy = self._ridge_fit(a, sy)
+        else:
+            pts = np.array(gaze_points, dtype=float)
+            for spec in self.axes:
+                if max(spec[0] + (spec[1] or ())) >= pts.shape[1]:
+                    raise ValueError("an axis uses an input the points lack")
+                n_features = len(axis_row(pts[0], spec))
+                if len(pts) < n_features:
+                    raise ValueError("need at least %d calibration points"
+                                     % n_features)
+            spx, spy = self.axes
+            self._cx = ridge(axis_design(pts, spx), sx, spx[2])
+            self._cy = ridge(axis_design(pts, spy), sy, spy[2])
         pts = np.array(gaze_points, dtype=float)
         self._lo = pts.min(axis=0)
         self._hi = pts.max(axis=0)
@@ -103,13 +173,40 @@ class GazeMapper:
         lo = self._lo - self._reach * rng
         hi = self._hi + self._reach * rng
         g = np.minimum(np.maximum(np.array(gaze, dtype=float), lo), hi)
-        f = np.array(self._features(tuple(g)), dtype=float)
-        px, py = float(f @ self._cx), float(f @ self._cy)
+        if self.axes is None:
+            f = np.array(self._features(tuple(g)), dtype=float)
+            px, py = float(f @ self._cx), float(f @ self._cy)
+        else:
+            px = float(np.array(axis_row(g, self.axes[0])) @ self._cx)
+            py = float(np.array(axis_row(g, self.axes[1])) @ self._cy)
         if getattr(self, "_slo", None) is not None:
             srng = self._shi - self._slo
             px = min(max(px, self._slo[0] - 0.3 * srng[0]), self._shi[0] + 0.3 * srng[0])
             py = min(max(py, self._slo[1] - 0.3 * srng[1]), self._shi[1] + 0.3 * srng[1])
         return px, py
+
+    def predict_many(self, gaze):
+        """predict() for every row of the (N, n) array `gaze`, as (N, 2):
+        the same clamp, model and cap, at numpy speed (model selection
+        validates thousands of held-out frames)."""
+        if self._cx is None:
+            raise RuntimeError("GazeMapper not fitted; call fit() first")
+        g = np.asarray(gaze, dtype=float).reshape(len(gaze), -1)
+        rng = self._hi - self._lo
+        g = np.minimum(np.maximum(g, self._lo - self._reach * rng),
+                       self._hi + self._reach * rng)
+        if self.axes is None:
+            spec = (tuple(range(g.shape[1])), (0, 1) if self._poly2 else None, 0)
+            a = axis_design(g, spec)
+            px, py = a @ self._cx, a @ self._cy
+        else:
+            px = axis_design(g, self.axes[0]) @ self._cx
+            py = axis_design(g, self.axes[1]) @ self._cy
+        if getattr(self, "_slo", None) is not None:
+            srng = self._shi - self._slo
+            px = np.clip(px, self._slo[0] - 0.3 * srng[0], self._shi[0] + 0.3 * srng[0])
+            py = np.clip(py, self._slo[1] - 0.3 * srng[1], self._shi[1] + 0.3 * srng[1])
+        return np.column_stack([px, py])
 
     def to_dict(self):
         if self._cx is None:
@@ -125,15 +222,36 @@ class GazeMapper:
             d["screen"] = [int(v) for v in self.screen]
         if self.camera:
             d["camera"] = [int(v) for v in self.camera]
+        if self.axes is not None:
+            d["axes"] = [{"in": list(inp), "quad": None if q is None else list(q),
+                          "lam": lam} for inp, q, lam in self.axes]
+        if isinstance(self.selection, dict):
+            d["sel"] = self.selection
         return d
 
     @classmethod
     def from_dict(cls, d):
-        m = cls(reach_margin=d.get("reach", 0.0), poly2=d.get("poly2", False))
+        axes = d.get("axes")
+        if axes is not None:
+            axes = [(a["in"], a.get("quad"), a["lam"]) for a in axes]
+            if len(axes) != 2:
+                raise ValueError("axes must describe x and y")
+        m = cls(reach_margin=d.get("reach", 0.0), poly2=d.get("poly2", False),
+                axes=axes)
         m._cx = np.array(d["cx"], dtype=float)
         m._cy = np.array(d["cy"], dtype=float)
         m._lo = np.array(d["lo"], dtype=float)
         m._hi = np.array(d["hi"], dtype=float)
+        if m.axes is not None:
+            # A hand-edited or truncated file must fail HERE (the loader then
+            # falls back to a backup), not at the first predict() in the
+            # cursor loop.
+            for spec, c in zip(m.axes, (m._cx, m._cy)):
+                if max(spec[0] + (spec[1] or ())) >= len(m._lo) \
+                        or len(c) != len(axis_row(m._lo, spec)):
+                    raise ValueError("axes do not match the coefficients")
+        if isinstance(d.get("sel"), dict):
+            m.selection = d["sel"]
         if "slo" in d:
             m._slo = np.array(d["slo"], dtype=float)
             m._shi = np.array(d["shi"], dtype=float)
@@ -166,6 +284,7 @@ class GazeMapper:
             m._shi = self._shi * np.array([kx, ky])
         m.screen = (int(sw), int(sh))
         m.err_cv = getattr(self, "err_cv", None)
+        m.selection = self.selection
         return m
 
 
@@ -175,13 +294,13 @@ def _pair(v):
 
 
 def fit_with_rejection(gaze_points, screen_points, reach_margin=0.0, poly2=False,
-                       min_keep=6):
+                       min_keep=6, axes=None):
     """Fit, then drop gross outlier points (blink / glance-away during a
     calibration dot) and refit on the survivors.
 
     Returns (mapper, mean_error_px) or (None, None). poly2=True tries the
     quadratic fit first and falls back to affine when there are too few
-    points for it."""
+    points for it. `axes` fits that per-axis model instead (no fallback)."""
     # A single NaN sample would make every ridge coefficient NaN.
     pairs = [(g, s) for g, s in zip(gaze_points, screen_points)
              if all(math.isfinite(v) for v in tuple(g) + tuple(s))]
@@ -189,7 +308,7 @@ def fit_with_rejection(gaze_points, screen_points, reach_margin=0.0, poly2=False
     screen_points = [s for _, s in pairs]
 
     def try_fit(g, s, p2):
-        m = GazeMapper(reach_margin=reach_margin, poly2=p2)
+        m = GazeMapper(reach_margin=reach_margin, poly2=p2, axes=axes)
         try:
             m.fit(g, s)
             return m
@@ -197,7 +316,7 @@ def fit_with_rejection(gaze_points, screen_points, reach_margin=0.0, poly2=False
             return None
 
     mapper, used_p2 = None, False
-    for p2 in ([True, False] if poly2 else [False]):
+    for p2 in ([True, False] if (poly2 and axes is None) else [False]):
         mapper = try_fit(gaze_points, screen_points, p2)
         if mapper is not None:
             used_p2 = p2
@@ -205,8 +324,13 @@ def fit_with_rejection(gaze_points, screen_points, reach_margin=0.0, poly2=False
     if mapper is None:
         return None, None
 
-    errs = [math.dist(mapper.predict(g), s)
-            for g, s in zip(gaze_points, screen_points)]
+    def dists(m, g, s):
+        if axes is None:        # unchanged for the single model of old
+            return [math.dist(m.predict(a), b) for a, b in zip(g, s)]
+        d = m.predict_many(g) - np.asarray(s, dtype=float)
+        return np.hypot(d[:, 0], d[:, 1]).tolist()
+
+    errs = dists(mapper, gaze_points, screen_points)
     med = sorted(errs)[len(errs) // 2]
     threshold = max(2.5 * med, 60.0)  # px; generous so only gross outliers go
     keep = [i for i, e in enumerate(errs) if e <= threshold]
@@ -215,8 +339,8 @@ def fit_with_rejection(gaze_points, screen_points, reach_margin=0.0, poly2=False
                         [screen_points[i] for i in keep], used_p2)
         if refit is not None:
             mapper = refit
-            errs = [math.dist(mapper.predict(gaze_points[i]), screen_points[i])
-                    for i in keep]
+            errs = dists(mapper, [gaze_points[i] for i in keep],
+                         [screen_points[i] for i in keep])
     return mapper, sum(errs) / len(errs)
 
 

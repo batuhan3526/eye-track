@@ -422,3 +422,118 @@ def test_one_monitor_keeps_the_primary_behaviour(zoom, monkeypatch):
                         lambda x, y: (_ for _ in ()).throw(AssertionError()))
     z.begin()                             # multi_monitor off: never asked
     assert z._region == (340, 210, 320, 180)
+
+
+# --- passes are recorded; the live fit is the per-axis selection ------------
+
+
+def test_a_two_pass_dot_calibration_records_the_pass_of_each_point(monkeypatch):
+    cv = FakeCv2()
+    monkeypatch.setattr(gd, "cv2", cv)
+    monkeypatch.setattr(gd, "_force_topmost", lambda *a, **k: None)
+    monkeypatch.setattr(gd, "_pass_change_screen", lambda *a, **k: True)
+    pos = [(0.1 + 0.2 * i, 0.1 + 0.2 * j) for i in range(5) for j in range(5)]
+    m = gd.calibrate(DotEstimator(cv), FakeCap(), 320, 240, pos, FakeHotkeys(),
+                     3, 0.25, poly2=True, passes=2, feat="pe0-hp0-ht0-dg0")
+    assert m is not None
+    assert m.cal_samples.groups().tolist() == [0] * 25 + [1] * 25
+    assert m.selection is not None and m.selection["cv"] == "pass"
+    assert m.err_cv == m.selection["err"]
+
+
+def test_a_one_pass_dot_calibration_is_validated_on_blocks(monkeypatch):
+    cv = FakeCv2()
+    monkeypatch.setattr(gd, "cv2", cv)
+    monkeypatch.setattr(gd, "_force_topmost", lambda *a, **k: None)
+    pos = [(0.1 + 0.2 * i, 0.1 + 0.2 * j) for i in range(5) for j in range(5)]
+    m = gd.calibrate(DotEstimator(cv), FakeCap(), 320, 240, pos, FakeHotkeys(),
+                     3, 0.25, poly2=True, passes=1)
+    assert m.cal_samples.group is None
+    assert m.selection["cv"] == "blocks"
+
+
+def test_a_pursuit_calibration_records_its_passes(monkeypatch, capsys):
+    cv = FakeCv2()
+    monkeypatch.setattr(gd, "cv2", cv)
+    monkeypatch.setattr(gd, "_force_topmost", lambda *a, **k: None)
+    monkeypatch.setattr(gd, "_pass_change_screen", lambda *a, **k: True)
+    clock = {"t": 1000.0}
+
+    def fake_time():
+        clock["t"] += 1 / 60.0
+        return clock["t"]
+    monkeypatch.setattr(gd.time, "time", fake_time)
+    monkeypatch.setattr(gd.time, "monotonic", fake_time)
+
+    class BallEstimator(DotEstimator):
+        def estimate(self, frame):
+            return _gaze_of(*self.cv.dot, sw=1280, sh=720)
+    m = gd.calibrate_pursuit(BallEstimator(cv), FakeCap(), 1280, 720,
+                             FakeHotkeys(), 0.25, poly2=False, passes=2,
+                             speed=900.0, latency="auto")
+    assert m is not None
+    grp = m.cal_samples.groups().tolist()
+    assert grp[0] == 0 and grp[-1] == 1 and sorted(set(grp)) == [0, 1]
+    assert m.cal_samples.group is not None          # recorded, not inferred
+    assert m.selection["cv"] == "pass"
+    assert m.selection["latency"] == m.cal_samples.meta["latency_used"]
+    out = capsys.readouterr().out
+    out.encode("ascii")
+    assert "Model (turlar arasi dogrulama)" in out
+
+
+def test_the_input_count_comes_from_the_feature_layout():
+    for pe in (False, True):
+        for hp in (False, True):
+            for ht in (False, True):
+                want = 2 + 2 * pe + 2 * hp + 3 * (hp and ht)
+                assert gd.modelsel.input_count(pe, hp, ht, False) == want
+
+
+def test_a_like_for_like_reference_replaces_the_stored_grade(tmp_path):
+    """At startup both calibrations are measured on the same held-out
+    passes; the file's own grade (older, more lenient validation) must not
+    veto the refit."""
+    p = tmp_path / "calibration.json"
+    m = _fitted()
+    m.err_cv = 90
+    gd._save_calibration(str(p), m)
+    assert gd._should_save(str(p), 260)[0] is False
+    assert gd._should_save(str(p), 260, ref=300)[0] is True
+    ok, why = gd._should_save(str(p), 400, ref=300)
+    assert ok is False and "300" in why
+
+
+def test_the_startup_upgrade_keeps_the_old_calibration_as_backup(tmp_path):
+    """A 1.2.0 calibration with its samples: refitted once at startup, and
+    the file it replaces stays in the backup slot."""
+    from eye_gaze.pursuit import PursuitPath
+    cal = str(tmp_path / "calibration.json")
+    path = PursuitPath(1280, 720, 480.0)
+    samples = []
+    for p in range(2):                      # t restarts: two passes
+        t = 0.0
+        while t < path.duration:
+            x, y = path.pos(t - 0.15)
+            samples.append((_gaze_of(x, y, sw=1280, sh=720), t))
+            t += 1 / 30.0
+    cs = caldata.CalSamples.pursuit(samples, path, 0.15, OPTS)
+    legacy = GazeMapper(reach_margin=0.25)
+    legacy.fit(*cs.pairs())
+    legacy.cal_samples = cs
+    legacy.err_cv = 40
+    assert gd._save_calibration(cal, legacy, feat="pe0-hp0-ht0-dg0")
+    old_bytes = open(cal, "rb").read()
+    loaded, _, _ = gd._read_calibration(cal)
+    said = []
+    out = caldata.reconcile(
+        cal, loaded, "pe0-hp0-ht0-dg0", 2, OPTS,
+        lambda e, ref=None: gd._should_save(cal, e, 2, ref=ref),
+        lambda m: gd._save_calibration(cal, m, feat="pe0-hp0-ht0-dg0"),
+        log=said.append)
+    assert out is not loaded and out.axes is not None
+    assert open(gd._calibration_backup(cal, 2), "rb").read() == old_bytes
+    back, _, d = gd._read_calibration(cal)
+    assert back.axes == out.axes and d["sel"]["cv"] == "pass"
+    assert out.err_cv < 40
+    assert any("->" in line for line in said)

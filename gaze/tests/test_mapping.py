@@ -309,3 +309,115 @@ def test_setup_stamp_round_trips_and_old_files_are_left_alone():
     del d["screen"], d["camera"]
     old = GazeMapper.from_dict(d)              # a July file: no stamp
     assert old.screen is None and old.rescaled(1920, 1080) is old
+
+
+# --- per-axis models; a v2 file from before them is read exactly as before ---
+
+# A calibration.json written by 1.2.0 (poly2, four inputs), and what that
+# version predicted from it, to the last bit.
+_V2_FILE = {
+    "v": 2, "reach": 0.25, "poly2": True,
+    "cx": [-897.322407723128, 3076.234115673573, -81.96315253392149,
+           56.88100731829802, 122.10978405278873, 90.23454670568184,
+           97.87959092407351, -9.598162014139039],
+    "cy": [-765.9992123526357, -64.11019022525632, 2114.282828703599,
+           -134.6960513399056, -62.672962394239356, 128.465937012014,
+           343.6461461700408, -77.7968127789979],
+    "lo": [0.3209068926397473, 0.34668537049683384, -0.042640925614626186,
+           -0.028942249448461747],
+    "hi": [0.7127411381864391, 0.6475532244824462, 0.05034948075067841,
+           0.0375368922256334],
+    "slo": [39.44682824696244, 5.300834220723969],
+    "shi": [1270.2407219914714, 696.6070073526312],
+    "screen": [1280, 720], "camera": [640, 480], "err_cv": 87,
+    "feat": "pe1-hp0-ht0-dg0"}
+_V2_PREDICTIONS = [
+    ((0.5, 0.5, 0.0, 0.0), (644.4420677506017, 357.6659244872999)),
+    ((0.31, 0.36, 0.01, -0.02), (45.215627656993156, 23.374938529671923)),
+    ((0.9, 0.1, 0.05, 0.05), (1639.478890114824, -161.24503824420344)),
+    ((0.2, 0.8, -0.1, 0.1), (-213.78589128633294, 903.9988592922034)),
+]
+
+
+def test_a_v2_file_predicts_bit_identically():
+    import json
+    m = GazeMapper.from_dict(json.loads(json.dumps(_V2_FILE)))
+    assert m.axes is None and m.selection is None
+    assert m.n_inputs == 4
+    for g, want in _V2_PREDICTIONS:
+        assert m.predict(g) == want
+    # and writes back without keys it never had
+    d = m.to_dict()
+    assert "axes" not in d and "sel" not in d
+    assert GazeMapper.from_dict(d).predict(_V2_PREDICTIONS[0][0]) \
+        == _V2_PREDICTIONS[0][1]
+
+
+def _axes_data(n=60, seed=4):
+    rnd = random.Random(seed)
+    g = [(rnd.random(), rnd.random(), rnd.random(), rnd.random())
+         for _ in range(n)]
+    s = [(1920 * (0.1 + 0.8 * a[0]) + 50 * a[2], 1080 * (0.2 + 0.6 * a[1]))
+         for a in g]
+    return g, s
+
+
+def test_each_axis_uses_only_its_own_inputs():
+    g, s = _axes_data()
+    axes = (((0, 2), None, 1e-3), ((1,), None, 1e-2))
+    m = GazeMapper(reach_margin=0.25, axes=axes)
+    m.fit(g, s)
+    assert m.n_inputs == 4 and len(m.to_dict()["cx"]) == 3
+    a = m.predict((0.5, 0.5, 0.5, 0.5))
+    b = m.predict((0.5, 0.5, 0.5, 0.9))         # input 3 is used by neither
+    c = m.predict((0.5, 0.5, 0.9, 0.5))         # input 2 only by x
+    assert a == b
+    assert c[0] != a[0] and c[1] == a[1]
+    px, _ = m.predict((0.5, 0.5, 0.0, 0.0))
+    assert px == pytest.approx(1920 * 0.5, abs=5)
+
+
+def test_per_axis_quadratic_terms_round_trip():
+    import json
+    g, s = _axes_data()
+    axes = (((0, 1), (0, 1), 1e-3), ((0, 1, 2), None, 1e-1))
+    m = GazeMapper(reach_margin=0.1, axes=axes)
+    m.fit(g, s)
+    d = json.loads(json.dumps(m.to_dict()))
+    assert d["axes"] == [{"in": [0, 1], "quad": [0, 1], "lam": 1e-3},
+                         {"in": [0, 1, 2], "quad": None, "lam": 1e-1}]
+    m2 = GazeMapper.from_dict(d)
+    assert m2.axes == axes
+    for v in g[:10]:
+        assert m2.predict(v) == m.predict(v)
+
+
+def test_per_axis_mapper_keeps_reach_clamp_and_screen_cap():
+    g, s = _axes_data()
+    m = GazeMapper(axes=(((0,), None, 1e-3), ((1,), None, 1e-3)))
+    m.fit(g, s)
+    assert m.predict((10.0, 10.0, 0, 0)) == m.predict((max(a[0] for a in g),
+                                                       max(a[1] for a in g),
+                                                       0, 0))
+
+
+def test_a_malformed_axes_entry_is_refused():
+    d = dict(_V2_FILE, axes=[{"in": [0, 9], "quad": None, "lam": 1e-3},
+                             {"in": [1], "quad": None, "lam": 1e-3}])
+    with pytest.raises(Exception):
+        GazeMapper.from_dict(d)
+
+
+def test_predict_many_matches_predict_row_by_row():
+    import numpy as np
+    g, s = _axes_data()
+    far = [(2.0, -1.0, 0.5, 0.5), (-3.0, 4.0, 9.0, -9.0)]   # clamp + cap
+    for m in (GazeMapper(reach_margin=0.25, poly2=True),
+              GazeMapper(reach_margin=0.25),
+              GazeMapper(reach_margin=0.1,
+                         axes=(((0, 2), (0, 1), 1e-3), ((1,), None, 1e-2)))):
+        m.fit(g, s)
+        rows = g[:10] + far
+        many = m.predict_many(rows)
+        one = np.array([m.predict(v) for v in rows])
+        assert np.allclose(many, one, rtol=1e-12, atol=1e-9)

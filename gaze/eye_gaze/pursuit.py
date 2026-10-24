@@ -52,16 +52,24 @@ class PursuitPath:
         return any(abs(d - c) <= g for c in self._cum)
 
 
+def pursuit_keep(samples, path, lat):
+    """(indices into samples, ball positions) of the frames that make
+    training pairs for an assumed eye lag `lat`: frames outside the motion
+    and near direction changes are dropped."""
+    idx, s_pts = [], []
+    for i, (_, t) in enumerate(samples):
+        ts = t - lat
+        if 0.0 <= ts <= path.duration and not path.near_turn(ts):
+            idx.append(i)
+            s_pts.append(path.pos(ts))
+    return idx, s_pts
+
+
 def pursuit_pairs(samples, path, lat):
     """(gaze, ball position) training pairs for an assumed eye lag `lat`,
     dropping frames outside the motion and near direction changes."""
-    g_pts, s_pts = [], []
-    for g, t in samples:
-        ts = t - lat
-        if 0.0 <= ts <= path.duration and not path.near_turn(ts):
-            g_pts.append(g)
-            s_pts.append(path.pos(ts))
-    return g_pts, s_pts
+    idx, s_pts = pursuit_keep(samples, path, lat)
+    return [samples[i][0] for i in idx], s_pts
 
 
 def best_latency_fit(samples, path, reach_margin=0.0, poly2=False,

@@ -47,6 +47,7 @@ from eye_gaze.dwell_ring import attach as attach_dwell_ring, guard_capture
 from eye_gaze.pursuit import PursuitPath, best_latency_fit, pursuit_pairs
 from eye_gaze import cursor, actions
 from eye_gaze import caldata
+from eye_gaze import modelsel
 from eye_gaze.implicit import ImplicitCorrector
 from eye_gaze import click_menu
 from eye_gaze import paths
@@ -706,11 +707,12 @@ def _collect_gaze(estimator, cap, hotkeys, samples, max_attempts=900, topmost_ti
 
 
 def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
-              poly2=False, passes=1):
+              poly2=False, passes=1, feat=None):
     win = t_ascii("driver.cal.window")
     _fullscreen(win)
     gaze_pts, screen_pts = [], []
     stamps = []  # capture time per point, kept with the samples (caldata)
+    pass_of = []  # pass index per point: the model is validated across passes
     # Repeating the grid in a slightly different posture gives the head
     # compensation features real variance to learn from - a single-posture
     # calibration leaves them near-constant and unlearnable.
@@ -747,21 +749,30 @@ def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
                 gaze_pts.append(g)
                 screen_pts.append((px, py))
                 stamps.append(time.time())  # wall time: kept in the samples file
+                pass_of.append(pass_i)
     finally:
         cv2.destroyWindow(win)
     if len(gaze_pts) < 6:
         return None
-    mapper, err = fit_with_rejection(gaze_pts, screen_pts,
-                                     reach_margin=reach_margin, poly2=poly2)
-    if mapper is None:
-        return None
-    mapper.err_cv = holdout_error(gaze_pts, screen_pts,
-                                  reach_margin=reach_margin, poly2=poly2)
-    mapper.cal_samples = caldata.CalSamples.dots(
-        gaze_pts, screen_pts, stamps,
-        {"poly2": bool(poly2), "reach": float(reach_margin), "latency": None})
+    opts = {"poly2": bool(poly2), "reach": float(reach_margin), "latency": None}
+    cs = caldata.CalSamples.dots(gaze_pts, screen_pts, stamps, opts,
+                                 groups=pass_of if int(passes) > 1 else None)
+    # Same fit as a refit from the saved samples: per-axis model selection,
+    # graded on the pass (or block) it did not see. Never raises.
+    r = caldata.refit(cs, reach_margin, poly2, None, feat) if cs else None
+    if r is not None:
+        mapper, err = r.mapper, r.err
+    else:
+        mapper, err = fit_with_rejection(gaze_pts, screen_pts,
+                                         reach_margin=reach_margin, poly2=poly2)
+        if mapper is None:
+            return None
+        mapper.err_cv = holdout_error(gaze_pts, screen_pts,
+                                      reach_margin=reach_margin, poly2=poly2)
+        mapper.cal_samples = cs
     _stamp_setup(mapper, sw, sh, cap)
     _print_cal_quality(err, mapper.err_cv)
+    _print_model(mapper)
     return mapper
 
 
@@ -864,6 +875,13 @@ def _print_cal_quality(err, err_cv=None):
           + ("  -> tekrar kalibre etmeniz onerilir" if quality == "KOTU" else ""))
 
 
+def _print_model(mapper):
+    """The per-axis line under the grade (inputs, error, screen coverage)."""
+    line = caldata.describe(getattr(mapper, "selection", None))
+    if line:
+        print(line)
+
+
 def _pass_change_screen(win, sw, sh, hotkeys, pass_i, total_passes):
     """Between calibration passes: prompt the user to shift posture slightly."""
     msg = np.zeros((sh, sw, 3), dtype=np.uint8)
@@ -888,7 +906,8 @@ _PURSUIT_MIN_EARLY = 15   # ... with fewer usable frames than this: stop
 
 
 def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
-                      passes=1, speed=480.0, latency="auto", closed_thr=0.18):
+                      passes=1, speed=480.0, latency="auto", closed_thr=0.18,
+                      feat=None):
     """Smooth-pursuit calibration: the user follows a gliding ball; every
     frame contributes a (gaze, ball position) pair. The user's eye lag is
     LEARNED from the data (latency='auto': several candidate lags are fitted
@@ -898,6 +917,7 @@ def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
     _fullscreen(win)
     canvas = np.zeros((sh, sw, 3), dtype=np.uint8)
     samples = []  # (gaze_features, t) - latency pairing happens at fit time
+    pass_of = []  # pass index per sample: the model is validated across passes
     path = PursuitPath(sw, sh, speed)
     try:
         for p in range(max(1, int(passes))):
@@ -941,30 +961,41 @@ def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
                 g = source.estimate(frame)
                 if g is not None and source.openness > closed_thr and t >= 0.0:
                     samples.append((g, t))
+                    pass_of.append(p)
                     got += 1
     finally:
         cv2.destroyWindow(win)
     if len(samples) < 80:
         print(f"Takip kalibrasyonu icin yeterli ornek toplanamadi ({len(samples)}).")
         return None
-    if isinstance(latency, str) and latency.strip().lower() == "auto":
-        mapper, err, lat = best_latency_fit(samples, path,
-                                            reach_margin=reach_margin, poly2=poly2)
+    opts = {"poly2": bool(poly2), "reach": float(reach_margin), "latency": latency}
+    # Same fit as a refit from the saved samples: per-axis model selection,
+    # the eye lag chosen on the pass it did not see. Never raises.
+    cs = caldata.CalSamples.pursuit(samples, path, 0.0, opts, groups=pass_of)
+    r = caldata.refit(cs, reach_margin, poly2, latency, feat) if cs else None
+    if r is not None:
+        mapper, err, lat = r.mapper, r.err, r.latency
     else:
-        lat = float(latency)
-        mapper, err, lat = best_latency_fit(samples, path, reach_margin=reach_margin,
-                                            poly2=poly2, candidates=(lat,))
-    if mapper is None:
-        return None
+        if isinstance(latency, str) and latency.strip().lower() == "auto":
+            mapper, err, lat = best_latency_fit(samples, path,
+                                                reach_margin=reach_margin,
+                                                poly2=poly2)
+        else:
+            lat = float(latency)
+            mapper, err, lat = best_latency_fit(samples, path,
+                                                reach_margin=reach_margin,
+                                                poly2=poly2, candidates=(lat,))
+        if mapper is None:
+            return None
+        g_pts, s_pts = pursuit_pairs(samples, path, lat)
+        mapper.err_cv = holdout_error(g_pts, s_pts, reach_margin=reach_margin,
+                                      poly2=poly2, blocks=10)
+        mapper.cal_samples = caldata.CalSamples.pursuit(samples, path, lat, opts,
+                                                        groups=pass_of)
     print(f"Takip kalibrasyonu: {len(samples)} ornek; ogrenilen goz gecikmesi: {lat:.2f} sn.")
-    g_pts, s_pts = pursuit_pairs(samples, path, lat)
-    mapper.err_cv = holdout_error(g_pts, s_pts, reach_margin=reach_margin,
-                                  poly2=poly2, blocks=10)
-    mapper.cal_samples = caldata.CalSamples.pursuit(
-        samples, path, lat,
-        {"poly2": bool(poly2), "reach": float(reach_margin), "latency": latency})
     _stamp_setup(mapper, sw, sh, cap)
     _print_cal_quality(err, mapper.err_cv)
+    _print_model(mapper)
     return mapper
 
 
@@ -1269,7 +1300,7 @@ def _backup_calibration(path, old):
         return _backup_failed(bak)
 
 
-def _should_save(path, err_cv, n_inputs=None):
+def _should_save(path, err_cv, n_inputs=None, ref=None):
     """(ok, reason): may a fresh calibration replace the file at `path`?
 
     Everything used to be saved, so one bad recalibration (tired, poor light,
@@ -1283,9 +1314,18 @@ def _should_save(path, err_cv, n_inputs=None):
     today's feature count (`n_inputs`). Overwriting it was the old rule, and
     it meant the first tired F9 silently replaced the field-proven file.
     An unusable one (other feature count, unreadable) never blocks a save.
+
+    `ref`: the stored calibration's error measured the SAME way as err_cv
+    (a startup refit re-measures it), used instead of the grade in the file,
+    which may come from an earlier, more lenient validation.
     """
     if err_cv is None or err_cv < _CV_BAD:
         return True, ""
+    if isinstance(ref, (int, float)) and not isinstance(ref, bool):
+        if err_cv <= 1.25 * ref:
+            return True, ""
+        return False, ("Yeni kalibrasyon KOTU (%.0f px); kayitli olan (%.0f px)"
+                       " daha iyiydi - USTUNE YAZILMADI." % (err_cv, ref))
     m, _, d = _read_calibration(path)
     old = (d or {}).get("err_cv")
     if not isinstance(old, (int, float)):
@@ -2982,8 +3022,7 @@ def main():
                               per_eye=per_eye)
     # Feature count WITHOUT the deep model: both the calibration key and the
     # evidence _deep_report() reads the stored calibration against.
-    base_inputs = 2 + (2 if per_eye else 0) + (2 if use_head else 0) \
-        + (3 if (use_head and use_tr) else 0)
+    base_inputs = modelsel.input_count(per_eye, use_head, use_tr, False)
     cfg = _keep_deep_for_calibration(cfg, deep_was_auto, cal_file, base_inputs)
     deep = _make_deep(cfg, cap,
                       expected=_deep_expected(cfg, cal_file, base_inputs))
@@ -3045,9 +3084,10 @@ def main():
     def run_calibration():
         if cal_mode.startswith("dot") or cal_mode.startswith("nokta"):
             return calibrate(source, cap, sw, sh, positions, hotkeys, cal_samples,
-                             reach_margin, poly2, cal_passes)
+                             reach_margin, poly2, cal_passes, feat=feat_id)
         return calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2,
-                                 cal_passes, pursuit_speed, pursuit_latency, closed_thr)
+                                 cal_passes, pursuit_speed, pursuit_latency, closed_thr,
+                                 feat=feat_id)
 
     n_inputs = base_inputs + (2 if deep is not None else 0)
     if cal_mode.startswith("dot") or cal_mode.startswith("nokta"):
@@ -3066,7 +3106,7 @@ def main():
         mapper = caldata.reconcile(
             cal_file, mapper, feat_id, n_inputs,
             {"poly2": poly2, "reach": reach_margin, "latency": pursuit_latency},
-            lambda e: _should_save(cal_file, e, n_inputs),
+            lambda e, ref=None: _should_save(cal_file, e, n_inputs, ref=ref),
             lambda m: _save_calibration(cal_file, m, feat=feat_id))
     mapper = _fit_setup(mapper, sw, sh, _camera_size(cap))
     if mapper is not None:

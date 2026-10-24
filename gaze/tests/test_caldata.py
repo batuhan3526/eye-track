@@ -265,17 +265,19 @@ class _Saver:
 
 
 def _stored(tmp_path, opts=OPTS, err_cv=None, seed=3):
-    """A calibration 'on disk': its mapper + samples saved beside it."""
+    """A calibration 'on disk': its mapper + samples saved beside it. Fitted
+    the way this version fits (a 1.2.0 one: see _legacy_pursuit below)."""
     cal = str(tmp_path / "calibration.json")
     g, s = _dots(seed=seed)
-    m = _fitted(g, s, poly2=opts["poly2"])
+    cs = caldata.CalSamples.dots(g, s, None, opts)
+    m = caldata.refit(cs, opts["reach"], opts["poly2"], feat=FEAT).mapper
+    assert m.axes is not None
     m.err_cv = err_cv
-    caldata.save_samples(cal, caldata.CalSamples.dots(g, s, None, opts), m,
-                         feat=FEAT)
+    caldata.save_samples(cal, cs, m, feat=FEAT)
     return cal, m
 
 
-def _ok(err_cv):
+def _ok(err_cv, ref=None):
     return True, ""
 
 
@@ -307,8 +309,15 @@ def test_a_changed_option_is_applied_from_the_samples(tmp_path):
     text.encode("ascii")
 
 
-def test_a_clearly_worse_refit_is_not_installed(tmp_path):
-    cal, m = _stored(tmp_path, err_cv=1.0)      # stored one graded 1 px
+def test_a_clearly_worse_refit_is_not_installed(tmp_path, monkeypatch):
+    cal, m = _stored(tmp_path)
+    real = caldata.refit
+
+    def worse(*a, **k):
+        r = real(*a, **k)
+        return r._replace(err_cv=10 * caldata.score_of(m, caldata.find_samples(
+            cal, FEAT, 2)))
+    monkeypatch.setattr(caldata, "refit", worse)
     save = _Saver()
     out, said = _run(cal, m, dict(OPTS, poly2=True), save)
     assert out is m
@@ -363,7 +372,7 @@ def test_should_save_refusal_keeps_the_stored_calibration(tmp_path):
     cal, m = _stored(tmp_path)
     save = _Saver()
     out, said = _run(cal, m, dict(OPTS, poly2=True), save,
-                     should_save=lambda e: (False, "KOTU"))
+                     should_save=lambda e, ref=None: (False, "KOTU"))
     assert out is m and save.saved == []
 
 
@@ -381,3 +390,141 @@ def test_the_builders_return_none_instead_of_raising():
     just paid for: a fault may cost the samples, never the calibration."""
     assert caldata.CalSamples.dots(None, None, None, OPTS) is None
     assert caldata.CalSamples.pursuit([(1, 2)], object(), 0.1, OPTS) is None
+
+
+# --- passes travel with the samples; the model is chosen per axis -----------
+
+
+def test_pursuit_pass_index_round_trips_through_the_file(tmp_path):
+    samples, path = _pursuit()
+    grp = [0] * (len(samples) // 2) + [1] * (len(samples) - len(samples) // 2)
+    cs = caldata.CalSamples.pursuit(samples, path, 0.15, OPTS, groups=grp)
+    cal = str(tmp_path / "calibration.json")
+    caldata.save_samples(cal, cs, _fitted(*cs.pairs()), feat=FEAT)
+    back = caldata.find_samples(cal, FEAT, 2)
+    assert back.groups().tolist() == grp
+
+
+def test_a_file_without_pass_index_infers_it_from_time_resets(tmp_path):
+    samples, path = _pursuit()
+    twice = samples + samples                       # t restarts: two passes
+    cs = caldata.CalSamples.pursuit(twice, path, 0.15, OPTS)
+    assert cs.group is None
+    g = cs.groups()
+    assert g.tolist() == [0] * len(samples) + [1] * len(samples)
+
+
+def test_dots_without_pass_index_have_no_groups():
+    g, s = _dots()
+    cs = caldata.CalSamples.dots(g, s, None, OPTS)
+    assert cs.groups() is None
+    cs2 = caldata.CalSamples.dots(g, s, None, OPTS,
+                                  groups=[0] * 25 + [1] * 25)
+    assert cs2.groups().tolist() == [0] * 25 + [1] * 25
+
+
+def test_a_bad_pass_index_is_ignored_not_fatal(tmp_path):
+    g, s = _dots()
+    cs = caldata.CalSamples.dots(g, s, None, OPTS, groups=[0, 1])  # wrong length
+    assert cs is not None and cs.group is None
+
+
+def test_refit_reports_the_per_axis_selection():
+    samples, path = _pursuit(lat=0.18)
+    cs = caldata.CalSamples.pursuit(samples + samples, path, 0.06, OPTS)
+    r = caldata.refit(cs, 0.25, poly2=True, latency="auto", feat=FEAT)
+    assert r.report is not None
+    assert r.report["cv"] == "pass"
+    assert r.report["latency"] == pytest.approx(r.latency)
+    assert r.err_cv == r.report["err"]
+    assert r.mapper.selection == r.report
+    assert set(r.report["x"]) >= {"rmse", "slope", "groups", "quad", "lam"}
+
+
+def test_a_v2_file_keeps_its_signature():
+    """Samples are found by the signature of the calibration they belong
+    to; a new signature for an old file would orphan every samples file in
+    the field."""
+    from tests.test_mapping import _V2_FILE
+    m = GazeMapper.from_dict(_V2_FILE)
+    assert caldata.mapper_sig(m) == "a609ef0f2050212c"
+
+
+def test_describe_is_one_ascii_line():
+    samples, path = _pursuit(lat=0.18)
+    cs = caldata.CalSamples.pursuit(samples + samples, path, 0.06, OPTS)
+    r = caldata.refit(cs, 0.25, poly2=True, feat=FEAT)
+    line = caldata.describe(r.report)
+    line.encode("ascii")
+    assert "\n" not in line and "x" in line and "y" in line
+    assert caldata.describe(None) == ""
+
+
+# --- startup: a calibration from before the selection is refitted ONCE ------
+
+
+def _legacy_pursuit(tmp_path, seed=5):
+    """A 1.2.0 pursuit calibration on disk: all-features poly2 mapper and its
+    samples (two passes), no selection anywhere."""
+    cal = str(tmp_path / "calibration.json")
+    samples, path = _pursuit(lat=0.15, seed=seed)
+    cs = caldata.CalSamples.pursuit(samples + samples, path, 0.15, OPTS)
+    m = GazeMapper(reach_margin=0.25, poly2=False)
+    m.fit(*cs.pairs())
+    m.err_cv = 50
+    caldata.save_samples(cal, cs, m, feat=FEAT)
+    return cal, m
+
+
+def test_a_calibration_from_before_selection_is_refitted_at_startup(tmp_path):
+    cal, m = _legacy_pursuit(tmp_path)
+    save = _Saver()
+    out, said = _run(cal, m, dict(OPTS), save)
+    assert out is not m and out.selection is not None
+    assert save.saved == [out]
+    text = " ".join(said)
+    text.encode("ascii")
+    assert "GEREKMEDI" in text and "->" in text      # before -> after numbers
+
+
+def test_the_upgrade_is_tried_only_once(tmp_path, monkeypatch):
+    cal, m = _legacy_pursuit(tmp_path)
+    worse = caldata.RefitResult(m, 900.0, 900.0, 0.15, {"err": 900.0})
+    calls = []
+
+    def refit(*a, **k):
+        calls.append(1)
+        return worse
+    monkeypatch.setattr(caldata, "refit", refit)
+    save = _Saver()
+    out, said = _run(cal, m, dict(OPTS), save)
+    assert out is m and save.saved == []            # clearly worse: kept
+    assert "KULLANILIYOR" in " ".join(said)
+    out, said = _run(cal, m, dict(OPTS), save)      # next startup
+    assert out is m and len(calls) == 1 and said == []
+
+
+def test_old_and_new_are_compared_on_the_same_validation(tmp_path, monkeypatch):
+    """The stored grade (50 px here) was measured the old, lenient way; it is
+    not what the new one is compared against."""
+    cal, m = _legacy_pursuit(tmp_path)
+    seen = []
+    out, said = _run(cal, m, dict(OPTS), _Saver(),
+                     should_save=lambda e, ref=None: (seen.append(ref) or
+                                                      (True, "")))
+    assert seen and seen[0] is not None and seen[0] != 50
+
+
+def test_an_undone_upgrade_is_not_redone(tmp_path):
+    """After the upgrade the old calibration sits in the backup; if the user
+    goes back to it, the next startup must not upgrade it again."""
+    cal, m = _legacy_pursuit(tmp_path)
+    save = _Saver()
+
+    def really_save(new):
+        save(new)
+        return caldata.save_beside(cal, new, FEAT)
+    out, _ = _run(cal, m, dict(OPTS), really_save)
+    assert out is not m
+    out2, said = _run(cal, m, dict(OPTS), really_save)   # back on the old one
+    assert out2 is m and said == []
