@@ -49,6 +49,7 @@ from eye_gaze import cursor, actions
 from eye_gaze import caldata
 from eye_gaze import calquality
 from eye_gaze import modelsel
+from eye_gaze import openness
 from eye_gaze.implicit import ImplicitCorrector
 from eye_gaze import click_menu
 from eye_gaze import paths
@@ -830,7 +831,10 @@ def _component_median(feats):
     return tuple(statistics.median(c) for c in zip(*feats))
 
 
-def _collect_gaze(estimator, cap, hotkeys, samples, max_attempts=900, topmost_title=None):
+def _collect_gaze(estimator, cap, hotkeys, samples, max_attempts=900, topmost_title=None,
+                  opens=None, eyes=None):
+    """Median gaze of `samples` frames with a face. opens: list that gets each
+    of those frames' eye openness; eyes: the ClosedEye gate fed with them."""
     acc = []
     attempts = 0
     while len(acc) < samples and attempts < max_attempts:
@@ -847,13 +851,24 @@ def _collect_gaze(estimator, cap, hotkeys, samples, max_attempts=900, topmost_ti
         g = estimator.estimate(frame)
         if g is not None:
             acc.append(g)
+            if opens is not None or eyes is not None:
+                op = getattr(estimator, "openness", None)
+                if opens is not None:
+                    opens.append(op)
+                if eyes is not None:
+                    eyes.observe(op, time.monotonic())
     if len(acc) < max(3, samples // 3):
         return None
     return _component_median(acc)
 
 
 def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
-              poly2=False, passes=1, feat=None, recal_key="F9"):
+              poly2=False, passes=1, feat=None, recal_key="F9", closed_thr=None):
+    """Dots calibration. closed_thr: the ClosedEye gate (eye_gaze.openness)
+    or a pixel-scale number; the person's open-eye openness is measured on
+    the way and kept with the calibration."""
+    eyes = _closed_eye(closed_thr)
+    opens = []
     win = t_ascii("driver.cal.window")
     _fullscreen(win)
     gaze_pts, screen_pts = [], []
@@ -888,7 +903,8 @@ def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
                 if hotkeys.quit_requested:
                     return None
             _force_topmost(win)
-            g = _collect_gaze(estimator, cap, hotkeys, samples, topmost_title=win)
+            g = _collect_gaze(estimator, cap, hotkeys, samples, topmost_title=win,
+                              opens=opens, eyes=eyes)
             if hotkeys.quit_requested:
                 return None
             if g is not None:
@@ -903,6 +919,9 @@ def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
         cs = caldata.CalSamples.dots(gaze_pts, screen_pts, stamps, opts,
                                      groups=pass_of if int(passes) > 1 else None,
                                      screen=(sw, sh))
+        open_eye = openness.open_median(opens, eyes.threshold())
+        if cs is not None and open_eye is not None:
+            cs.meta["open_eye"] = open_eye
         # Same fit as a refit from the saved samples: per-axis model selection,
         # graded on the pass (or block) it did not see. Never raises.
         r = caldata.refit(cs, reach_margin, poly2, None, feat) if cs else None
@@ -916,6 +935,7 @@ def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
             mapper.err_cv = holdout_error(gaze_pts, screen_pts,
                                           reach_margin=reach_margin, poly2=poly2)
             mapper.cal_samples = cs
+        mapper.open_eye = open_eye
         _stamp_setup(mapper, sw, sh, cap)
         _print_cal_quality(err, mapper.err_cv, (sw, sh))
         _print_model(mapper)
@@ -940,6 +960,16 @@ def _dot_passes(n_points, passes, n_inputs):
     print("UYARI: %d nokta x %d tur, %d ozellikli kalibrasyon icin yetersiz;"
           " %d tur gosterilecek." % (n_points, passes, n_inputs, fixed))
     return fixed
+
+
+def _closed_eye(closed_thr):
+    """The ClosedEye gate a calibration uses: the one passed in, a fixed
+    pixel-scale number, or (None) a fresh "auto" one."""
+    if isinstance(closed_thr, openness.ClosedEye):
+        return closed_thr
+    if closed_thr is None:
+        return openness.ClosedEye("auto")
+    return openness.ClosedEye.fixed(closed_thr)
 
 
 def _camera_size(cap):
@@ -1155,14 +1185,19 @@ _PURSUIT_MIN_EARLY = 15   # ... with fewer usable frames than this: stop
 
 
 def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
-                      passes=1, speed=480.0, latency="auto", closed_thr=0.18,
+                      passes=1, speed=480.0, latency="auto", closed_thr=None,
                       feat=None, layout="rows", recal_key="F9"):
     """Smooth-pursuit calibration: the user follows a gliding ball; every
     frame contributes a (gaze, ball position) pair. The user's eye lag is
     LEARNED from the data (latency='auto': several candidate lags are fitted
     and the best kept) or fixed to a number. Frames near direction changes
     (saccades) or with closed eyes are dropped. layout: the ball's path
-    (eye_gaze.pursuit.LAYOUTS, config calibration_path)."""
+    (eye_gaze.pursuit.LAYOUTS, config calibration_path). closed_thr: the
+    ClosedEye gate (eye_gaze.openness) - it keeps learning the person while
+    they follow the ball, and their open-eye openness is kept with the
+    calibration."""
+    eyes = _closed_eye(closed_thr)
+    opens = []
     win = t_ascii("driver.pursuit.window")
     _fullscreen(win)
     canvas = np.zeros((sh, sw, 3), dtype=np.uint8)
@@ -1209,9 +1244,14 @@ def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
                     continue
                 frame = cv2.flip(frame, 1)
                 g = source.estimate(frame)
-                if g is not None and source.openness > closed_thr and t >= 0.0:
+                if g is not None:
+                    eyes.set_frame((frame.shape[1], frame.shape[0]))
+                    eyes.observe(source.openness, time.monotonic())
+                if (g is not None and source.openness > eyes.threshold()
+                        and t >= 0.0):
                     samples.append((g, t))
                     pass_of.append(p)
+                    opens.append(source.openness)
                     got += 1
         if len(samples) < 80:
             print(f"Takip kalibrasyonu icin yeterli ornek toplanamadi ({len(samples)}).")
@@ -1221,6 +1261,11 @@ def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
         # Same fit as a refit from the saved samples: per-axis model selection,
         # the eye lag chosen on the pass it did not see. Never raises.
         cs = caldata.CalSamples.pursuit(samples, path, 0.0, opts, groups=pass_of)
+        # Every frame kept was above the threshold: their median is the
+        # person's open eye.
+        open_eye = openness.open_median(opens, float("-inf"))
+        if cs is not None and open_eye is not None:
+            cs.meta["open_eye"] = open_eye
         r = caldata.refit(cs, reach_margin, poly2, latency, feat) if cs else None
         if r is not None:
             mapper, err, lat = r.mapper, r.err, r.latency
@@ -1241,6 +1286,9 @@ def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
                                           poly2=poly2, blocks=10)
             mapper.cal_samples = caldata.CalSamples.pursuit(samples, path, lat, opts,
                                                             groups=pass_of)
+            if mapper.cal_samples is not None and open_eye is not None:
+                mapper.cal_samples.meta["open_eye"] = open_eye
+        mapper.open_eye = open_eye
         print(f"Takip kalibrasyonu: {len(samples)} ornek; ogrenilen goz gecikmesi: {lat:.2f} sn.")
         _stamp_setup(mapper, sw, sh, cap)
         _print_cal_quality(err, mapper.err_cv, (sw, sh))
@@ -3175,7 +3223,10 @@ def main():
     scroll_zone = float(cfg.get("scroll_zone", 0.08))
     scroll_speed = int(cfg.get("scroll_speed", 1))
     blink_on = bool(cfg.get("blink_click", False))
-    closed_thr = float(cfg.get("blink_closed_threshold", 0.18))
+    # One closed-eye gate for the calibrations, the cursor freeze, the dwell
+    # restart and the blink click (eye_gaze.openness). "auto" (or the v1.2.0
+    # factory 0.18) learns the person; another number is honoured.
+    eyes = openness.ClosedEye(cfg.get("blink_closed_threshold", "auto"))
     dwell_on = bool(cfg.get("dwell_click", False))
     multi_mon = bool(cfg.get("multi_monitor", False))
 
@@ -3318,6 +3369,7 @@ def main():
         first_size = _first_frame_size(cap)
     for line in _camera_report(cap, cam_w, cam_h, cam_fps, first_size):
         print(line)
+    eyes.set_frame(first_size)
     _raise_process_priority()
     per_eye = bool(cfg.get("per_eye_features", True))
     estimator = GazeEstimator(use_head_pose=use_head, head_translation=use_tr,
@@ -3333,7 +3385,7 @@ def main():
     source = _FeatureSource(estimator, deep,
                             rebuild_on_cpu=_deep_cpu_rebuilder(deep, cap))
     _arm_late_keys()            # X11: the models are loaded (see above)
-    blinker = (BlinkClicker(closed_thr, float(cfg.get("blink_hold_seconds", 0.5)))
+    blinker = (BlinkClicker(hold_seconds=float(cfg.get("blink_hold_seconds", 0.5)))
                if blink_on else None)
     dweller = (DwellClicker(float(cfg.get("dwell_radius", 40)),
                             float(cfg.get("dwell_seconds", 1.0)),
@@ -3388,9 +3440,9 @@ def main():
         if cal_mode.startswith("dot") or cal_mode.startswith("nokta"):
             return calibrate(source, cap, sw, sh, positions, hotkeys, cal_samples,
                              reach_margin, poly2, cal_passes, feat=feat_id,
-                             recal_key=recal_key)
+                             recal_key=recal_key, closed_thr=eyes)
         return calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2,
-                                 cal_passes, pursuit_speed, pursuit_latency, closed_thr,
+                                 cal_passes, pursuit_speed, pursuit_latency, eyes,
                                  feat=feat_id, layout=pursuit_layout,
                                  recal_key=recal_key)
 
@@ -3459,6 +3511,8 @@ def main():
             _note_calibration_camera(machine_profile, machine_cam, fresh=True)
         feedback.event("cal_done")
         _after_first_calibration(hotkeys)
+    eyes.use(mapper)
+    print("  " + eyes.describe())
 
     fx = OneEuroFilter(cfg["freq"], cfg["mincutoff"], cfg["beta"], cfg["dcutoff"])
     fy = OneEuroFilter(cfg["freq"], cfg["mincutoff"], cfg["beta"], cfg["dcutoff"])
@@ -3833,6 +3887,12 @@ def main():
                 prev_t = now
                 frame = cv2.flip(frame, 1)
                 g = source.estimate(frame)
+                # The one closed-eye threshold of this frame (eye_gaze.openness).
+                eyes.use(mapper)
+                eyes.set_frame((frame.shape[1], frame.shape[0]))
+                if g is not None:
+                    eyes.observe(source.openness, now)
+                closed_thr = eyes.threshold()
                 if dweller is not None:
                     # Eyes closed / face lost / an overlay opened or closed
                     # under a still cursor: none of that time is a dwell.
@@ -3880,7 +3940,7 @@ def main():
                         if (dweller is not None and _dwell_live(aacgrid)
                                 and dweller.update(px, py, now)):
                             fire_left_click(dwell=True)
-                    if blinker is not None and blinker.update(source.openness, now):
+                    if blinker is not None and blinker.update(source.openness, now, closed_thr):
                         fire_left_click()
                 # finger-switch clicks are deliberate -> active even when paused
                 clicker.update(now)

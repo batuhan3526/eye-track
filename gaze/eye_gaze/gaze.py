@@ -5,8 +5,9 @@ includes iris 468-477).
 Produces a gaze feature: (gx, gy) eye-only, or (gx, gy, hx, hy) with head-pose
 proxies so the calibration mapping can compensate for head movement (important
 when the user has no neck control). estimate() also updates `self.openness`
-(eye-openness ratio) for blink detection. mediapipe and cv2 are imported lazily
-so the pure helpers and unit tests run without the heavy deps installed.
+(eye-openness ratio, measured in camera pixels) for blink detection. mediapipe
+and cv2 are imported lazily so the pure helpers and unit tests run without the
+heavy deps installed.
 """
 import math
 import os
@@ -93,6 +94,23 @@ def eye_openness(upper, lower, corner1, corner2):
     return math.dist(upper, lower) / w
 
 
+def landmark_openness(lm, width, height):
+    """Both eyes' openness (mean) with the landmarks in camera PIXELS.
+
+    MediaPipe's coordinates are x / width and y / height, so a ratio taken on
+    them grows with the frame's width / height: the same eye read 33% more
+    open on 16:9 than on 4:3, and one fixed threshold meant something else on
+    every camera mode. Only openness moves to pixels; the regression features
+    keep the normalised coordinates their calibrations were fitted on."""
+    def px(i):
+        return (lm[i].x * width, lm[i].y * height)
+    op_l = eye_openness(px(_LEFT_LIDS[0]), px(_LEFT_LIDS[1]),
+                        px(_LEFT_CORNERS[0]), px(_LEFT_CORNERS[1]))
+    op_r = eye_openness(px(_RIGHT_LIDS[0]), px(_RIGHT_LIDS[1]),
+                        px(_RIGHT_CORNERS[0]), px(_RIGHT_CORNERS[1]))
+    return (op_l + op_r) / 2.0
+
+
 def _mean(points):
     n = len(points)
     return (sum(p[0] for p in points) / n, sum(p[1] for p in points) / n)
@@ -101,7 +119,8 @@ def _mean(points):
 class GazeEstimator:
     """Wraps MediaPipe Tasks FaceLandmarker.
     estimate(frame_bgr) -> (gx, gy) or (gx, gy, hx, hy) or None.
-    After each call with a face, `self.openness` holds the eye-openness ratio."""
+    After each call with a face, `self.openness` holds the eye-openness ratio
+    (in pixels: the same on any camera aspect; eye_gaze.openness)."""
 
     def __init__(self, refine=True, model_path=None, use_head_pose=True,
                  head_translation=True, per_eye=False):
@@ -160,9 +179,7 @@ class GazeEstimator:
             # blind average. Mean stays first so poly2 terms keep meaning.
             feats += [gx_l - gx_r, gy_l - gy_r]
 
-        op_l = eye_openness(pt(_LEFT_LIDS[0]), pt(_LEFT_LIDS[1]), pt(_LEFT_CORNERS[0]), pt(_LEFT_CORNERS[1]))
-        op_r = eye_openness(pt(_RIGHT_LIDS[0]), pt(_RIGHT_LIDS[1]), pt(_RIGHT_CORNERS[0]), pt(_RIGHT_CORNERS[1]))
-        self.openness = (op_l + op_r) / 2.0
+        self.openness = landmark_openness(lm, frame.shape[1], frame.shape[0])
 
         if not self._use_head_pose:
             return tuple(feats)

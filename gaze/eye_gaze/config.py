@@ -162,11 +162,12 @@ _MAX_LATENCY = 0.5   # s; pursuit_latency above this is ms written as seconds
 # (config.default.yaml, spec 6.9) ships them as "auto" and the driver picks
 # the value; pursuit_latency's "auto" is learnt during calibration. Without
 # this, camera_index: "auto" is "not a number": dropped with a warning on
-# every start of every fresh install.
+# every start of every fresh install. blink_closed_threshold's "auto" is a
+# fraction of the person's own open eye (eye_gaze.openness).
 _AUTO_KEYS = frozenset("""
 camera_index camera_width camera_height camera_fps camera_hfov_deg
 deep_gaze deep_device stt_model stt_device
-pursuit_latency
+pursuit_latency blink_closed_threshold
 """.split())
 
 

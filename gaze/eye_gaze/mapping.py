@@ -104,6 +104,9 @@ class GazeMapper:
         # calibrated on; None for files from before they were recorded.
         self.screen = None
         self.camera = None
+        # The person's open-eye openness (pixel scale, eye_gaze.openness)
+        # measured on this calibration's frames; None for older files.
+        self.open_eye = None
 
     def _features(self, g):
         f = [1.0] + list(g)
@@ -227,6 +230,8 @@ class GazeMapper:
             d["screen"] = [int(v) for v in self.screen]
         if self.camera:
             d["camera"] = [int(v) for v in self.camera]
+        if self.open_eye is not None:
+            d["open_eye"] = float(self.open_eye)
         if self.axes is not None:
             d["axes"] = [{"in": list(inp), "quad": None if q is None else list(q),
                           "lam": lam} for inp, q, lam in self.axes]
@@ -264,6 +269,10 @@ class GazeMapper:
             m.screen = tuple(int(v) for v in d["screen"])
         if _pair(d.get("camera")):
             m.camera = tuple(int(v) for v in d["camera"])
+        v = d.get("open_eye")
+        if (isinstance(v, (int, float)) and not isinstance(v, bool)
+                and math.isfinite(v) and v > 0):
+            m.open_eye = float(v)
         return m
 
     def rescaled(self, sw, sh):

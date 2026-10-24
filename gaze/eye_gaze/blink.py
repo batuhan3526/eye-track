@@ -14,10 +14,13 @@ class BlinkClicker:
         self._closed_since = None
         self._fired = False
 
-    def update(self, openness, t):
+    def update(self, openness, t, closed_threshold=None):
         """openness: eye-openness ratio (low = closed). Returns True exactly
-        once, when a sustained closure reaches hold_seconds."""
-        if openness <= self.closed_threshold:
+        once, when a sustained closure reaches hold_seconds.
+        closed_threshold: this frame's threshold (eye_gaze.openness.ClosedEye,
+        the one every other consumer uses); None = the constructor's."""
+        thr = self.closed_threshold if closed_threshold is None else closed_threshold
+        if openness <= thr:
             if self._closed_since is None:
                 self._closed_since = t
                 self._fired = False

@@ -348,7 +348,7 @@ def test_a_v2_file_predicts_bit_identically():
         assert m.predict(g) == want
     # and writes back without keys it never had
     d = m.to_dict()
-    assert "axes" not in d and "sel" not in d
+    assert "axes" not in d and "sel" not in d and "open_eye" not in d
     assert GazeMapper.from_dict(d).predict(_V2_PREDICTIONS[0][0]) \
         == _V2_PREDICTIONS[0][1]
 

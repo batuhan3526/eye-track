@@ -448,9 +448,18 @@ def refit(samples, reach_margin, poly2, latency="auto", feat=None):
         extra = {} if lat is None else {"latency_used": float(lat)}
         mapper.err_cv = err_cv
         mapper.cal_samples = samples.with_opts(opts, **extra)
+        # The person's open-eye openness measured with these samples
+        # (eye_gaze.openness); absent from older sample files.
+        mapper.open_eye = _open_eye(samples.meta.get("open_eye"))
         return RefitResult(mapper, err, err_cv, lat, r.report)
     except Exception:
         return None
+
+
+def _open_eye(value):
+    ok = (isinstance(value, (int, float)) and not isinstance(value, bool)
+          and math.isfinite(value) and value > 0)
+    return float(value) if ok else None
 
 
 def score_of(mapper, samples):
@@ -633,6 +642,8 @@ def reconcile(cal_path, mapper, feat, n_inputs, opts, should_save, save,
         # Same samples, same screen and camera: keep the setup stamp.
         r.mapper.screen = getattr(mapper, "screen", None)
         r.mapper.camera = getattr(mapper, "camera", None)
+        if r.mapper.open_eye is None:
+            r.mapper.open_eye = getattr(mapper, "open_eye", None)
         save(r.mapper)
         if changed:
             log("Ayar degisti (%s): kalibrasyon KAYITLI ORNEKLERDEN yeniden"
