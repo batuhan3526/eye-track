@@ -376,8 +376,8 @@ def _resolve_machine(cfg, probe=None, say=print, now=None):
             say("Kamera son aramada bulunamamisti; bugun yeniden aranmiyor"
                 " (varsayilan kamera ayarlari kullaniliyor).")
         elif need:
-            say("Kamera araniyor (kayitli kamera yok) - birkac saniye"
-                " surebilir...")
+            say("Kamera araniyor (kayitli kamera yok); her modu olculuyor -"
+                " yarim dakika kadar surebilir...")
             found = (probe or hardware.probe_cameras)(
                 **({} if index_auto else {"indices": [want_index]}))
             pick = None
@@ -466,6 +466,102 @@ def _note_calibration_camera(profile, camera, fresh, save=None):
         return bool((save or hardware.save_profile)(profile))
     except Exception:
         return False
+
+
+def _calibration_stamp(cal_path, save_cal=True):
+    """(calibrated, (w, h) | None): whether this install has a calibration
+    in calibration.json, and the camera picture size it was made at (its
+    stamp; None in files older than stamps). Read before the camera opens,
+    so that mode can be asked for. Never raises."""
+    if not save_cal:
+        return False, None
+    try:
+        m, problem, _ = _read_calibration(cal_path)
+        if problem is not None or m is None:
+            return False, None
+        cam = getattr(m, "camera", None)
+        return True, (tuple(int(v) for v in cam) if cam else None)
+    except Exception:
+        return False, None
+
+
+def _keep_calibration_mode(cfg, mode_auto, machine_cam, calibration,
+                           say=print):
+    """(cfg, camera record): the camera mode a calibration in use was made
+    in, opened instead of a newer probe choice (hardware.kept_mode).
+
+    A re-probe (wizard, Settings > "Kamera ara", a lost makine.json) may
+    choose another mode than the one the user calibrated in - another size
+    or aspect moves every feature, and calibrating again is tiring. So an
+    "auto" camera mode keeps the calibration's mode while the camera still
+    delivers it; the new choice is kept in the record as "choice" and
+    opened for the next calibration (camera_modes.ModeSwitch). Explicit
+    camera_width/height are never touched. Never raises."""
+    try:
+        if not mode_auto or not isinstance(machine_cam, dict):
+            return cfg, machine_cam
+        calibrated, size = calibration
+        kept = hardware.kept_mode(machine_cam, calibrated, size)
+        if kept is None:
+            return cfg, machine_cam
+        out = dict(cfg)
+        out["camera_width"], out["camera_height"] = kept["width"], kept["height"]
+        cam = dict(machine_cam)
+        cam["choice"] = {"width": cam.get("width"), "height": cam.get("height"),
+                         "fourcc": cam.get("fourcc") or ""}
+        cam.update(width=kept["width"], height=kept["height"],
+                   fourcc=kept.get("fourcc") or "",
+                   fps_measured=kept.get("fps", cam.get("fps_measured")))
+        say("Kalibrasyon %dx%d kamera goruntusuyle yapilmis: kamera bu modda"
+            " aciliyor. Yeni secilen mod (%sx%s) yeniden kalibrasyonda"
+            " (F9 x2) kullanilacak."
+            % (kept["width"], kept["height"], cam["choice"]["width"],
+               cam["choice"]["height"]))
+        return out, cam
+    except Exception:
+        return cfg, machine_cam
+
+
+def _first_frame_size(cap, tries=60, wait=0.03):
+    """The real picture size once a frame arrives (a few tries: a camera's
+    first frames can come late), else what CAP_PROP_* says."""
+    for _ in range(int(tries)):
+        try:
+            ok, _frame = cap.read()
+        except Exception:
+            ok = False
+        if ok and getattr(cap, "frame_size", None):
+            return cap.frame_size
+        time.sleep(wait)
+    return _camera_size(cap)
+
+
+def _camera_report(cap, req_w, req_h, req_fps, size):
+    """Console lines (ASCII): asked vs delivered size, FOURCC and backend,
+    and a warning when the picture's shape is not the one asked for."""
+    from eye_gaze import camera_modes
+    try:
+        fps = cap.get(cv2.CAP_PROP_FPS)
+    except Exception:
+        fps = 0.0
+    fourcc = hardware.fourcc_text(cap) or "?"
+    backend = ""
+    try:
+        backend = cap.backend_name() if hasattr(cap, "backend_name") \
+            else str(cap.getBackendName())
+    except Exception:
+        backend = ""
+    w, h = size if size else (0, 0)
+    lines = ["Kamera cozunurlugu: %dx%d @ %.0f fps (istenen %dx%d @ %d;"
+             " FOURCC %s, arka uc %s)"
+             % (w, h, fps or 0.0, req_w, req_h, req_fps, fourcc,
+                backend or "?")]
+    if (w and h and req_w > 0 and req_h > 0 and not camera_modes.same_aspect(
+            camera_modes.aspect(w, h), camera_modes.aspect(req_w, req_h))):
+        lines.append("UYARI: kamera istenen %dx%d yerine %dx%d veriyor (en-boy"
+                     " orani farkli); goruntu kirpilmis ya da gerilmis"
+                     " olabilir." % (req_w, req_h, w, h))
+    return lines
 
 
 def _keep_deep_for_calibration(cfg, was_auto, cal_path, base_inputs,
@@ -566,15 +662,17 @@ def _camera_opener(index, width, height, fps, machine_cam=None):
     transforms off), and nothing about it may change.
     Only a camera found by the probe (makine.json, "auto" settings) goes
     through hardware.open_capture with the backend that worked in the probe
-    (Windows MSMF, else DSHOW; Linux V4L2). GOZFARESI_FAKE_CAMERA (smokes
-    only) replaces either.
+    (Windows MSMF, else DSHOW; Linux V4L2) and the format it measured the
+    mode fastest in (MJPG, or the camera's own). GOZFARESI_FAKE_CAMERA
+    (smokes only) replaces either.
     """
     if machine_cam is not None or os.environ.get(hardware.FAKE_CAMERA_ENV):
         backend = machine_cam.get("backend") if machine_cam else None
+        fourcc = (machine_cam.get("fourcc") or None) if machine_cam else None
 
         def open_probed():
             return hardware.open_capture(index, width, height, fps,
-                                         backend=backend)
+                                         backend=backend, fourcc=fourcc)
         return open_probed
 
     def open_camera():
@@ -611,7 +709,29 @@ class _ResilientCapture:
         self._fails = 0
         self._next_try = 0.0
         self._lost = False
+        # (w, h) of the last frame read: the real picture, which CAP_PROP_*
+        # does not always report (some drivers echo the request).
+        self.frame_size = None
         self.cap = self._try_open()
+
+    def reopen(self, opener):
+        """Release the camera and open it with `opener`, also for every later
+        reconnect (another mode, for a recalibration). True when it opened."""
+        self.release()
+        self.cap = None
+        self._opener = opener
+        self._fails = 0
+        self._lost = False
+        self.frame_size = None
+        self.cap = self._try_open()
+        return self.cap is not None
+
+    def backend_name(self):
+        """The capture backend's name ("MSMF", "DSHOW", "V4L2"...), or ""."""
+        try:
+            return str(self.cap.getBackendName()) if self.cap is not None else ""
+        except Exception:
+            return ""
 
     def _try_open(self):
         try:
@@ -641,6 +761,10 @@ class _ResilientCapture:
                     self._lost = False
                     print("KAMERA yeniden baglandi; surucu devam ediyor.")
                 self._fails = 0
+                try:
+                    self.frame_size = (int(frame.shape[1]), int(frame.shape[0]))
+                except Exception:
+                    pass
                 return True, frame
             self._fails += 1
             if self._fails < self._fail_limit:
@@ -798,6 +922,11 @@ def _dot_passes(n_points, passes, n_inputs):
 
 
 def _camera_size(cap):
+    """(w, h) of the camera picture: the last frame's real size when the
+    capture knows it (_ResilientCapture.frame_size), else CAP_PROP_*."""
+    size = getattr(cap, "frame_size", None)
+    if size and size[0] > 0 and size[1] > 0:
+        return (int(size[0]), int(size[1]))
     try:
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -1258,7 +1387,7 @@ def _undo_calibration(path, mapper, n_inputs, feat=None, screen=None):
         return None, "Geri alinamadi (%s)." % type(exc).__name__
 
 
-def _feature_id(per_eye, use_head, use_tr, deep_on):
+def _feature_id(per_eye, use_head, use_tr, deep_on, hfov=None):
     """Which features a calibration was fitted for, as a short stamp.
 
     The feature COUNT is not a fingerprint: 9 inputs is reached both by
@@ -1272,9 +1401,18 @@ def _feature_id(per_eye, use_head, use_tr, deep_on):
 
     Translation only counts when head pose is on, matching how base_inputs is
     computed, so the stamp describes the vector rather than the YAML.
+
+    hfov: camera_hfov_deg in degrees ("-fv78"), None for "auto". It changes
+    the deep model's outputs, so a numeric one belongs to the stamp: a
+    calibration made under "auto" is not used with it (and comes back from
+    its backup slot when "auto" returns). "auto" leaves every stamp as it
+    was. Without the deep model the focal length is not used at all.
     """
-    return "pe%d-hp%d-ht%d-dg%d" % (bool(per_eye), bool(use_head),
-                                    bool(use_head and use_tr), bool(deep_on))
+    stamp = "pe%d-hp%d-ht%d-dg%d" % (bool(per_eye), bool(use_head),
+                                     bool(use_head and use_tr), bool(deep_on))
+    if deep_on and hfov is not None:
+        stamp += "-fv%g" % round(float(hfov), 1)
+    return stamp
 
 
 # calibration.json format versions this build reads: 2 = one ridge model
@@ -1509,7 +1647,8 @@ def _save_calibration(path, mapper, feat=None, err_cv=None):
 
 
 _FEATURE_NAMES = {"pe": "per_eye_features", "hp": "use_head_pose",
-                  "ht": "head_translation", "dg": "derin bakis modeli"}
+                  "ht": "head_translation", "dg": "derin bakis modeli",
+                  "fv": "camera_hfov_deg"}
 
 
 def _feature_diff(stored_feat, feat):
@@ -1525,13 +1664,19 @@ def _feature_diff(stored_feat, feat):
         out = {}
         for part in str(s).split("-"):
             if len(part) >= 3:
-                out[part[:2]] = part[2:] == "1"
+                out[part[:2]] = part[2:]
         return out
     a, b = parse(stored_feat), parse(feat)
-    return ["%s (kalibrasyonda %s, su an %s)"
-            % (_FEATURE_NAMES.get(k, k), _onoff(a[k]), _onoff(b[k]))
-            for k in ("pe", "hp", "ht", "dg")
-            if k in a and k in b and a[k] != b[k]]
+    out = ["%s (kalibrasyonda %s, su an %s)"
+           % (_FEATURE_NAMES.get(k, k), _onoff(a[k] == "1"),
+              _onoff(b[k] == "1"))
+           for k in ("pe", "hp", "ht", "dg")
+           if k in a and k in b and a[k] != b[k]]
+    if a.get("dg") == b.get("dg") == "1" and a.get("fv") != b.get("fv"):
+        out.append("%s (kalibrasyonda %s, su an %s)"
+                   % (_FEATURE_NAMES["fv"], a.get("fv", "auto"),
+                      b.get("fv", "auto")))
+    return out
 
 
 def _mismatch_report(stored, current, deep_on, note="", stored_feat=None,
@@ -1833,10 +1978,16 @@ def _make_deep(cfg, cap, expected=False):
     # OnnxDeepGaze: a failure that gets out is the model file itself.
     on_gpu = backend == "torch" and (
         device_cfg == "gpu" or (device_cfg == "auto" and gpu))
-    w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    # The real frame size (not CAP_PROP_*, which some drivers echo from the
+    # request); the models also follow every frame's own size. camera_hfov_deg
+    # "auto" = focal length = width, exactly as before.
+    w, h = _camera_size(cap) or (0, 0)
+    from eye_gaze import camera_modes
+    hfov = camera_modes.hfov_setting(cfg.get("camera_hfov_deg", "auto"))
+    fov = {} if hfov is None else {"hfov_deg": hfov}
     try:
-        dg = deep_mod.make_deep_gaze(w, h, device_cfg, backend=want_backend)
+        dg = deep_mod.make_deep_gaze(w, h, device_cfg, backend=want_backend,
+                                     **fov)
     except Exception as e:
         if backend == "onnx":
             print("Derin model (ONNX) acilamadi - model dosyasi eksik ya da"
@@ -1847,7 +1998,7 @@ def _make_deep(cfg, cap, expected=False):
             return None
         print(f"Derin model GPU'da yuklenemedi ({e}); CPU deneniyor...")
         try:
-            dg = deep_mod.make_deep_gaze(w, h, "cpu", backend="torch")
+            dg = deep_mod.make_deep_gaze(w, h, "cpu", backend="torch", **fov)
         except Exception as e2:
             print(f"Derin model CPU'da da yuklenemedi ({e2}); geometrik mod ile devam.")
             return None
@@ -1877,12 +2028,13 @@ def _deep_cpu_rebuilder(deep, cap):
     """What _FeatureSource calls after 30 failing GPU frames: the same backend
     on the CPU (same features, the calibration stays valid)."""
     backend = getattr(deep, "backend", "torch")
+    hfov = getattr(deep, "hfov_deg", None)
+    fov = {} if hfov is None else {"hfov_deg": hfov}
 
     def rebuild():
         from eye_gaze import deep as deep_mod
-        return deep_mod.make_deep_gaze(int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                                       int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
-                                       "cpu", backend=backend)
+        w, h = _camera_size(cap) or (0, 0)
+        return deep_mod.make_deep_gaze(w, h, "cpu", backend=backend, **fov)
     return rebuild
 
 
@@ -3089,9 +3241,16 @@ def main():
     alarm = start_alarm(cfg, keys)
     _print_missing_capabilities()
     # "auto" camera / deep model / dictation lines from makine.json. After
-    # the alarm: a first-start camera probe takes a few seconds.
+    # the alarm: a first-start camera probe measures every mode (up to half
+    # a minute).
     deep_was_auto = is_auto(cfg.get("deep_gaze"))
+    mode_auto = (is_auto(cfg.get("camera_width"))
+                 and is_auto(cfg.get("camera_height")))
     cfg, machine_profile, machine_cam = _resolve_machine(cfg)
+    # A calibration in use keeps the camera mode it was made in, whatever a
+    # later probe chose (the new choice waits for a recalibration).
+    cfg, machine_cam = _keep_calibration_mode(
+        cfg, mode_auto, machine_cam, _calibration_stamp(cal_file, save_cal))
     sw, sh = cursor.screen_size()
     primary = _primary_rect()
     ox, oy = primary[0], primary[1]     # (0, 0) on Windows
@@ -3125,9 +3284,16 @@ def main():
         keys.clear()            # typing done while waiting is not clicks
         print("KAMERA acildi; surucu baslatiliyor.")
         _disarm_late_keys()     # X11: only the alarm grabbed while loading
-    print(f"Kamera cozunurlugu: {int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))}x"
-          f"{int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))}"
-          f" @ {cap.get(cv2.CAP_PROP_FPS):.0f} fps (istenen {cam_fps})")
+    # The real frame, not CAP_PROP_* (some drivers echo the request): the
+    # deep model's camera matrix and the calibration stamp are built from it.
+    for line in _camera_report(cap, cam_w, cam_h, cam_fps,
+                               _first_frame_size(cap)):
+        print(line)
+    from eye_gaze import camera_modes
+    modes = camera_modes.ModeSwitch(
+        cap, machine_cam,
+        lambda w, h, fourcc: _camera_opener(
+            cam_index, w, h, cam_fps, dict(machine_cam, fourcc=fourcc)))
     _raise_process_priority()
     per_eye = bool(cfg.get("per_eye_features", True))
     estimator = GazeEstimator(use_head_pose=use_head, head_translation=use_tr,
@@ -3211,7 +3377,8 @@ def main():
                  " derin model=%s"
                  % (_onoff(per_eye), _onoff(use_head), _onoff(use_tr),
                     _onoff(deep is not None)))
-    feat_id = _feature_id(per_eye, use_head, use_tr, deep is not None)
+    feat_id = _feature_id(per_eye, use_head, use_tr, deep is not None,
+                          getattr(deep, "hfov_deg", None))
     mapper = (_load_calibration(cal_file, n_inputs, deep is not None, feat_note,
                                 feat=feat_id)
               if save_cal else None)
@@ -3228,6 +3395,11 @@ def main():
                                              screen=cal_screen),
             lambda m: _save_calibration(cal_file, m, feat=feat_id),
             screen=(sw, sh))
+    if mapper is not None:
+        # A calibration restored from a backup may have been made in another
+        # camera mode than calibration.json: open that one when it exists.
+        modes.follow(getattr(mapper, "camera", None))
+        _first_frame_size(cap)
     mapper = _fit_setup(mapper, sw, sh, _camera_size(cap))
     if mapper is not None:
         print(f"Kayitli kalibrasyon yuklendi. Yeniden kalibrasyon: '{recal_key}' x2.")
@@ -3245,6 +3417,9 @@ def main():
             end = time.monotonic() + sec
             while time.monotonic() < end and not hotkeys.quit_requested:
                 hotkeys.feed_window_key(cv2.waitKey(100) & 0xFF)
+        # No usable calibration: this one is made in the probe's choice.
+        if modes.for_calibration() is not None:
+            _first_frame_size(cap)
         mapper = _calibrate_until_done(run_calibration, hotkeys, _wait)
         if mapper is None:
             # Only reachable by the user's own quit request: exit code 0 so
@@ -3480,7 +3655,11 @@ def main():
               f" | SESLE YAZ '{stt_key}'")
     print("Surucu calisiyor. Imleci gozunuzle surun; parmakla tikla.")
     status = "gaze_driver"
-    cv2.namedWindow(status, cv2.WINDOW_NORMAL)
+    # The picture keeps its own shape: the window is sized to it, and every
+    # frame is letterboxed to whatever size the window has (WINDOW_KEEPRATIO
+    # alone is honoured by Qt builds only; a resize would stretch it).
+    cv2.namedWindow(status, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+    status_shape = None
     loop_i = 0
     prev_paused = False
     prev_layers = None
@@ -3509,6 +3688,9 @@ def main():
                                                feat_id, screen=(sw, sh))
                     print(msg)
                     if m is not None:
+                        # Back to the camera mode the restored calibration
+                        # was made in (when a recalibration switched it).
+                        modes.follow(getattr(m, "camera", None))
                         feedback.event("cal_done")
                         mapper = m
                         hist.clear()
@@ -3528,10 +3710,16 @@ def main():
                     print("Yeniden kalibrasyon basladi. VAZGECMEK icin '%s' x2"
                           " (onceki kalibrasyon korunur)." % recal_key)
                     hotkeys.calibrating = True
+                    # A calibration kept in its old camera mode: the new one
+                    # is made in the probe's newer choice, and the old mode
+                    # comes back if it does not take.
+                    prev_mode = modes.for_calibration()
                     try:
                         m = run_calibration()
                     finally:
                         cancelled = hotkeys.end_calibration()
+                    if m is None:
+                        modes.back(prev_mode)
                     keys.clear()            # presses made during it are stale
                     clicker.discard()
                     if m is None and cancelled:
@@ -3770,7 +3958,15 @@ def main():
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 200, 255), 2)
                 cv2.putText(frame, f"FPS {fps_ema:.0f}", (14, frame.shape[0] - 14),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                cv2.imshow(status, frame)
+                fh, fw = frame.shape[:2]
+                if (fw, fh) != status_shape:
+                    # First frame, or another camera mode: the window takes
+                    # the picture's shape again.
+                    status_shape = (fw, fh)
+                    status_size = camera_modes.window_size(fw, fh)
+                    cv2.resizeWindow(status, *status_size)
+                cv2.imshow(status, camera_modes.fit_to_window(
+                    frame, *camera_modes.shown_size(status, status_size)))
                 hotkeys.feed_window_key(cv2.waitKey(1) & 0xFF)
             except Exception as exc:
                 if _frame_error(frame_errs, exc):

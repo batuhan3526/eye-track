@@ -163,12 +163,17 @@ class Services:
     # --- hardware ------------------------------------------------------------
     def probe_cameras(self):
         from eye_gaze import hardware
-        return hardware.probe_cameras()
+        # The mode choice fits this machine's measured gaze time when the
+        # wizard has measured it (makine.json), else its core count.
+        profile = dict(hardware.load_profile())
+        profile.setdefault("machine", hardware.machine())
+        return hardware.probe_cameras(profile=profile)
 
     def open_camera(self, info):
         from eye_gaze import hardware
         return hardware.open_capture(info.index, info.width, info.height,
-                                     hardware.REQUEST_FPS, info.backend)
+                                     hardware.REQUEST_FPS, info.backend,
+                                     fourcc=getattr(info, "fourcc", "") or None)
 
     def face_detector(self):
         """callable(frame) -> bool (with .close()), or None."""

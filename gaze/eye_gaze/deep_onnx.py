@@ -544,10 +544,12 @@ _LANDMARKS_3D = np.array(
 )
 
 
-def dummy_camera_matrix(width, height):
-    """Camera.create_dummy: focal length = image width, no distortion."""
-    return np.array([[width, 0, width // 2],
-                     [0, width, height // 2],
+def dummy_camera_matrix(width, height, focal=None):
+    """Camera.create_dummy: focal length = image width (or `focal`, from
+    camera_hfov_deg), no distortion."""
+    f = width if focal is None else focal
+    return np.array([[f, 0, width // 2],
+                     [0, f, height // 2],
                      [0, 0, 1]], dtype=float)
 
 
@@ -672,7 +674,8 @@ class OnnxDeepGaze:
 
     backend = "onnx"
 
-    def __init__(self, frame_width, frame_height, providers, model_file=None):
+    def __init__(self, frame_width, frame_height, providers, model_file=None,
+                 hfov_deg=None):
         import onnxruntime as ort
         from . import accel
         path = model_file or model_path()
@@ -694,7 +697,12 @@ class OnnxDeepGaze:
             self._sess = self._session(ort, data, [accel.CPU])
         self._input = self._sess.get_inputs()[0].name
         self.device = _DEVICE_OF.get(self._sess.get_providers()[0], "cpu")
-        self._camera = dummy_camera_matrix(int(frame_width), int(frame_height))
+        # The camera matrix follows each frame's real size (a camera that
+        # delivers another mode than asked, a mode switched for a
+        # recalibration); hfov_deg None = focal length = width, as always.
+        self.hfov_deg = hfov_deg
+        self._camera_size = None
+        self._camera_for(int(frame_width), int(frame_height))
         self._landmarker = None
 
     @staticmethod
@@ -710,11 +718,24 @@ class OnnxDeepGaze:
         out = self._sess.run(None, {self._input: x})[0]
         return np.asarray(out, dtype=np.float64).reshape(-1)[:2]
 
+    def _camera_for(self, width, height):
+        """The camera matrix for a width x height frame (cached per size)."""
+        if self._camera_size != (width, height):
+            from .camera_modes import focal_px
+            self._camera = dummy_camera_matrix(
+                width, height,
+                None if self.hfov_deg is None
+                else focal_px(width, self.hfov_deg))
+            self._camera_size = (width, height)
+        return self._camera
+
     def gaze_from_points(self, frame_bgr, pts):
         """(gaze_x, gaze_y) from 468x2 pixel landmarks of `frame_bgr`."""
-        rot, _, model3d = estimate_head_pose(pts, self._camera)
+        h, w = frame_bgr.shape[:2]
+        camera = self._camera_for(int(w), int(h))
+        rot, _, model3d = estimate_head_pose(pts, camera)
         center = face_center(model3d)
-        patch, norm_rot = normalize_face(frame_bgr, self._camera, rot, center)
+        patch, norm_rot = normalize_face(frame_bgr, camera, rot, center)
         v = denormalize_gaze_vector(
             gaze_angles_to_vector(self._angles(to_input(patch))), norm_rot)
         return (float(v[0]), float(v[1]))

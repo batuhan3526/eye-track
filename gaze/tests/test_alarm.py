@@ -780,7 +780,7 @@ def test_the_alarm_is_armed_before_the_camera_and_the_models():
     assert armed < src.index("GazeEstimator(")
     assert armed < src.index("_make_deep(")
     cam = src[src.index("webcam acilamadi"):]
-    assert "return 1" not in cam[:cam.index("Kamera cozunurlugu")]
+    assert "return 1" not in cam[:cam.index("_camera_report(")]
 
 
 # --- the alarm survives Windows removing the keyboard hook ----------------------

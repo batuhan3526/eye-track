@@ -92,7 +92,7 @@ class DeepGaze:
     """estimate(frame_bgr) -> (gaze_x, gaze_y) camera-frame direction, or
     None when no face is found."""
 
-    def __init__(self, frame_width, frame_height, device=None):
+    def __init__(self, frame_width, frame_height, device=None, hfov_deg=None):
         import torch
         import ptgaze
         from omegaconf import OmegaConf
@@ -115,8 +115,27 @@ class DeepGaze:
         cfg.gaze_estimator.use_dummy_camera_params = True
         cfg.gaze_estimator.dummy_camera_size = [int(frame_width), int(frame_height)]
         self._est = _PtGazeEstimator(cfg)
+        self.hfov_deg = hfov_deg
+        self._camera_size = (int(frame_width), int(frame_height))
+        if hfov_deg is not None:
+            self._camera_size = None
+            self._fit_camera(int(frame_width), int(frame_height))
+
+    def _fit_camera(self, width, height):
+        """ptgaze's dummy camera made to match a width x height frame (and
+        camera_hfov_deg). Its Camera is frozen and shared with the head-pose
+        normaliser, so the matrix is rewritten in place."""
+        if self._camera_size == (width, height):
+            return
+        from .camera_modes import focal_px
+        f = float(focal_px(width, self.hfov_deg))
+        m = self._est.camera.camera_matrix
+        m[...] = [[f, 0, width // 2], [0, f, height // 2], [0, 0, 1]]
+        self._camera_size = (width, height)
 
     def estimate(self, frame_bgr):
+        h, w = frame_bgr.shape[:2]
+        self._fit_camera(int(w), int(h))
         faces = self._est.detect_faces(frame_bgr)
         if not faces:
             return None
@@ -134,6 +153,7 @@ class DeepGaze:
         from ptgaze.head_pose_estimation.face_landmark_estimator import LandmarkEstimator
         n = getattr(LandmarkEstimator, "_MEDIAPIPE_NUM_LANDMARKS", 468)
         h, w = frame_bgr.shape[:2]
+        self._fit_camera(int(w), int(h))
         pts = np.array([(p.x * w, p.y * h) for p in landmarks[:n]], dtype=np.float64)
         bbox = np.round(np.vstack([pts.min(axis=0), pts.max(axis=0)])).astype(np.int32)
         face = Face(bbox, pts)
@@ -228,10 +248,13 @@ def _onnx_gpu():
     return accel.usable(accel.providers("auto"))[0] != accel.CPU
 
 
-def make_deep_gaze(frame_w, frame_h, device_req="auto", backend="auto"):
+def make_deep_gaze(frame_w, frame_h, device_req="auto", backend="auto",
+                   hfov_deg=None):
     """The deep gaze model for device_req "auto" | "gpu" | "cpu" ("cuda" =
     "gpu"); raises when nothing can run it or the load fails. .device tells
     where it really runs ("cuda" | "dml" | "cpu"), .backend which one it is.
+    hfov_deg: camera_hfov_deg in degrees, None = "auto" (focal length = the
+    image width, as every calibration before it was made with).
 
     backend "auto" that picked ONNX falls back to torch on the CPU, once and
     said, when the ONNX model will not open (damaged file) but torch + ptgaze
@@ -242,6 +265,8 @@ def make_deep_gaze(frame_w, frame_h, device_req="auto", backend="auto"):
         raise RuntimeError("derin model calistiricisi yok (onnxruntime + model"
                            " ya da torch + ptgaze gerekir)")
     want = accel.normalize_want(device_req)
+    # Passed only when set: "auto" builds the models exactly as before.
+    fov = {} if hfov_deg is None else {"hfov_deg": float(hfov_deg)}
     if kind == "torch":
         if want == "cpu":
             device = "cpu"
@@ -249,13 +274,14 @@ def make_deep_gaze(frame_w, frame_h, device_req="auto", backend="auto"):
             device = "cuda"     # as deep_device: cuda always did: no silent CPU
         else:
             device = "cuda" if _cuda(_torch()) else "cpu"
-        return DeepGaze(frame_w, frame_h, device=device)
+        return DeepGaze(frame_w, frame_h, device=device, **fov)
     from . import deep_onnx
     try:
-        return deep_onnx.OnnxDeepGaze(frame_w, frame_h, accel.providers(want))
+        return deep_onnx.OnnxDeepGaze(frame_w, frame_h, accel.providers(want),
+                                      **fov)
     except Exception as exc:
         if normalize_backend(backend) != "auto" or                 _torch() is None or not _has_ptgaze():
             raise
         print("UYARI: ONNX derin modeli acilamadi (%s); PyTorch ile CPU'da"
               " aciliyor." % ascii(exc)[:100])
-    return DeepGaze(frame_w, frame_h, device="cpu")
+    return DeepGaze(frame_w, frame_h, device="cpu", **fov)

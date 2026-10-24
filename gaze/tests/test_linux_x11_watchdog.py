@@ -291,7 +291,10 @@ def _run_main_until_calibration(monkeypatch, tmp_path, extra_cfg,
             real_read = c.read
 
             def read():
-                seen["wait"] = set(kb.active)
+                # The wait loop's read (the first); later reads (the real
+                # frame size once open) happen after it.
+                if seen["wait"] is None:
+                    seen["wait"] = set(kb.active)
                 return real_read()
             c.read = read
         return c

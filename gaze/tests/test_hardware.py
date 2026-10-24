@@ -133,9 +133,14 @@ def test_probe_without_a_fast_mode_takes_the_fastest():
     assert (found[0].width, found[0].height) == (640, 480)
 
 
-def test_best_mode_caps_the_width_at_1280():
-    assert hw.best_mode([(1920, 1080, 30.0), (1280, 720, 30.0)]) == \
-        (1280, 720, 30.0)
+def test_best_mode_caps_the_width():
+    """1920 wide at most (a 4K camera runs at 1080p); 1.2.0's 1280 cap is
+    what legacy_mode keeps."""
+    assert hw.MAX_WIDTH == 1920
+    assert hw.best_mode([(3840, 2160, 30.0), (1920, 1080, 30.0)]) == \
+        (1920, 1080, 30.0)
+    assert hw.best_mode([(1920, 1080, 30.0), (1280, 720, 30.0)],
+                        hw.LEGACY_MAX_WIDTH) == (1280, 720, 30.0)
     assert hw.best_mode([]) is None
 
 
@@ -339,7 +344,8 @@ def test_fake_camera_only_with_env(monkeypatch):
     ok, frame = cap.read()
     assert ok and frame.shape == (480, 640, 3)
     found = hw.probe_cameras(opener=opener)
-    assert found == [hw.CameraInfo(0, "fake", 640, 480, 30.0, "fake")]
+    assert [tuple(c)[:6] for c in found] == [
+        (0, "fake", 640, 480, 30.0, "fake")]
     assert calls == []
 
 

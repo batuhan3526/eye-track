@@ -13,6 +13,12 @@ camera_index: "auto"     # webcam numarasi (0, 1, ...). "auto" = program kameray
 camera_width: "auto"     # kamera cozunurlugu. "auto" = kameranin GERCEKTE verdigi en iyi mod secilir. Kalibrasyon bu cozunurlukte yapilir:
 camera_height: "auto"    #   sonradan degistirirseniz (or. 1280x720) goruntu orani degisir ve YENIDEN KALIBRASYON gerekir
 camera_fps: "auto"       # kare hizi. Karanlik odada kameranin otomatik pozlamasi hizi 15-20 fps'e dusurebilir (isik ekleyin)
+                         # "auto" mod: KAYITLI KALIBRASYON HANGI MODDA YAPILDIYSA kamera o modda acilir (kamera o modu hala
+                         # veriyorsa) - yeniden kamera aramasi (sihirbaz, Ayarlar > Kamera ara) kalibrasyonu bozmaz. Yeni secilen
+                         # mod (or. 1920x1080) yeni kurulumda ve bir sonraki yeniden kalibrasyonda (F9 x2) kullanilir
+camera_hfov_deg: "auto"  # kameranin yatay goris acisi (derece; derin model icin). "auto" = bugunku varsayim (~53 derece).
+                         # Sayi yazarsaniz (or. 78) yalnizca YENI kalibrasyonla gecerli olur: eski kalibrasyon o ayarla
+                         # kullanilmaz (yedegi saklanir, "auto"ya donunce geri gelir). Emin degilseniz "auto" birakin
 freq: 30.0               # tahmini kare hizi (1-Euro icin)
 mincutoff: 0.2           # 1-Euro: DUSUK = daha cok yumusatma (imlec sakinler). Hala cok hizliysa 0.15, gec kaliyorsa 0.4
 beta: 0.002              # 1-Euro: DUSUK = daha az zipla/sicrama. Imlec gec kaliyorsa 0.01'e cikarin

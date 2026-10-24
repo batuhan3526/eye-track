@@ -80,7 +80,7 @@ BACKUP_KEY = "_from_backup"
 # nothing. test_every_setting_in_the_shipped_config_is_known keeps this in step
 # with config.yaml as later tasks add settings.
 KNOWN_KEYS = frozenset("""
-camera_index camera_width camera_height camera_fps
+camera_index camera_width camera_height camera_fps camera_hfov_deg
 freq mincutoff beta dcutoff max_cursor_speed deadzone
 calibration_mode calibration_points calibration_poly2 calibration_passes
 calibration_samples calibration_file save_calibration
@@ -123,6 +123,7 @@ aac_scan_cycles
 click_menu_scroll
 """.split())
 _FLOAT_KEYS = frozenset("""
+camera_hfov_deg
 freq mincutoff beta dcutoff max_cursor_speed deadzone pursuit_speed
 reach_margin hotkey_double_interval scroll_zone blink_closed_threshold
 blink_hold_seconds dwell_radius dwell_seconds zoom_scale zoom_timeout
@@ -163,7 +164,7 @@ _MAX_LATENCY = 0.5   # s; pursuit_latency above this is ms written as seconds
 # this, camera_index: "auto" is "not a number": dropped with a warning on
 # every start of every fresh install.
 _AUTO_KEYS = frozenset("""
-camera_index camera_width camera_height camera_fps
+camera_index camera_width camera_height camera_fps camera_hfov_deg
 deep_gaze deep_device stt_model stt_device
 pursuit_latency
 """.split())

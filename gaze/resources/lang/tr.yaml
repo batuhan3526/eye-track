@@ -147,7 +147,7 @@ wizard:
   camera:
     title: "Kamera"
     retry: "Yeniden dene"
-    searching: "Kameralar aranıyor… (birkaç saniye sürebilir)"
+    searching: "Kameralar aranıyor; her görüntü modu ölçülüyor… (yarım dakika kadar sürebilir)"
     search_failed: "Kameralar aranamadı ({error}). Kamerayı takıp «Yeniden dene»ye basın."
     none: "Kamera bulunamadı. Kamerayı takıp «Yeniden dene»ye basın. Kamerasız da devam edebilirsiniz; program kamerayı her açılışta yeniden arar."
     found: "{n} kamera bulundu. Kullanılacak kamerayı seçin; önizlemede yüzünüz görünmeli."
