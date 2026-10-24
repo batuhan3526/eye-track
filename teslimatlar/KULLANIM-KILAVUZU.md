@@ -51,7 +51,7 @@ Ayrıntılı, adım adım anlatım paketin içindeki **`BENI-OKU-KURULUM.txt`** 
 1. Webcam yüzü **önden** görsün; ışık **önden/yumuşak** olsun (gözlüğe yansımasın).
 2. `gaze\BASLAT.bat` → **çift tıkla**. (Paketten kurduysanız: masaüstündeki / Başlat menüsündeki **Göz Faresi** kısayolu. Linux'ta AppImage ya da `gozfaresi`.)
 3. **Kalibrasyon:** ekranda **süzülen yeşil TOPU gözünle takip et** (~25 sn × 2 tur; turlar arasında "pozisyonunu hafifçe değiştir" der — yaslanma telafisi böyle öğrenilir). Klasik sabit-nokta modu istersen: `config.yaml` → `calibration_mode: "dots"`.
-4. Bitince **imleç gözünle gelir**.
+4. Bitince birkaç saniye **sonuç ekranı** görünür (aşağıda 4. bölüm): not (İYİ / ORTA / KÖTÜ), yatay ve dikey hata, imlecin ekranın ne kadarına ulaşabildiği, gerekirse ipuçları. Sonra **imleç gözünle gelir**.
 
 > 💾 Kalibrasyon **kaydedilir**; sonraki açılışlarda **otomatik yüklenir** (her seferinde tekrar kalibre etmen gerekmez). Takip bozulursa **`F8` ile duraklatıp** ya da **`F9` ×2 ile yeniden kalibre** et.
 
@@ -67,7 +67,7 @@ Ayrıntılı, adım adım anlatım paketin içindeki **`BENI-OKU-KURULUM.txt`** 
 | **`F11`** | **Konuşmayı sustur**; **× 2** = son cümleyi **tekrar söyle** | Her pencerede |
 | **`F2`** | **Tık menüsü**: büyük düğmeler — Sağ tık, Çift tık, Sürükle, Kaydır yukarı/aşağı, **Kalibrasyonu geri al**, İptal. Seçeneğe **BAK + Space**; işlem menünün açıldığı noktaya yapılır. Tekrar `F2` = kapat | Her pencerede |
 | **`F10` × 2** | Göz-sürücüsünü **kapat** | Her pencerede (global) |
-| **`F9` × 2** | **Yeniden kalibre et**. Kalibrasyon sırasında **tekrar `F9` × 2 = vazgeç** (önceki kalibrasyon korunur) | Her pencerede |
+| **`F9` × 2** | **Yeniden kalibre et**. Top izlenirken **tekrar `F9` × 2 = vazgeç** (önceki kalibrasyon korunur). Kalibrasyon bitip **sonuç ekranı** görünürken `F9` × 2 = **hemen yeni bir kalibrasyon** (biten kalibrasyon kayıt kurallarına göre saklanır) | Her pencerede |
 | **`F8` × 2** | **Duraklat / Devam** (imleci dondur — okurken/dinlenirken). Duraklatılmışken F9 kalibrasyon başlatmaz (önce F8×2 ile devam et) | Her pencerede |
 | **`F7` × 2** | **Hızlı düzeltme**: ortadaki tek noktaya 2 sn bak → isabet düzelir (kayma olursa; tam kalibrasyon gerekmez) | Her pencerede |
 | **`F6`** | **Büyüteçli tık**: baktığın yerin çevresi (ekranın %40'ı) 2,5× büyür → hedefe bak → Space = hassas tık (küçük düğme/link için) | Her pencerede |
@@ -106,13 +106,17 @@ Ayrıntılı, adım adım anlatım paketin içindeki **`BENI-OKU-KURULUM.txt`** 
 ---
 
 ## 4. Takip kötüyse — hızlı düzeltme (sırayla dene)
-1. **Önce `F7`×2 dene** (2 saniyelik tek-nokta düzeltme — gün içinde kayma olduysa çoğu zaman yeter). Yetmezse **`F9`×2** ile tam kalibrasyon (konsolda "Kalibrasyon ortalama hatası: … px" kalite notu yazar; KOTU derse tekrar yap).
+1. **Önce `F7`×2 dene** (2 saniyelik tek-nokta düzeltme — gün içinde kayma olduysa çoğu zaman yeter). Yetmezse **`F9`×2** ile tam kalibrasyon. Bitince **sonuç ekranı** çıkar:
+   - **Not:** İYİ / ORTA / KÖTÜ ve "hata … px" (kalibrasyonun görmediği noktalarda ölçülür; sınırlar ekranın boyutuna göre ölçeklenir).
+   - **"Görmediği noktalarda hata: yatay … px, dikey … px"** ve **"İmleç ekranın yatayda %…, dikeyde %… kadarına ulaşabiliyor"**. Yüzde düşükse imleç o yönde kenarlara ulaşamaz.
+   - **KÖTÜ** ise kırmızı yazıyla tekrar denemeniz istenir: sonuç ekranı açıkken **`F9`×2** basın, yeni kalibrasyon hemen başlar. Önce ekrandaki ipuçlarını uygulayın: ışık yüze **önden** gelsin (arkada pencere olmasın, gözlükte yansıma olmasın); kamera ekranın **üst ortasında** dursun; topu takip ederken **başınızı sabit** tutup yalnız gözlerinizi oynatın; iki tur arasında yalnız **hafifçe** kıpırdayın (oturuşunuz çok değiştiyse ayrıca söylenir).
+   - Ekran ipucu varsa 8 sn, yoksa 3 sn kalır; okumayı bakım veren de yapabilir (aynı satırlar konsolda/`gaze.log`'da da yazar).
    - **Yeni kalibrasyon eskisinden kötü çıktıysa:** `F2` → **Kalibrasyonu geri al** → önceki kalibrasyona dönülür. Tekrar seçersen yenisine geri gelir (yanlışlıkla seçmek zarar vermez). KÖTÜ notlu bir kalibrasyon çalışan kalibrasyonun üstüne zaten yazılmaz; en iyi kalibrasyonun kopyası da (`calibration.json.11.en-iyi`) hiç silinmez.
    - Windows **ölçek/çözünürlüğü değişirse** yeniden kalibrasyon gerekmez: kalibrasyon yeni ekrana otomatik ölçeklenir.
 2. **Kenarlara/köşelere ulaşamıyorsan:** yeniden kalibre et (noktalar artık kenarlara yakın); yetmezse `config.yaml` → `reach_margin: 0.35`.
 3. Işığı **önden/sabit** yap; gözlüğe yansıma olmasın; ekran mesafeni sabitle.
-4. Hâlâ **titrek** → `config.yaml`: `gaze_median_window: 9`, `mincutoff: 0.15`.
-5. İmleç hâlâ **çok hızlı** → `max_cursor_speed: 800` (imleç bakılan yere kayar, ışınlanmaz). Çok **yavaş/geç** kalıyorsa → `max_cursor_speed: 2000` veya `0`, `mincutoff: 0.4`.
+4. İmleç **titrek** ya da **ağır / geç** → Ayarlar → **İmleç** → **İmleç hassasiyeti**: 1 = en sakin (1.2.0'ın hissi), 5 = en hızlı; yeni kurulumda 3. Titrekse bir seviye aşağı, ağırsa bir seviye yukarı → Kaydet (sürücü yeniden açılır). `config.yaml`'daki karşılığı `cursor_sensitivity: 1…5` ya da `"auto"` (= 3); satır hiç yoksa (1.2.0'dan yükseltilmiş kurulum) seviye 1 geçerlidir.
+5. İnce ayar (genelde gerekmez): `gaze_median_seconds` (ör. 0.3 = daha sakin, daha geç), `mincutoff`, `beta`, `max_cursor_speed` (ör. 800 = daha yavaş, 0 = sınırsız), `deadzone`. Bu satırlar `"auto"` kaldıkça hassasiyet seviyesine uyar; birine sayı yazarsanız o satır için sizin sayınız geçerlidir (1.2.0'ın fabrika değerleri 0.2 / 0.002 / 1200 / 20 de "seviyeye uy" sayılır).
 6. Baş-pozu beklenmedik kötüleştirirse → `config.yaml`: `use_head_pose: false`.
 7. **Dwell kazara tıklıyorsa** → `dwell_seconds: 1.5` ve/veya `dwell_radius: 30`; titreklikten hiç dolmuyorsa `dwell_radius: 60`.
 8. **Hedefe yapışma yanlış öğeye gidiyorsa** → `snap_radius: 80`; hedefe hiç ulaşmıyorsa `snap_radius: 160`; hiç istemiyorsan `snap_to_targets: false`. F6 büyüteçte hedef görüntünün dışında kalıyorsa → `zoom_scale: 0.5`.
@@ -123,6 +127,22 @@ Ayrıntılı, adım adım anlatım paketin içindeki **`BENI-OKU-KURULUM.txt`** 
 > 🛡️ Sürücü kendini kapatmaz: kamera koparsa kendisi yeniden bağlanır; çökerse `BASLAT.bat` 5 sn sonra yeniden açar. Bilgisayar açılınca kendiliğinden başlasın istiyorsan **bir kez** `gaze\OTOMATIK-BASLAT-KUR.bat` çalıştır (geri almak: `OTOMATIK-BASLAT-KUR.bat KALDIR`). **Paketli programda:** sürücü çökerse başlatıcı onu birkaç saniye sonra kendisi yeniden açar; otomatik başlatma Ayarlar → Gelişmiş → **"Bilgisayar açılınca başlat"**.
 >
 > ⏸️ Duraklatınca kamera penceresinde **kırmızı çerçeve + "DURAKLATILDI"** yazısı görünür — imleç neden gitmiyor diye şüphede kalma.
+
+## 4a. Ayarlar penceresi (1.3.0)
+Başlat menüsünde **"Göz Faresi - Ayarlar"**. **Kaydet** yalnız değiştirdiğiniz satırları `config.yaml`'a yazar ve sürücüyü yeniden açar; pencereyi açıp hiçbir şeyi değiştirmeden Kaydet'e basmak dosyaya dokunmaz.
+
+| Sekme | Neler var |
+|---|---|
+| **Tuşlar** | Sürücü tuşları ("bir tuş tek iş yapar") |
+| **İmleç** | **İmleç hassasiyeti** (1-5, ya da "Otomatik (seviye 3)"); sabitleme alanı ve azami imleç hızı ("Hassasiyet seviyesine göre" kutusu işaretliyken seviyeye uyar); hedefe yapışma ve yapışma mesafesi; sıçrama |
+| **Tıklama** | Tıklama yöntemi; bekleyerek tıklamada bekleme süresi, sabit sayılan alan, dolan halka ve çapı; göz kırpmada kapalı tutma süresi ve **kapalı göz eşiği** ("Otomatik" = kişinin kendi gözünden öğrenilir) |
+| **Büyüteç** | Büyütülen alan (% ve "x kat"), kendini kapatma süresi |
+| **Kalibrasyon** | Yöntem (kayan top / sabit noktalar), topun yolu (4 satır = varsayılan / ızgara = deneme), topun hızı, tur sayısı |
+| **Kamera** | Kullanılan mod (boyut, biçim, ölçülen fps), ölçülen bütün modlar (gerilmiş / yavaş olanlar işaretli), **Kameraları ara**, görüş açısı (derin model için; "Otomatik" = eskisi gibi, sayı yalnız yeni kalibrasyonla geçerli olur) |
+| **Ses** | Kısa uyarı sesleri ve yüksekliği, konuşma hızı ve ses seviyesi |
+| **Gelişmiş** | Derin model, dikte, otomatik başlatma … |
+
+**Yeni kamera seçimini kullanmak** (ör. 1.2.0'dan yükselttikten sonra 1080p MJPG): Ayarlar → **Kamera** → **Kameraları ara** → kamerayı seçin → **Kaydet** → sürücü açılınca **`F9`×2** ile yeniden kalibre edin. Kalibre etmezseniz kamera, kayıtlı kalibrasyonun yapıldığı modda açılmaya devam eder (kalibrasyon bozulmasın diye).
 
 ## 4b. Daha da iyi isabet: derin bakış modeli (NVIDIA GPU'lu bilgisayarlar)
 > **Paketli programda** bu adımlar gerekmez: derin model pakette hazırdır (torch'suz ONNX sürümü); sihirbaz bilgisayarın hızını ölçüp açar ya da kapatır (`deep_gaze: auto`). Değiştirmek: Ayarlar → Gelişmiş → Derin model (değiştirince yeniden kalibrasyon gerekebilir). Aşağıdaki adımlar **kaynak kurulum** içindir.

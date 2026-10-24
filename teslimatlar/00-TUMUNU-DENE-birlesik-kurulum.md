@@ -47,7 +47,7 @@ Gözünle bak → **parmak düğmesiyle seç** → OptiKey yazar/konuşur. Küç
 |---|---|
 | İmleç hiç oynamıyor | `gaze/README.md` → webcam/`camera_index`; sürücü çalışıyor mu |
 | İmleç var ama seçmiyor | OptiKey Key selection source = parmak düğmesi mi (dwell kapalı) |
-| İmleç titriyor/geç | `config.yaml` → `mincutoff` / `beta` |
+| İmleç titriyor/geç | Ayarlar → İmleç → **İmleç hassasiyeti** (ince ayar: `config.yaml` → `mincutoff` / `beta`) |
 | Cümle yazılmıyor/konuşmuyor | `faz1/02` içe aktarma + Türkçe TTS sesi kurulu mu |
 | Gözler yetmiyor | `faz1/03` switch-tarama yedeğine geç |
 

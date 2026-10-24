@@ -2,7 +2,7 @@
 ; Turkish text correctly only with it)
 ;
 ; The Windows installer of Göz Faresi. Built by derle.ps1:
-;   ISCC.exe /DSurum=1.2.0 /DKaynak=<PyInstaller onedir> /DCikti=<dist dir>
+;   ISCC.exe /DSurum=1.3.0 /DKaynak=<PyInstaller onedir> /DCikti=<dist dir>
 ;            /DSimge=<icon.ico> kurulum.iss
 ;
 ; - Per user, no administrator rights (spec 6.1): %LOCALAPPDATA%\Programs\
@@ -16,7 +16,7 @@
 ;   mode (eye_gaze.paths); the portable zip is the one with the marker.
 
 #ifndef Surum
-  #error Surum tanimli degil: ISCC /DSurum=1.2.0 ...
+  #error Surum tanimli degil: ISCC /DSurum=1.3.0 ...
 #endif
 #ifndef Kaynak
   #error Kaynak tanimli degil: ISCC /DKaynak=<onedir> ...

@@ -15,7 +15,9 @@ camera_height: "auto"    #   sonradan degistirirseniz (or. 1280x720) goruntu ora
 camera_fps: "auto"       # kare hizi. Karanlik odada kameranin otomatik pozlamasi hizi 15-20 fps'e dusurebilir (isik ekleyin)
                          # "auto" mod: KAYITLI KALIBRASYON HANGI MODDA YAPILDIYSA kamera o modda acilir (kamera o modu hala
                          # veriyorsa) - yeniden kamera aramasi (sihirbaz, Ayarlar > Kamera ara) kalibrasyonu bozmaz. Yeni secilen
-                         # mod (or. 1920x1080) yeni kurulumda ve bir sonraki yeniden kalibrasyonda (F9 x2) kullanilir
+                         # mod (or. 1920x1080) yeni kurulumda ve bir sonraki yeniden kalibrasyonda (F9 x2) kullanilir.
+                         # Kamera aramasi her modu olcer (en fazla 1920 genislik; yavas modlarda MJPG de denenir) ve
+                         # goruntusu GERILMIS modlari hic secmez. Bulunan modlar Ayarlar > Kamera sekmesinde listelenir
 camera_hfov_deg: "auto"  # kameranin yatay goris acisi (derece; derin model icin). "auto" = bugunku varsayim (~53 derece).
                          # Sayi yazarsaniz (or. 78) yalnizca YENI kalibrasyonla gecerli olur: eski kalibrasyon o ayarla
                          # kullanilmaz (yedegi saklanir, "auto"ya donunce geri gelir). Emin degilseniz "auto" birakin
@@ -24,6 +26,8 @@ cursor_sensitivity: "auto"  # IMLEC HASSASIYETI: 1 = en sakin (eski surumun hiss
                          #   kucuk bir nisan duzeltmesi 1 saniyeden kisa surede oturur. Imlec titrekse 2 ya da 1; hala agir geliyorsa 4.
                          #   Asagidaki bes satir "auto" kaldikca bu ayara uyar; birine SAYI yazarsaniz o satir icin sizin sayiniz gecerlidir.
                          #   Piksel degerleri ekranin fiziksel boyutuna gore kendiliginden olceklenir (cok kucuk/buyuk piksellerde)
+                         #   Bu satir HIC YOKSA (1.2.0'dan yukseltilen kurulum) seviye 1 gecerlidir: imlec eskisi gibi davranir.
+                         #   Ayarlar > Imlec > "Imlec hassasiyeti" bu satiri yazar
 mincutoff: "auto"        # 1-Euro: DUSUK = daha cok yumusatma (imlec sakinler). Eski surum 0.2; gec kaliyorsa 0.4
 beta: "auto"             # 1-Euro: DUSUK = daha az zipla/sicrama. Eski surum 0.002; imlec gec kaliyorsa 0.01
 dcutoff: 1.0             # 1-Euro turev kesim
@@ -34,7 +38,8 @@ pursuit_speed: 480       # topun hizi (px/sn); takip zorlaniyorsa 380, cok uzun 
 pursuit_latency: "auto"  # goz tepki gecikmesi: "auto" = kalibrasyonda kisiye ozel OGRENILIR (onerilen); sabit sayi da yazilabilir (or. 0.15)
 calibration_path: "rows" # topun yolu: "rows" = 4 yatay satir (varsayilan, sahada denenmis); "grid" = 3 yatay satir + 3 dikey sutun (deneme)
 calibration_points: 16   # (dots modu) 16 = sik 4x4 izgara; 9 = eski hizli mod
-calibration_poly2: true  # egrisel (quadratic) kalibrasyon: kenar/kose isabetini artirir. Sorun olursa false
+calibration_poly2: true  # egrisel (quadratic) terimlere IZIN ver: yatay ve dikey model kisinin kendi verisiyle ayri ayri secilir,
+                         #   egrisel terim yalnizca isabeti gercekten artiriyorsa eklenir. false = hic kullanma
 calibration_passes: 2    # 2 = noktalar iki tur gosterilir, turlar arasi hafif pozisyon degistirin (yaslanma telafisi OGRENILIR). Hizli: 1
 per_eye_features: true   # sol/sag goz FARKI da ozellik olur (goz kapagi dusuklugu/asimetri telafisi). Degistirince yeniden kalibrasyon
 screen_margin: 0         # kenar guvenlik payi (px)

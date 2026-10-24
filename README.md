@@ -4,6 +4,25 @@ Webcam ile göz kontrolü: bilgisayarın kamerası gözünüzün baktığı yeri
 
 > Program hiçbir garanti olmadan verilir (GPL).
 
+> **macOS desteklenmez.** Program Windows 10/11 ve Linux içindir.
+
+## Sürüm 1.3.0'da neler değişti
+
+Bir test kullanıcısının şikâyetleri (imleç ekranın yarısına ulaşıyor, bakılan yerin tersine gidiyor, çok ağır; kamera görüntüsü "uzun ve ince"; ayarlar yalnız dosyada) üzerine:
+
+- **Duruş değişikliğine dayanıklı kalibrasyon.** Yatay ve dikey için model ayrı ayrı, kişinin kendi verisiyle seçilir. İki tur arasında oturuş değişince imleci savuran baş girdileri gerekiyorsa dışarıda kalır. Mevcut kalibrasyonunuz ilk açılışta kayıtlı örneklerden **bir kez** yenilenir: yeniden kalibrasyon gerekmez, eskisi yedekte kalır ve yeni model yalnız eskisinden kötü değilse kullanılır.
+- **Kalibrasyon sonuç ekranı.** Kalibrasyon bitince ekranda not (İYİ / ORTA / KÖTÜ), yatay ve dikey hata, imlecin ekranın ne kadarına ulaşabildiği ve gerekirse ipuçları (ışık, kamera yeri, başı sabit tutma, oturuş) birkaç saniye görünür. Not sınırları ekranın boyutuna göre ölçeklenir. Bu ekrandayken **F9 ×2** hemen yeni bir kalibrasyon başlatır.
+- **Kamera.** Kamera araması kameranın verdiği bütün modları ölçer (en fazla 1920 genişlik, yavaş modlarda MJPG de denenir) ve görüntüsü gerilmiş modları hiç seçmez. Kayıtlı kalibrasyon hangi modda yapıldıysa kamera o modda açılmaya devam eder; yeni seçilen mod bir sonraki kalibrasyonda kullanılır. Durum penceresi görüntüyü kendi oranında gösterir. Derin model için kameranın görüş açısı ayarlanabilir (`camera_hfov_deg`, varsayılan "auto" = eskisi gibi).
+- **Göz kapalı eşiği** kameranın en-boy oranından bağımsız ölçülür; "auto" iken kişinin kendi açık-göz değerinden öğrenilir ve hiçbir kamerada 1.2.0'dan daha sıkı değildir.
+- **İmleç hassasiyeti (1-5).** Filtreler kare sayısı yerine saniyeyle çalışır; kamera yavaşlasa da his aynı kalır. 1 = 1.2.0'ın sakin hissi; yeni kurulumda 3 (küçük bir nişan düzeltmesi 1 saniyeden kısa sürede oturur). Pikselleri çok küçük ya da çok büyük ekranlarda piksel ayarları ekranın fiziksel boyutuna göre ölçeklenir; yaygın masaüstü ekranlarında hiçbir sayı değişmez.
+- **Ayarlar penceresi.** Yeni **İmleç**, **Büyüteç** ve **Kalibrasyon** sekmeleri; Tıklama, Kamera ve Ses sekmelerinde yeni ayarlar (bakma süresi ve alanı, göz kapalı eşiği, büyüteç alanı, topun hızı ve yolu, tur sayısı, ölçülen kamera modları, görüş açısı, uyarı sesi yüksekliği). Kaydet yalnız değiştirdiğiniz satırları yazar; pencere küçük dizüstü ekranlarına da sığar.
+
+**1.2.0'dan yükseltenler için:**
+- İmleç bugünkü gibi davranır: `config.yaml`'ınızda `cursor_sensitivity` satırı olmadığından seviye 1 geçerlidir. Daha hızlı isterseniz Ayarlar → İmleç → **İmleç hassasiyeti**'ni kaydırın (3 = yeni kurulumların ayarı) → Kaydet.
+- Kalibrasyonunuz ilk açılışta yenilenir (konsolda "KAYITLI ORNEKLERDEN yenilendi" satırı); eskisi `calibration.json.<sayı>.bak` olarak saklanır.
+- Yeni kamera seçimini (ör. 1080p MJPG) kullanmak için: Ayarlar → Kamera → **Kameraları ara** → kamerayı seçin → **Kaydet**, ardından **F9 ×2** ile yeniden kalibre edin. Yapmazsanız kamera, kalibrasyonun yapıldığı modda açılmaya devam eder.
+- 1.2.0'a geri dönmek desteklenir: 1.2.0 yeni biçimdeki kalibrasyonu okuyamaz ve kendi yedeğine döner. Bu yedek, 1.3.0'da en fazla bir yeniden kalibrasyon yaptıysanız kesin durur; daha fazlasında 1.2.0'da bir kalibrasyon gerekebilir. 1.2.0'ın kamerası o zaman MJPG'siz bir 1080p moduyla (düşük kare hızı) açılabilir: 1.2.0'da Ayarlar → Kamera → **Kameraları ara**'yı yeniden çalıştırın.
+
 ## İçindekiler
 1. [Hızlı başlangıç (kullanıcılar için)](#1-hızlı-başlangıç)
 2. [Kullanım](#2-kullanım)
@@ -60,12 +79,13 @@ Hazır paketi kullanmak için Python, komut satırı ya da teknik bilgi gerekmez
 | ACİL ALARM | `F12` tuşunu 2 sn basılı tutun: siren ve "Yardım edin!". Durdurmak için yine 2 sn. Duraklatılmışken ve kalibrasyonda da çalışır. |
 | Duraklat / devam | `F8` x2. Duraklatınca klavye normale döner; bakım veren yazacaksa önce duraklatın. |
 | Hızlı düzeltme | `F7` x2: ortadaki noktaya 2 sn bakın (kayma olduysa). |
-| Yeniden kalibrasyon | `F9` x2. Kalibrasyon sırasında tekrar `F9` x2 = vazgeç. Yeni kalibrasyon kötüyse `F2`, "Kalibrasyonu geri al". |
+| Yeniden kalibrasyon | `F9` x2. Top izlenirken tekrar `F9` x2 = vazgeç. Bitince sonuç ekranı notu gösterir; o ekrandayken `F9` x2 = hemen yeniden. Yeni kalibrasyon kötüyse `F2`, "Kalibrasyonu geri al". |
+| İmleç hızı, tıklama, büyüteç, kalibrasyon, kamera ayarları | Ayarlar penceresi (Başlat menüsünde "Göz Faresi - Ayarlar"). İmleç ağır ya da titrek geliyorsa: İmleç sekmesi → **İmleç hassasiyeti**. |
 | Sürücüyü kapat | `F10` x2. |
 
 ## 3. Paketleri kendiniz derleme
 
-Paketler (Windows kurulum + taşınabilir zip, Linux AppImage + tar.gz, kaynak zip) bu depodan üç yolla derlenir. Sürüm numarası `gaze/eye_gaze/__init__.py` içindeki `__version__` değeridir (şu an 1.2.0). Derleme GPU gerektirmez.
+Paketler (Windows kurulum + taşınabilir zip, Linux AppImage + tar.gz, kaynak zip) bu depodan üç yolla derlenir. Sürüm numarası `gaze/eye_gaze/__init__.py` içindeki `__version__` değeridir (şu an 1.3.0). Derleme GPU gerektirmez.
 
 ### Yol 1: Kurulum gerektirmeden, GitHub Actions ile
 Bilgisayarınıza hiçbir şey kurmadan, tarayıcıdan.
@@ -74,7 +94,7 @@ Bilgisayarınıza hiçbir şey kurmadan, tarayıcıdan.
 3. Sağda **Run workflow** düğmesine, sonra yeşil **Run workflow** düğmesine basın.
 4. İş akışı bitince (Windows ve Linux işleri ayrı koşar, her biri en çok 120 dakikaya kadar çalışabilir) çalışmanın sayfasının altındaki **Artifacts** bölümünden indirin: `gozfaresi-windows` (Kurulum.exe ve zip), `gozfaresi-linux-kaynak` (AppImage, tar.gz, GPL kaynak dosyaları, kaynak zip), `gozfaresi-sha256sums` (SHA256SUMS).
 
-Aynı iş akışı `v*` biçiminde bir sürüm etiketi (ör. `v1.2.0`) gönderildiğinde de kendiliğinden çalışır. Sürümü GitHub'da yayınlamak sahibin kararıdır: bu adım iş akışında bilerek yorum satırı olarak durur.
+Aynı iş akışı `v*` biçiminde bir sürüm etiketi (ör. `v1.3.0`) gönderildiğinde de kendiliğinden çalışır. Sürümü GitHub'da yayınlamak sahibin kararıdır: bu adım iş akışında bilerek yorum satırı olarak durur.
 
 **Dikkat: bu iş akışı yazıldı ama GitHub'ın sunucularında henüz hiç çalıştırılmadı.** İlk çalıştırmada bir adım hata verebilir.
 
@@ -146,6 +166,9 @@ Hazır paketler Docker/Xvfb, WSLg ve sahte kamera ile denendi; gerçek kullanım
 - Linux'ta izin kurulmadan kullanılan X11 yedek yolunda program çok uzun süre tamamen meşgul olursa masaüstü oturumu kapanabilir; izni kurmanız (Xorg'da da) önerilir.
 - Türkçe ses verisinin lisans şartları açık bir sorudur (bkz. bölüm 6).
 - Windows paketinde derin model işlemcide (CPU) çalışır.
+- **1.3.0'ın gerçek donanımda denenmeyen parçaları:** gerçek kameralarda MJPG isteme (DirectShow / Media Foundation / V4L2), oturum içinde kamera modunun değişmesi (F9 ile yeni moda geçiş, iptalde eski moda dönüş) ve ekranın fiziksel boyutunun okunması (EDID / xrandr). Hepsi sahte kamera ve sahte donanımla denendi.
+- Gözlük takanlarda **dikey isabet** hâlâ sınırlı olabilir: 1.3.0 duruş değişikliğinin yol açtığı savrulmayı giderir, ama zayıf dikey göz sinyalini artıramaz. Sonuç ekranı dikey ulaşım düşükse ipuçlarını gösterir.
+- macOS desteklenmez.
 
 ## English summary
 
@@ -157,4 +180,6 @@ Hazır paketler Docker/Xvfb, WSLg ve sahte kamera ile denendi; gerçek kullanım
 
 **Licence:** GPL-3.0-or-later with a section-7 additional permission (see `LICENSE`, `packaging/UCUNCU-TARAF-LISANSLAR.txt`). The Turkish voice and the deep gaze model are non-commercial (CC BY-NC-SA 4.0), so the packages as shipped cannot be sold or used commercially.
 
-**Not tested yet:** a real Linux desktop and real Wayland session, the SmartScreen prompt on a real download, real switch hardware, and the GitHub Actions workflow.
+**New in 1.3.0:** calibration that survives a change of posture (per-axis model chosen from the person's own data; an existing calibration is refitted once at the first start, the old file kept as a backup), a result screen after each calibration (grade, horizontal/vertical error, reach, hints; F9 x2 there starts a new one), camera modes measured up to 1920 wide with MJPG where it helps and no stretched modes, an aspect-independent closed-eye threshold learnt per person, time-based filters with a cursor sensitivity setting (1 = the 1.2.0 feel, the default for upgraded installs; 3 for new installs), and many more settings in the settings window. Upgraders: move "Imlec hassasiyeti" in Settings to make the cursor faster; for the new camera choice use Settings > Camera > search > pick > Save, then F9 x2. Rolling back to 1.2.0 is supported (it falls back to its own backup calibration). macOS is not supported.
+
+**Not tested yet:** a real Linux desktop and real Wayland session, the SmartScreen prompt on a real download, real switch hardware, and the GitHub Actions workflow; for 1.3.0, MJPG on real cameras, a real in-session camera mode switch and reading the physical screen size on real monitors.

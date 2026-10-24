@@ -60,7 +60,9 @@ Tümü Ayarlar penceresinden ya da `config.yaml`'dan değişir; boş `""` = kapa
 
 Kod değiştirmeden ayarlanır; Ayarlar penceresi dosyayı **yorumlarını koruyarak** yazar (`config_writer`). Önemliler:
 - `camera_index`: `"auto"` (program bulur) ya da 0, 1, …
+- `cursor_sensitivity`: imleç hassasiyeti `1`…`5` ya da `"auto"` (= 3). **Satır yoksa 1** (1.2.0'ın davranışı; yükseltilen kurulumlar). `mincutoff`, `beta`, `max_cursor_speed`, `deadzone`, `gaze_median_seconds` `"auto"` (ya da 1.2.0 fabrika değeri) kaldıkça seviyeye uyar; başka bir sayı o satır için geçerlidir (`eye_gaze/sensitivity.py`). Filtreler saniyeyle çalışır (`eye_gaze/timebase.py`); piksel değerleri ekranın fiziksel boyutu referanstan uzaksa ölçeklenir (`eye_gaze/physical.py`).
 - `mincutoff`: **düşük = daha çok yumuşatma**; `beta`: **yüksek = hızlı harekette daha az gecikme**.
+- `calibration_path`: `"rows"` (varsayılan) / `"grid"`; `camera_hfov_deg`: `"auto"` ya da derece (yalnız yeni kalibrasyonla geçerli); `blink_closed_threshold`: `"auto"` (kişiden öğrenilir; 0.18 = auto) ya da sayı.
 - `deep_gaze`: `auto` (hız ölçümüne göre) / `true` / `false`. Değiştirmek yeniden kalibrasyon gerektirebilir.
 - `language`: programın dili, katalog kodu (`tr`, `en`, …). **Satır yoksa Türkçe.** `config.default.yaml`'da bilerek yok (şablon `config.yaml`'dan türetilir); sihirbaz ya da Ayarlar seçilince ekler.
 
@@ -114,7 +116,7 @@ Webcam göz-bakışının doğruluğu **~2.5° ile sınırlıdır** ve **piksel-
 
 - **Kamera açılmıyor**: başka bir program kamerayı tutuyor olabilir; `camera_index`'i `"auto"` ya da 1, 2 deneyin (Ayarlar → Kamera → "Kameraları ara").
 - **İmleç kötü takip ediyor**: ışığı önden/sabit yapın, `F9`×2 ile yeniden kalibre edin, mesafeyi sabitleyin.
-- **İmleç titriyor**: `mincutoff`'u düşürün. **Geç kalıyor**: `beta`'yı artırın.
+- **İmleç titriyor / geç kalıyor**: Ayarlar → İmleç → İmleç hassasiyeti (titrekse düşürün, geçse artırın). İnce ayar: `mincutoff`'u düşürmek daha sakin, `beta`'yı artırmak daha az gecikme.
 - **Yüz bulunamıyor**: kamera yüzü net/önden görsün; arkadan ışık olmasın.
 - **Ne olduğunu görmek**: `gaze.log` (veri klasöründe; başlatıcıda "Günlüğü aç").
 - **Linux**: Xorg oturumu önerilir; Wayland'de "İzinleri kur" (evdev/uinput) şarttır, Xorg'da da önerilir (izinsiz X11 yolu XGrabKey yedeğidir). AppImage açılışta eksik sistem kitaplıklarını (libEGL, libGLESv2, libxcb-*) apt paket adlarıyla söyler; ör. WSLg'deki Ubuntu 24.04'te libGLESv2 varsayılan olarak yoktur.
