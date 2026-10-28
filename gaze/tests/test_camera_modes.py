@@ -141,7 +141,12 @@ def test_mjpg_is_kept_where_it_delivers_more_frames():
     json.dumps(rec)                     # makine.json can hold it
 
 
-def test_mjpg_is_asked_for_before_the_size_and_only_above_640x480():
+@pytest.mark.parametrize("backend", ["msmf", "dshow", "v4l2"])
+def test_mjpg_is_asked_for_before_the_size_and_only_above_640x480(
+        backend, monkeypatch):
+    """On every backend: a capture of its own per mode (Media Foundation)
+    or one per format (_Chain) - the format once, right before a size."""
+    monkeypatch.setattr(hw, "default_backends", lambda: (backend,))
     clock = Clock()
     plain = {(1280, 720): (1280, 720, 10.0)}
     made = []

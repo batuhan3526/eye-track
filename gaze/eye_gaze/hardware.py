@@ -445,6 +445,7 @@ class _Chain:
         if self.dead or stop.is_set():
             return None
         try:
+            fourcc = self.fourcc        # again before every later size
             if self.cap is None:
                 cap = self.opener(self.index, self.backend)
                 if cap is None or not cap.isOpened():
@@ -456,7 +457,8 @@ class _Chain:
                     self.close()
                     self.dead = True
                     return None
-            _set_mode(self.cap, width, height, REQUEST_FPS, self.fourcc)
+                fourcc = None           # just set: once is enough
+            _set_mode(self.cap, width, height, REQUEST_FPS, fourcc)
             return _measure(self.cap, width, height, read_seconds, clock,
                             stop, self.fourcc, cost)
         except Exception:
