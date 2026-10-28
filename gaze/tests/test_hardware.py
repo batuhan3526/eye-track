@@ -321,6 +321,71 @@ def test_msmf_mode_is_asked_before_the_first_frame(monkeypatch):
     assert all(c.released.is_set() for c in cams)
 
 
+class DshowCam(FakeCam):
+    """Records every size asked (w, h, frames read before) and when the
+    format was set; counts the captures open at once."""
+
+    open_now = 0
+    most_open = 0
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.asked = []
+        self.fourcc_at = None
+        DshowCam.open_now += 1
+        DshowCam.most_open = max(DshowCam.most_open, DshowCam.open_now)
+
+    def set(self, prop, value):
+        import cv2
+        if prop == cv2.CAP_PROP_FOURCC:
+            if self.fourcc_at is None:
+                self.fourcc_at = self.reads
+            return True
+        if prop == cv2.CAP_PROP_FRAME_HEIGHT:
+            self.asked.append((self.req[0], int(value), self.reads))
+        return super().set(prop, value)
+
+    def release(self):
+        if not self.released.is_set():
+            DshowCam.open_now -= 1
+        super().release()
+
+
+def test_candidates_run_largest_first():
+    """_Chain relies on it: a later candidate is never larger."""
+    for (w0, h0), (w1, h1) in zip(hw.CANDIDATES, hw.CANDIDATES[1:]):
+        assert w1 <= w0 and h1 <= h0
+
+
+def test_directshow_never_asks_a_streaming_capture_for_a_larger_mode(
+        monkeypatch):
+    """1.3.1 read DirectShow's own mode, then asked 1920x1200 of that same
+    capture: a tester's driver faulted on its streaming thread (cokme.log,
+    2026-10-28). Now every capture is asked its first mode before its first
+    frame and only smaller ones after; each format has a capture of its
+    own, and one capture is open at a time."""
+    monkeypatch.setattr(hw, "default_backends", lambda: ("dshow",))
+    monkeypatch.setattr(DshowCam, "open_now", 0)
+    monkeypatch.setattr(DshowCam, "most_open", 0)
+    clock = Clock()
+    modes = {(640, 480): 30.0, (1280, 720): 10.0, (1920, 1080): 5.0}
+    op = Opener({0: lambda: DshowCam(modes, clock)})
+    found = _probe(op, clock=clock, max_index=1, timeout_s=30)
+    cams = [c for _, _, c in op.made]
+    assert len(found) == 1
+    for cam in cams:
+        if cam.asked:
+            assert cam.asked[0][2] == 0         # before its first frame
+        for (w0, h0, _), (w1, h1, _) in zip(cam.asked, cam.asked[1:]):
+            assert w1 <= w0 and h1 <= h0
+        if cam.fourcc_at is not None:
+            assert cam.fourcc_at == 0
+    assert DshowCam.most_open == 1
+    # Slow above 640x480 in its own format: measured with MJPG too.
+    assert any(m["fourcc"] == "MJPG" for m in found[0].modes)
+    assert all(c.released.is_set() for c in cams)
+
+
 def test_probe_no_camera_returns_empty():
     op = Opener({})
     assert hw.probe_cameras(max_index=4, timeout_s=2, opener=op) == []

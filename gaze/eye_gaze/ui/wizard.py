@@ -163,7 +163,9 @@ def _png_b64(frame, width=480):
 
 class _Preview:
     """Reads the chosen camera on a thread; frames and the face check go to
-    the Tk thread through post(). stop() releases the camera."""
+    the Tk thread through post(). stop() releases the camera. The camera
+    itself is open in a child process (Services.open_camera): a capture
+    still stuck in its driver after the wait is killed, child and all."""
 
     FRAME_S = 0.08
     FACE_S = 0.4
@@ -172,6 +174,7 @@ class _Preview:
         self.services, self.info, self.post = services, info, post
         self.on_frame, self.on_face = on_frame, on_face
         self._stop = threading.Event()
+        self._cap = None
         self._thread = threading.Thread(target=self._run, daemon=True,
                                         name="kamera-onizleme")
 
@@ -182,12 +185,15 @@ class _Preview:
         self._stop.set()
         if self._thread.is_alive():
             self._thread.join(3)
+        kill = getattr(self._cap, "kill", None)
+        if self._thread.is_alive() and kill is not None:
+            kill()
 
     def _run(self):
         cap = None
         detector = None
         try:
-            cap = self.services.open_camera(self.info)
+            cap = self._cap = self.services.open_camera(self.info)
             if cap is None or not cap.isOpened():
                 self.post(lambda: self.on_face(
                     t("wizard.preview.open_failed"), False))

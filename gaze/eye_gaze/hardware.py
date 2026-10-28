@@ -3,7 +3,9 @@
 
   probe_cameras(max_index, timeout_s, opener)  every camera that delivers
                    frames, every mode it really runs at (with and without
-                   MJPG) and the one chosen for this machine;
+                   MJPG) and the one chosen for this machine - measured in
+                   a child process (probe_child), which a driver fault ends
+                   instead of the caller;
   kept_mode(record, calibrated, size)   the mode an existing calibration
                    keeps;
   screens(), scale()     monitor rectangles and the Windows scaling;
@@ -60,6 +62,8 @@ import collections
 import json
 import os
 import statistics
+import subprocess
+import sys
 import threading
 import time
 
@@ -286,14 +290,12 @@ def _picture(frame):
 
 
 def _measure(cap, width, height, read_seconds, clock, stop, fourcc=None,
-             cost=None, ask=True):
-    """The mode the camera really delivers after being asked for width x
-    height (0 x 0: nothing asked - the camera's own mode) with `fourcc`, as
+             cost=None):
+    """The mode the camera really delivers once asked for width x height
+    (0 x 0: nothing asked - the camera's own mode) with `fourcc`, as
     {"width", "height", "fps", "fourcc", "request", "got", "cost_ms"}; None
-    when no picture came. ask=False: the caller asked already, before the
-    capture's first frame (_measure_fresh)."""
-    if ask and width > 0 and height > 0:
-        _set_mode(cap, width, height, REQUEST_FPS, fourcc)
+    when no picture came. The caller has asked already (_measure_fresh,
+    _Chain)."""
     size = None
     last = None
     for _ in range(WARMUP_FRAMES):
@@ -366,94 +368,176 @@ def judge_modes(modes):
     return native
 
 
-# Backends whose capture must never be asked a new mode once frames have
-# flowed. OpenCV 4.13's Media Foundation capture refuses the change but
-# builds the next frame at the asked size over the old buffer: a wider size
-# fails an assertion, a taller one of the same width reads past the buffer -
-# an access violation that ends the whole process, no traceback (measured,
-# a USB webcam: 1280x720, then 1280x960; 3 of 3). The wizard vanished so at
-# "Kameralar aranıyor". DirectShow and V4L2 rebuild their stream for a new
-# mode and keep one capture (DirectShow measured on the same camera).
+# Media Foundation: every mode on a capture of its own, asked before its
+# first frame. OpenCV 4.13's MSMF capture refuses a mode change once frames
+# have flowed but builds the next frame at the asked size over the old
+# buffer: a wider size fails an assertion, a taller one of the same width
+# reads past the buffer - an access violation that ends the whole process,
+# no traceback (measured, a USB webcam: 1280x720, then 1280x960; 3 of 3).
+# DirectShow and V4L2 rebuild their stream for a new mode, yet no capture
+# there is asked a LARGER mode once it has delivered frames either: 1.3.1
+# read a camera's own mode through DirectShow, then asked 1920x1200, and a
+# tester's machine faulted on the driver's streaming thread (cokme.log,
+# 2026-10-28); 1.2.0 asked its largest mode first, smaller ones after, and
+# never did. A DirectShow open costs 3-6 s on a USB webcam (measured), so
+# there the candidates of one format share a capture (_Chain). Whatever a
+# driver still does, it does in the probe child (_probe_in_child).
 FRESH_BACKENDS = ("msmf",)
+
+CLOSED = "kapali"       # a step whose capture did not open
+
+
+def _step_key(backend, width, height, fourcc=None):
+    """One measurement of the probe: (backend, w, h, fourcc or "") - what a
+    probe child reports, and is told to reuse or to skip."""
+    return (backend, int(width), int(height), fourcc or "")
+
+
+def _fourcc_refused(cap, fourcc):
+    import cv2
+    return not cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*fourcc))
 
 
 def _measure_fresh(opener, index, backend, width, height, read_seconds,
                    clock, stop, fourcc=None, cost=None):
     """_measure on a capture of its own, asked for the mode before its
     first frame - as open_capture() opens it for the driver - and released
-    after. None when it does not open, refuses `fourcc` (MSMF refuses MJPG:
-    measuring would repeat the plain mode), delivers nothing or fails."""
+    after; 0 x 0 asks nothing (the camera's own mode). CLOSED when it does
+    not open; None when it refuses `fourcc` (MSMF refuses MJPG: measuring
+    would repeat the plain mode), delivers nothing or fails."""
     if stop.is_set():
         return None
     try:
         cap = opener(index, backend)
     except Exception:
-        return None
+        return CLOSED
     try:
         if cap is None or not cap.isOpened():
+            return CLOSED
+        if fourcc and _fourcc_refused(cap, fourcc):
             return None
-        if fourcc:
-            import cv2
-            if not cap.set(cv2.CAP_PROP_FOURCC,
-                           cv2.VideoWriter_fourcc(*fourcc)):
-                return None
-        _set_mode(cap, width, height, REQUEST_FPS)
+        if width > 0 and height > 0:
+            _set_mode(cap, width, height, REQUEST_FPS)
         return _measure(cap, width, height, read_seconds, clock, stop,
-                        fourcc, cost, ask=False)
+                        fourcc, cost)
     except Exception:
         return None
     finally:
         _release(cap)
 
 
-def _probe_one(index, opener, read_seconds, clock, stop, out, cost=None):
+class _Chain:
+    """The candidates of one format sharing a capture, on a backend outside
+    FRESH_BACKENDS. They come in CANDIDATES order, largest first: the first
+    is asked before the capture's first frame, every later one is no larger
+    (a step left out only makes the next one smaller). The format goes
+    before every size: DirectShow forgets it when the size changes. A
+    capture that does not open or refuses the format ends the chain; one
+    that fails is released, and the next mode opens a new one."""
+
+    def __init__(self, opener, index, backend, fourcc=None):
+        self.opener, self.index, self.backend = opener, index, backend
+        self.fourcc = fourcc or None
+        self.cap = None
+        self.dead = False
+
+    def measure(self, width, height, read_seconds, clock, stop, cost=None):
+        if self.dead or stop.is_set():
+            return None
+        try:
+            if self.cap is None:
+                cap = self.opener(self.index, self.backend)
+                if cap is None or not cap.isOpened():
+                    _release(cap)
+                    self.dead = True
+                    return None
+                self.cap = cap
+                if self.fourcc and _fourcc_refused(cap, self.fourcc):
+                    self.close()
+                    self.dead = True
+                    return None
+            _set_mode(self.cap, width, height, REQUEST_FPS, self.fourcc)
+            return _measure(self.cap, width, height, read_seconds, clock,
+                            stop, self.fourcc, cost)
+        except Exception:
+            self.close()
+            return None
+
+    def close(self):
+        _release(self.cap)
+        self.cap = None
+
+
+def _probe_one(index, opener, read_seconds, clock, stop, out, cost=None,
+               known=None, skip=(), note=None):
     """Fill out["modes"] while measuring; always releases what it opened.
 
-    First the camera's own mode (nothing asked), then every candidate in its
-    own format, then - above 640x480, where its own format fell short of
-    the full rate - the same with MJPG. In that order because a format once
-    set cannot be unset on an open capture. On a FRESH_BACKENDS backend
-    every mode after the own one gets a capture of its own
-    (_measure_fresh). probe_cameras judges the modes (judge_modes) once
-    measuring is over."""
+    First the camera's own mode (nothing asked) on a capture of its own,
+    then every candidate in its own format, then - above 640x480, where its
+    own format fell short of the full rate - the same with MJPG. On a
+    FRESH_BACKENDS backend every mode gets a capture of its own
+    (_measure_fresh); elsewhere the candidates of a format share one
+    (_Chain), one capture open at a time. probe_cameras judges the modes
+    (judge_modes) once measuring is over.
+
+    A probe child ended by a driver fault is started again
+    (_probe_in_child) with what it measured, `known` {_step_key: result},
+    and the steps children died in, `skip`: those are reused or left out,
+    never measured again. note(event, key, result) hears "try" before and
+    "got" after every step measured here."""
+    known = known or {}
+    skip = skip or ()
+    note = note or (lambda event, key, result: None)
     for backend in default_backends():
         if stop.is_set():
             return
+        fresh = backend in FRESH_BACKENDS
+        chains = {}
+
+        def step(w, h, fourcc=None):
+            key = _step_key(backend, w, h, fourcc)
+            if key in known:
+                return known[key]
+            if key in skip or stop.is_set():
+                return None
+            note("try", key, None)
+            if fresh or not w:
+                got = _measure_fresh(opener, index, backend, w, h,
+                                     read_seconds, clock, stop, fourcc, cost)
+            else:
+                chain = chains.get(key[3])
+                if chain is None:
+                    chain = chains[key[3]] = _Chain(opener, index, backend,
+                                                    fourcc)
+                got = chain.measure(w, h, read_seconds, clock, stop, cost)
+            note("got", key, got)
+            return got
+
+        def close_chains():
+            # One handle at a time: the next open must find it free.
+            for chain in chains.values():
+                chain.close()
         try:
-            cap = opener(index, backend)
-        except Exception:
-            cap = None
-        try:
-            if cap is None or not cap.isOpened():
+            own = step(0, 0)
+            if own == CLOSED:
                 continue
             out["backend"] = backend
             out["name"] = _camera_name(index)
             modes = out["modes"] = []
 
             def add(m):
-                if m is not None:
-                    m["backend"] = backend
-                    modes.append(m)
+                if not isinstance(m, dict):
+                    return None
+                m = dict(m, backend=backend)
+                modes.append(m)
                 return m
-            add(_measure(cap, 0, 0, read_seconds, clock, stop, None, cost))
-            fresh = backend in FRESH_BACKENDS
-            if fresh:
-                # One handle at a time: the next open must find it free.
-                _release(cap)
-                cap = None
-
-            def measure(w, h, fourcc=None):
-                if fresh:
-                    return _measure_fresh(opener, index, backend, w, h,
-                                          read_seconds, clock, stop, fourcc,
-                                          cost)
-                return _measure(cap, w, h, read_seconds, clock, stop,
-                                fourcc, cost)
+            add(own)
             plain = {}
             for w, h in CANDIDATES:
                 if stop.is_set():
                     break
-                plain[(w, h)] = add(measure(w, h))
+                plain[(w, h)] = add(step(w, h))
+            close_chains()
             for w, h in CANDIDATES:
                 if stop.is_set():
                     break
@@ -465,7 +549,7 @@ def _probe_one(index, opener, read_seconds, clock, stop, out, cost=None):
                         m is not None and m["fps"] >= FULL_RATE
                         and (m["width"], m["height"]) == (w, h)):
                     continue
-                add(measure(w, h, MJPG))
+                add(step(w, h, MJPG))
             if modes:
                 return
             # Opened but not one frame: Media Foundation does that with some
@@ -474,7 +558,7 @@ def _probe_one(index, opener, read_seconds, clock, stop, out, cost=None):
             continue
         finally:
             # A probe that keeps the device open locks it for the driver.
-            _release(cap)
+            close_chains()
 
 
 def best_mode(modes, max_width=MAX_WIDTH):
@@ -633,16 +717,259 @@ def _mode_line(m):
 STOP_GRACE_S = 5.0      # after timeout_s: time a told-to-stop probe gets -
                         # one Media Foundation open and first frame, or a
                         # camera that measured fine is dropped as stuck
+CHILD_CRASHES = 3       # a camera whose driver ended this many probe
+                        # children is given up; the modes it measured stay
+CHILD_START_S = 30.0    # a probe child's own start (imports), on top of
+                        # the time its cameras may take
+CHILD_PAUSE_S = 1.0     # after a child died holding a camera: time for the
+                        # driver to let go (DirectShow reopened at once read
+                        # nothing for a while, measured)
+CRASH_LOG = "cokme.log"     # gozfaresi.CRASH_LOG
+
+
+def _probe_here(index, opener, timeout_s, read_seconds, clock, cost=None,
+                known=None, skip=(), note=None):
+    """_probe_one for one camera on a thread of this process. Its out
+    {"modes", "backend", "name"}, or None for a probe still stuck after
+    timeout_s + STOP_GRACE_S (see probe_cameras)."""
+    out = {"modes": [], "backend": None, "name": ""}
+    stop = threading.Event()
+    t = threading.Thread(target=_probe_one, daemon=True,
+                         name="kamera-sondaj-%d" % index,
+                         args=(index, opener, read_seconds, clock, stop,
+                               out, cost, known, skip, note))
+    t.start()
+    t.join(timeout_s)
+    stop.set()
+    t.join(STOP_GRACE_S)
+    if t.is_alive():
+        _say("kamera %d takildi (surucusu yanit vermiyor); bu kamera"
+             " KULLANILMIYOR" % index)
+        return None
+    return out
+
+
+def probe_child(argv, opener=None, out=None):
+    """gozfaresi --kamera-ara <request>: _probe_here for every camera of the
+    JSON request {indices, timeout_s, read_seconds, known, skip}, each step
+    reported on stdout as a JSON line when it starts and ends - {"ev":
+    "try" | "got", "i", "k": step, "r": result} - then {"ev": "done", "i",
+    "out"} per camera and {"ev": "end"}: what _probe_in_child reads back.
+    Console lines go to stderr. Returns the exit code."""
+    request = json.loads(argv[0])
+    if out is None:
+        out = sys.stdout
+        sys.stdout = sys.stderr
+    lock = threading.Lock()
+
+    def emit(event):
+        line = json.dumps(event) + "\n"
+        with lock:
+            try:
+                out.write(line)
+                out.flush()
+            except Exception:
+                # The search that wanted this is gone (the launcher closed),
+                # and with it the reason to hold the camera.
+                os._exit(3)
+    known = {tuple(k[:5]): k[5] for k in request.get("known") or ()}
+    skip = {tuple(k[:5]) for k in request.get("skip") or ()}
+    timeout_s = float(request.get("timeout_s", PROBE_TIMEOUT_S))
+    read_seconds = float(request.get("read_seconds", READ_SECONDS))
+    for index in request.get("indices") or ():
+        def note(event, key, result, index=index):
+            emit({"ev": event, "i": index, "k": list(key), "r": result})
+        got = _probe_here(
+            index, opener or _cv_open, timeout_s, read_seconds,
+            time.monotonic, None,
+            {k[1:]: v for k, v in known.items() if k[0] == index},
+            {k[1:] for k in skip if k[0] == index}, note)
+        emit({"ev": "done", "i": index, "out": got})
+    emit({"ev": "end"})
+    return 0
+
+
+def _run_child(proc, limit):
+    """(events, stderr lines, exit code, killed) of a probe child, killed
+    once it has run `limit` seconds."""
+    lines = []
+    errors = collections.deque(maxlen=200)
+
+    def pump(stream, sink):
+        try:
+            for raw in iter(stream.readline, b""):
+                sink(raw.decode("utf-8", "replace").rstrip("\r\n"))
+        except Exception:
+            pass
+    readers = [threading.Thread(target=pump, args=(proc.stdout, lines.append),
+                                daemon=True, name="kamera-cocuk-cikti"),
+               threading.Thread(target=pump, args=(proc.stderr, errors.append),
+                                daemon=True, name="kamera-cocuk-hata")]
+    for r in readers:
+        r.start()
+    killed = False
+    try:
+        proc.wait(limit)
+    except subprocess.TimeoutExpired:
+        killed = True
+        try:
+            proc.kill()
+            proc.wait(STOP_GRACE_S)
+        except Exception:
+            pass
+    for r in readers:
+        r.join(STOP_GRACE_S)
+    events = []
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(event, dict):
+            events.append(event)
+    return events, list(errors), proc.returncode, killed
+
+
+def _step_text(key):
+    """(index, backend, w, h, fourcc) for the console (ASCII)."""
+    _, backend, w, h, fourcc = key
+    size = "kendi modu" if not w else "%dx%d" % (w, h)
+    return "%s %s%s" % (backend, size, " " + fourcc if fourcc else "")
+
+
+def _assemble(index, known):
+    """out for a camera given up mid-search: the modes its children did
+    measure, from the first backend (in the children's order) that
+    delivered any, as _probe_one keeps them; None for none."""
+    order = []
+    for k in known:
+        if k[0] == index and k[1] not in order:
+            order.append(k[1])
+    for backend in order:
+        modes = [dict(r, backend=backend) for k, r in known.items()
+                 if k[0] == index and k[1] == backend and isinstance(r, dict)]
+        if modes:
+            return {"modes": modes, "backend": backend,
+                    "name": _camera_name(index)}
+    return None
+
+
+def _crash_note(text):
+    """A line in data_dir()/cokme.log, next to the stack the child's
+    faulthandler wrote there (gozfaresi.crash_log)."""
+    try:
+        d = paths.data_dir()
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, CRASH_LOG), "a", encoding="utf-8") as f:
+            f.write("--- %s %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"),
+                                     text))
+    except Exception:
+        pass
+
+
+def _probe_in_child(indices, timeout_s, read_seconds, cmd=None, popen=None,
+                    pause=time.sleep):
+    """{index: out or None} measured in probe children, or None when not one
+    could be started (probe_cameras then measures here).
+
+    One child measures the cameras in turn (probe_child), reporting every
+    step as it starts and ends. A child that ends without finishing - a
+    driver fault, or killed after its cameras' time plus CHILD_START_S - is
+    started again for the cameras left, with what it measured and without
+    the step it died in (reported started, never ended): that mode is not
+    measured again in this search. A camera that ended CHILD_CRASHES
+    children is given up with the modes it did measure. Each such end goes
+    to the console and to cokme.log, next to the child's own stack."""
+    from . import camera_proc
+    popen = popen or subprocess.Popen
+    cmd = list(cmd or camera_proc.command(camera_proc.PROBE_ROLE))
+    results = {}
+    known = {}
+    skip = set()
+    crashes = collections.Counter()
+    todo = [int(i) for i in indices]
+    started = False
+    while todo:
+        request = {"indices": todo, "timeout_s": timeout_s,
+                   "read_seconds": read_seconds,
+                   "known": [list(k) + [v] for k, v in known.items()
+                             if k[0] in todo],
+                   "skip": [list(k) for k in sorted(skip) if k[0] in todo]}
+        try:
+            proc = popen(cmd + [json.dumps(request)],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE,
+                         creationflags=camera_proc.creationflags())
+        except Exception as exc:
+            _say("kamera aramasi ayri surecte baslatilamadi (%r)" % (exc,))
+            if not started:
+                return None
+            break
+        limit = len(todo) * (timeout_s + STOP_GRACE_S) + CHILD_START_S
+        events, errors, code, killed = _run_child(proc, limit)
+        for line in errors:
+            if line.startswith("[donanim]"):
+                _say(line[len("[donanim]"):].strip())
+        pending = {}
+        ended = False
+        for event in events:
+            kind, i = event.get("ev"), event.get("i")
+            if kind == "try":
+                pending[i] = (i,) + tuple(event.get("k") or ())
+            elif kind == "got":
+                known[(i,) + tuple(event.get("k") or ())] = event.get("r")
+                pending.pop(i, None)
+            elif kind == "done":
+                results[i] = event.get("out")
+                if i in todo:
+                    todo.remove(i)
+            elif kind == "end":
+                ended = True
+        if ended or not todo:
+            break
+        if not started and not events:
+            # Not one line: the child never got going - no camera did this.
+            _say("kamera aramasi ayri surecte calismadi (kod %s): %s"
+                 % (camera_proc.exit_text(code), " | ".join(errors[-3:])))
+            return None
+        started = True
+        index = todo[0]
+        crashes[index] += 1
+        bad = pending.get(index)
+        if bad is not None:
+            skip.add(bad)
+        if crashes[index] >= CHILD_CRASHES:
+            results[index] = _assemble(index, known)
+            todo.remove(index)
+            then = "bu kamera birakildi, olculen modlari kullanilir"
+        else:
+            then = "bu mod atlanip aramaya devam ediliyor"
+        where = (_step_text(bad) + " olculurken" if bad
+                 else "olcumler arasinda")
+        why = ("zaman asimi" if killed
+               else "kod " + camera_proc.exit_text(code))
+        line = "kamera %d: %s surucu coktu (%s); %s" % (index, where, why,
+                                                         then)
+        _say(line)
+        _crash_note("kamera aramasi: " + line)
+        pause(CHILD_PAUSE_S)
+    return results
 
 
 def probe_cameras(max_index=6, timeout_s=PROBE_TIMEOUT_S, opener=None,
                   read_seconds=READ_SECONDS, clock=time.monotonic,
-                  indices=None, profile=None, cost=None):
+                  indices=None, profile=None, cost=None, child=None):
     """[CameraInfo] for every camera 0..max_index-1 (or in `indices`) that
     delivered frames, each in the mode choose_mode() picks for this machine
     (`profile`: makine.json's measurements; None = only this machine's
     cores). Every measured mode is logged and kept in .modes; `cost`
     replaces frame_cost_ms (tests).
+
+    The real cameras (no `opener`) are measured in a child process
+    (_probe_in_child; `child` replaces its argv in tests): a camera driver
+    that faults - no Python code can catch that - ends the child, never the
+    wizard or the driver asking. With an `opener` (tests), or when no
+    child can be started at all, the measuring runs in this process.
 
     Each camera is probed in its own thread for at most timeout_s seconds,
     then told to stop and given STOP_GRACE_S more. A probe that stops in
@@ -669,35 +996,34 @@ def probe_cameras(max_index=6, timeout_s=PROBE_TIMEOUT_S, opener=None,
             cap.release()
     if profile is None:
         profile = {"machine": machine()}
-    opener = opener or _cv_open
+    wanted = [int(i) for i in (range(int(max_index)) if indices is None
+                               else indices)]
+    raw = None
+    if opener is None:
+        raw = _probe_in_child(wanted, timeout_s, read_seconds, child)
+    if raw is None:
+        raw = {index: _probe_here(index, opener or _cv_open, timeout_s,
+                                  read_seconds, clock, cost)
+               for index in wanted}
     found = []
-    for index in (range(int(max_index)) if indices is None else indices):
-        out = {"modes": [], "backend": None, "name": ""}
-        stop = threading.Event()
-        t = threading.Thread(target=_probe_one, daemon=True,
-                             name="kamera-sondaj-%d" % index,
-                             args=(index, opener, read_seconds, clock, stop,
-                                   out, cost))
-        t.start()
-        t.join(timeout_s)
-        stop.set()
-        t.join(STOP_GRACE_S)
-        if t.is_alive():
-            _say("kamera %d takildi (surucusu yanit vermiyor); bu kamera"
-                 " KULLANILMIYOR" % index)
+    for index in wanted:
+        out = raw.get(index)
+        if not isinstance(out, dict):
             continue
-        modes = list(out["modes"])
+        modes = [m for m in out.get("modes") or () if isinstance(m, dict)]
         native = judge_modes(modes)
         mode = choose_mode(modes, profile)
         if mode is None:
             continue
         _say("kamera %d (%s) olculen modlar: %s" % (
-            index, out["backend"], "; ".join(_mode_line(m) for m in modes)))
+            index, out.get("backend"),
+            "; ".join(_mode_line(m) for m in modes)))
         _say("kamera %d: secilen %s" % (index, _mode_line(mode)))
-        found.append(CameraInfo(index, out["backend"], mode["width"],
+        found.append(CameraInfo(index, out.get("backend"), mode["width"],
                                 mode["height"], round(mode["fps"], 1),
-                                out["name"], mode.get("fourcc") or "",
-                                tuple(modes), native, legacy_mode(modes)))
+                                out.get("name") or "",
+                                mode.get("fourcc") or "", tuple(modes),
+                                native, legacy_mode(modes)))
     return found
 
 

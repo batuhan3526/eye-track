@@ -1,5 +1,5 @@
 # gaze/gozfaresi.py
-"""Göz Faresi: one program, two roles (spec 6.2).
+"""Göz Faresi: one program, several roles (spec 6.2).
 
   gozfaresi                     the launcher: status window, first-run
                                 wizard, settings; runs the driver as a child
@@ -9,6 +9,9 @@
   gozfaresi --sihirbaz          the launcher, wizard first (in source mode
                                 the only way to see the wizard)
   gozfaresi --ayarlar           the launcher, settings window open
+  gozfaresi --kamera-ara <istek>  the camera search, in a process of its
+                                own (eye_gaze.camera_proc)
+  gozfaresi --kamera-ac <istek>   one open camera, for the wizard's preview
 
 The packaged exe (PyInstaller) starts here; in a source checkout
 `python gozfaresi.py` does the same, while BASLAT.bat keeps running
@@ -40,10 +43,36 @@ def run_driver(args):
         return 1
 
 
+def run_camera_child(argv):
+    """A camera child (eye_gaze.camera_proc): the camera search
+    (--kamera-ara) or one open camera (--kamera-ac). A driver fault ends
+    only this process. It ends with os._exit: a probe thread stuck in a
+    driver call must not hold up the interpreter's shutdown."""
+    from eye_gaze import camera_proc
+    try:
+        if argv[0] == camera_proc.PROBE_ROLE:
+            from eye_gaze import hardware
+            code = hardware.probe_child(argv[1:])
+        else:
+            code = camera_proc.serve(argv[1:])
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        code = 1
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.flush()
+        except Exception:
+            pass
+    os._exit(code)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv[:1] == ["--surucu"]:
         return run_driver(argv[1:])
+    if argv[:1] and argv[0] in ("--kamera-ara", "--kamera-ac"):
+        return run_camera_child(argv)
     from eye_gaze import ui
     return ui.main(argv)
 

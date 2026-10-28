@@ -6,6 +6,14 @@ Webcam ile göz kontrolü: bilgisayarın kamerası gözünüzün baktığı yeri
 
 > **macOS desteklenmez.** Program Windows 10/11 ve Linux içindir.
 
+## Sürüm 1.3.2'de neler değişti
+
+- **Kamera araması artık programı kapatamaz — kalıcı düzeltme.** 1.3.1'de de bir test kullanıcısında sihirbaz "Kameralar aranıyor" sırasında kapandı. `cokme.log` bu kez DirectShow'u gösterdi: Media Foundation o kamera numarasında görüntü veremeyince arama DirectShow'a geçiyor, kameranın kendi modunu okuduktan sonra aynı bağlantıda daha büyük bir çözünürlük (1920x1200) istiyordu ve kamera sürücüsü kendi iş parçacığında bellek hatasıyla çöktü. Böyle bir hatayı hiçbir program kodu yakalayamaz; çöken süreç ölür. Bu yüzden artık:
+  - **Kamera araması ayrı bir süreçte yapılır.** Bir sürücü çökerse yalnız o süreç ölür; sihirbaz (ya da ayarlar penceresi, ya da sürücünün ilk açılıştaki araması) ayakta kalır, çökmenin olduğu modu atlar ve aramaya kaldığı yerden devam eder. Ölçülmüş modlar korunur. Bir kamera üç kez çöktürürse bırakılır, ölçebildiği modlar kullanılır. Her çökme `cokme.log`'a hangi kamera ve hangi modda olduğuyla yazılır.
+  - **Sihirbazın kamera önizlemesi de ayrı süreçte açılır.** Başlatıcı (durum penceresi, sihirbaz, ayarlar) hiçbir kamerayı kendi içinde açmaz.
+  - **DirectShow ve Linux'ta (V4L2) görüntü akan bir bağlantıdan artık daha büyük mod istenmez.** Her bağlantıya ilk mod ilk kareden önce, sonrakiler yalnız küçülerek istenir (1.2.0'ın yaptığı gibi); kameranın kendi modu ve MJPG modları kendi bağlantılarında ölçülür.
+- Gerçek donanımda denendi: bir USB webcam ve sanal bir DirectShow kamerası (OBS Virtual Camera) ile arama ve önizleme; ölçüm sırasında kamera açıkken gerçek bir bellek hatası (0xC0000005) üç kez çıkarıldı — arama her seferinde devam etti, kamera hemen yeniden açıldı.
+
 ## Sürüm 1.3.1'de neler değişti
 
 - **Kurulum sihirbazı kamera adımında kapanıyordu — düzeltildi.** "Kameralar aranıyor" sırasında program bazı kameralarda uyarısız kapanıyordu. Neden: Media Foundation ile açılmış bir kameradan kare okunduktan sonra aynı bağlantıda başka bir çözünürlük istenince OpenCV bir sonraki kareyi eski görüntü belleğinin üstüne yeni boyutta kuruyor; genişlik aynı kalıp yükseklik büyüyünce bellek dışına okuyup süreci öldürüyordu (ör. 1280x720'den sonra 1280x960; kendi modu 1920x1080 olan kameralarda ilk ölçümde). Artık Media Foundation'da her mod kendi bağlantısında, ilk kareden önce istenerek ölçülür — sürücünün kamerayı açtığı yolla aynı. Aynı hata bazı kameralarda Media Foundation ölçümlerini sessizce çöpe atıp düşük çözünürlük seçtiriyordu; o da düzeldi. Arama biraz uzadı (kamera başına en fazla bir dakika). Ayarlar → Kamera → **Kameraları ara** ve sürücünün ilk açılıştaki araması da aynı düzeltmeyi kullanır.
@@ -90,7 +98,7 @@ Hazır paketi kullanmak için Python, komut satırı ya da teknik bilgi gerekmez
 
 ## 3. Paketleri kendiniz derleme
 
-Paketler (Windows kurulum + taşınabilir zip, Linux AppImage + tar.gz, kaynak zip) bu depodan üç yolla derlenir. Sürüm numarası `gaze/eye_gaze/__init__.py` içindeki `__version__` değeridir (şu an 1.3.1). Derleme GPU gerektirmez.
+Paketler (Windows kurulum + taşınabilir zip, Linux AppImage + tar.gz, kaynak zip) bu depodan üç yolla derlenir. Sürüm numarası `gaze/eye_gaze/__init__.py` içindeki `__version__` değeridir (şu an 1.3.2). Derleme GPU gerektirmez.
 
 ### Yol 1: Kurulum gerektirmeden, GitHub Actions ile
 Bilgisayarınıza hiçbir şey kurmadan, tarayıcıdan.
@@ -184,6 +192,8 @@ Hazır paketler Docker/Xvfb, WSLg ve sahte kamera ile denendi; gerçek kullanım
 **Build it:** (1) no install: GitHub, Actions, "paketle", Run workflow, then download the artifacts (never yet run on GitHub's servers); (2) Windows: Python 3.11 + Inno Setup 6, then `powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\derle.ps1`; (3) Linux: Docker, then `bash packaging/linux/derle.sh`. Output goes to `dist/surum-<version>/`. From source: `cd gaze && python gozfaresi.py`.
 
 **Licence:** GPL-3.0-or-later with a section-7 additional permission (see `LICENSE`, `packaging/UCUNCU-TARAF-LISANSLAR.txt`). The Turkish voice and the deep gaze model are non-commercial (CC BY-NC-SA 4.0), so the packages as shipped cannot be sold or used commercially.
+
+**New in 1.3.2:** the camera search can no longer take the program down. In 1.3.1 a tester's wizard still vanished at "looking for cameras": with no Media Foundation picture for a camera number the search went on to DirectShow, read the camera's own mode, then asked that same capture for 1920x1200, and the camera driver faulted on its own streaming thread - nothing in a process survives that. The search now runs in a child process: a driver fault ends only the child, and the search goes on where it was, without the mode that faulted (a camera that faults three times is given up with the modes it did measure; each fault is written to `cokme.log`). The wizard's camera preview runs in a child too, so the launcher never opens a camera itself. DirectShow and V4L2 captures are no longer asked a larger mode once frames have flowed (largest first, as 1.2.0 did). Tried on real hardware: a USB webcam and a virtual DirectShow camera, with three real access violations injected while a camera was streaming.
 
 **New in 1.3.1:** the first-run wizard no longer vanishes at "looking for cameras". With Media Foundation, asking an open capture for another size after frames had flowed made OpenCV build the next frame over the old buffer - an access violation that ended the process on cameras whose own mode is e.g. 1920x1080. Every Media Foundation mode is now measured on a capture of its own, asked before its first frame (the way the driver opens it); the search takes up to a minute per camera. A native crash now leaves every thread's stack in `cokme.log` next to `gaze.log`.
 

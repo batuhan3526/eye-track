@@ -182,10 +182,12 @@ class Services:
         return hardware.probe_cameras(profile=profile)
 
     def open_camera(self, info):
-        from eye_gaze import hardware
-        return hardware.open_capture(info.index, info.width, info.height,
-                                     hardware.REQUEST_FPS, info.backend,
-                                     fourcc=getattr(info, "fourcc", "") or None)
+        """The chosen camera, opened in a child process (camera_proc): a
+        driver fault ends that child, never the launcher."""
+        from eye_gaze import camera_proc, hardware
+        return camera_proc.ChildCapture(
+            info.index, info.width, info.height, hardware.REQUEST_FPS,
+            info.backend, fourcc=getattr(info, "fourcc", "") or None)
 
     def face_detector(self):
         """callable(frame) -> bool (with .close()), or None."""
