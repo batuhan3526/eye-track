@@ -151,7 +151,9 @@ def test_mjpg_is_asked_for_before_the_size_and_only_above_640x480():
         made.append(c)
         return c
     _probe(factory, clock)
-    calls = made[0].calls
+    # Every capture's own calls, in order (Media Foundation measures
+    # each mode on a capture of its own).
+    calls = [c for cam in made for c in cam.calls]
     for i, (prop, value) in enumerate(calls):
         if prop == cv2.CAP_PROP_FOURCC:
             assert calls[i + 1][0] == cv2.CAP_PROP_FRAME_WIDTH
@@ -195,7 +197,9 @@ def test_a_mode_at_full_rate_is_not_measured_again_with_mjpg():
         return c
     found = _probe(factory, clock)
     assert found[0].fourcc == ""
-    calls = made[0].calls
+    # Every capture's own calls, in order (Media Foundation measures
+    # each mode on a capture of its own).
+    calls = [c for cam in made for c in cam.calls]
     with_mjpg = {(calls[i + 1][1], calls[i + 2][1])
                  for i, (p, _) in enumerate(calls)
                  if p == cv2.CAP_PROP_FOURCC}

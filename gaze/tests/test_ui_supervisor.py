@@ -539,6 +539,34 @@ def test_launcher_role_is_the_default(gozfaresi, monkeypatch):
     assert seen == [[], ["--ayarlar"]] and "argv" not in calls
 
 
+def test_a_native_crash_leaves_its_stack_in_the_crash_log(tmp_path):
+    """The wizard vanished mid camera probe and nothing said where: a
+    native crash in a thread now leaves every thread's stack in
+    data_dir()/cokme.log."""
+    gaze_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    code = (
+        "import sys, threading, ctypes\n"
+        "sys.argv = ['gozfaresi', '--sihirbaz']\n"
+        "import gozfaresi\n"
+        "f = gozfaresi.crash_log()\n"
+        "assert f is not None\n"
+        "def kamera_sondaj():\n"
+        # An access violation, as OpenCV's MSMF read past a frame buffer
+        # (a ctypes CALL would turn it into OSError on Windows).
+        "    ctypes.c_int.from_address(0).value\n"
+        "t = threading.Thread(target=kamera_sondaj)\n"
+        "t.start(); t.join()\n")
+    env = dict(os.environ, GOZFARESI_DATA_DIR=str(tmp_path))
+    r = subprocess.run([sys.executable, "-c", code], cwd=gaze_dir, env=env,
+                       capture_output=True, timeout=60)
+    assert r.returncode != 0
+    with open(tmp_path / "cokme.log", encoding="utf-8",
+              errors="replace") as f:
+        text = f.read()
+    assert "--sihirbaz" in text.splitlines()[0]
+    assert "kamera_sondaj" in text
+
+
 def test_the_driver_watches_the_pipe_only_when_supervised():
     gaze_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     with open(os.path.join(gaze_dir, "gaze_driver.py"),

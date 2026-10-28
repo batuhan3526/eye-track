@@ -140,7 +140,7 @@ wizard:
   camera:
     title: "Camera"
     retry: "Try again"
-    searching: "Looking for cameras and measuring each picture mode… (this can take up to half a minute)"
+    searching: "Looking for cameras and measuring each picture mode… (this can take up to a minute)"
     search_failed: "Could not look for cameras ({error}). Plug in the camera and press “Try again”."
     none: "No camera found. Plug in the camera and press “Try again”. You can also go on without one; the program looks for the camera again every time it opens."
     found: "{n} camera(s) found. Choose the camera to use; your face should be visible in the preview."

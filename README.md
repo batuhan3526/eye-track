@@ -6,6 +6,11 @@ Webcam ile göz kontrolü: bilgisayarın kamerası gözünüzün baktığı yeri
 
 > **macOS desteklenmez.** Program Windows 10/11 ve Linux içindir.
 
+## Sürüm 1.3.1'de neler değişti
+
+- **Kurulum sihirbazı kamera adımında kapanıyordu — düzeltildi.** "Kameralar aranıyor" sırasında program bazı kameralarda uyarısız kapanıyordu. Neden: Media Foundation ile açılmış bir kameradan kare okunduktan sonra aynı bağlantıda başka bir çözünürlük istenince OpenCV bir sonraki kareyi eski görüntü belleğinin üstüne yeni boyutta kuruyor; genişlik aynı kalıp yükseklik büyüyünce bellek dışına okuyup süreci öldürüyordu (ör. 1280x720'den sonra 1280x960; kendi modu 1920x1080 olan kameralarda ilk ölçümde). Artık Media Foundation'da her mod kendi bağlantısında, ilk kareden önce istenerek ölçülür — sürücünün kamerayı açtığı yolla aynı. Aynı hata bazı kameralarda Media Foundation ölçümlerini sessizce çöpe atıp düşük çözünürlük seçtiriyordu; o da düzeldi. Arama biraz uzadı (kamera başına en fazla bir dakika). Ayarlar → Kamera → **Kameraları ara** ve sürücünün ilk açılıştaki araması da aynı düzeltmeyi kullanır.
+- **Çökme günlüğü.** Program bir sürücü yüzünden yine de uyarısız kapanırsa, her iş parçacığının o anki yeri veri klasöründeki `cokme.log` dosyasına yazılır (Windows kurulumunda `%LOCALAPPDATA%\GozFaresi`). Yardım isterken `gaze.log` ile birlikte gönderin.
+
 ## Sürüm 1.3.0'da neler değişti
 
 Bir test kullanıcısının şikâyetleri (imleç ekranın yarısına ulaşıyor, bakılan yerin tersine gidiyor, çok ağır; kamera görüntüsü "uzun ve ince"; ayarlar yalnız dosyada) üzerine:
@@ -60,7 +65,7 @@ Hazır paketi kullanmak için Python, komut satırı ya da teknik bilgi gerekmez
 
 **Kaldırma (Windows):** Ayarlar, Uygulamalar, Göz Faresi, Kaldır. Ayarlarınız ve kalibrasyonunuz korunur; silmek için çıkan kutuyu işaretleyin. Taşınabilir sürümde klasörü silmeniz yeter.
 
-**Sorun olursa:** durum penceresindeki "Günlüğü aç" düğmesi `gaze.log` dosyasını açar; yardım isterken onu gönderin.
+**Sorun olursa:** durum penceresindeki "Günlüğü aç" düğmesi `gaze.log` dosyasını açar; yardım isterken onu gönderin. Program uyarısız kapandıysa aynı klasördeki `cokme.log` dosyasını da ekleyin.
 
 ## 2. Kullanım
 
@@ -85,7 +90,7 @@ Hazır paketi kullanmak için Python, komut satırı ya da teknik bilgi gerekmez
 
 ## 3. Paketleri kendiniz derleme
 
-Paketler (Windows kurulum + taşınabilir zip, Linux AppImage + tar.gz, kaynak zip) bu depodan üç yolla derlenir. Sürüm numarası `gaze/eye_gaze/__init__.py` içindeki `__version__` değeridir (şu an 1.3.0). Derleme GPU gerektirmez.
+Paketler (Windows kurulum + taşınabilir zip, Linux AppImage + tar.gz, kaynak zip) bu depodan üç yolla derlenir. Sürüm numarası `gaze/eye_gaze/__init__.py` içindeki `__version__` değeridir (şu an 1.3.1). Derleme GPU gerektirmez.
 
 ### Yol 1: Kurulum gerektirmeden, GitHub Actions ile
 Bilgisayarınıza hiçbir şey kurmadan, tarayıcıdan.
@@ -179,6 +184,8 @@ Hazır paketler Docker/Xvfb, WSLg ve sahte kamera ile denendi; gerçek kullanım
 **Build it:** (1) no install: GitHub, Actions, "paketle", Run workflow, then download the artifacts (never yet run on GitHub's servers); (2) Windows: Python 3.11 + Inno Setup 6, then `powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\derle.ps1`; (3) Linux: Docker, then `bash packaging/linux/derle.sh`. Output goes to `dist/surum-<version>/`. From source: `cd gaze && python gozfaresi.py`.
 
 **Licence:** GPL-3.0-or-later with a section-7 additional permission (see `LICENSE`, `packaging/UCUNCU-TARAF-LISANSLAR.txt`). The Turkish voice and the deep gaze model are non-commercial (CC BY-NC-SA 4.0), so the packages as shipped cannot be sold or used commercially.
+
+**New in 1.3.1:** the first-run wizard no longer vanishes at "looking for cameras". With Media Foundation, asking an open capture for another size after frames had flowed made OpenCV build the next frame over the old buffer - an access violation that ended the process on cameras whose own mode is e.g. 1920x1080. Every Media Foundation mode is now measured on a capture of its own, asked before its first frame (the way the driver opens it); the search takes up to a minute per camera. A native crash now leaves every thread's stack in `cokme.log` next to `gaze.log`.
 
 **New in 1.3.0:** calibration that survives a change of posture (per-axis model chosen from the person's own data; an existing calibration is refitted once at the first start, the old file kept as a backup), a result screen after each calibration (grade, horizontal/vertical error, reach, hints; F9 x2 there starts a new one), camera modes measured up to 1920 wide with MJPG where it helps and no stretched modes, an aspect-independent closed-eye threshold learnt per person, time-based filters with a cursor sensitivity setting (1 = the 1.2.0 feel, the default for upgraded installs; 3 for new installs), and many more settings in the settings window. Upgraders: move "Imlec hassasiyeti" in Settings to make the cursor faster; for the new camera choice use Settings > Camera > "Look for cameras" > pick > Save, then F9 x2. Rolling back to 1.2.0 is supported (it falls back to its own backup calibration). macOS is not supported.
 

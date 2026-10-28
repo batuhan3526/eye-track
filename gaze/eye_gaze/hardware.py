@@ -97,7 +97,10 @@ MJPG_GAIN = 1.10        # MJPG beats the own format at a size only this much
                         # faster (it costs a decode on every frame)
 READ_SECONDS = 1.0      # frames counted per candidate mode
 WARMUP_FRAMES = 2       # first frames after a mode change come late
-PROBE_TIMEOUT_S = 30    # per camera: up to ~14 modes of READ_SECONDS each
+PROBE_TIMEOUT_S = 60    # per camera: up to ~14 modes of READ_SECONDS each;
+                        # a Media Foundation mode opens its own capture
+                        # (~0.3 s) and waits ~3 s for its first frame
+                        # (measured, a USB webcam): ~35 s for its 8 modes
 # One frame at MIN_FPS. MediaPipe + the deep model (gaze_ms, measured by
 # benchmark_gaze) plus what a frame of that size costs besides them (decode,
 # conversions, the status window; frame_cost_ms) must fit; without gaze_ms
@@ -283,12 +286,13 @@ def _picture(frame):
 
 
 def _measure(cap, width, height, read_seconds, clock, stop, fourcc=None,
-             cost=None):
+             cost=None, ask=True):
     """The mode the camera really delivers after being asked for width x
     height (0 x 0: nothing asked - the camera's own mode) with `fourcc`, as
     {"width", "height", "fps", "fourcc", "request", "got", "cost_ms"}; None
-    when no picture came."""
-    if width > 0 and height > 0:
+    when no picture came. ask=False: the caller asked already, before the
+    capture's first frame (_measure_fresh)."""
+    if ask and width > 0 and height > 0:
         _set_mode(cap, width, height, REQUEST_FPS, fourcc)
     size = None
     last = None
@@ -362,14 +366,56 @@ def judge_modes(modes):
     return native
 
 
+# Backends whose capture must never be asked a new mode once frames have
+# flowed. OpenCV 4.13's Media Foundation capture refuses the change but
+# builds the next frame at the asked size over the old buffer: a wider size
+# fails an assertion, a taller one of the same width reads past the buffer -
+# an access violation that ends the whole process, no traceback (measured,
+# a USB webcam: 1280x720, then 1280x960; 3 of 3). The wizard vanished so at
+# "Kameralar aranıyor". DirectShow and V4L2 rebuild their stream for a new
+# mode and keep one capture (DirectShow measured on the same camera).
+FRESH_BACKENDS = ("msmf",)
+
+
+def _measure_fresh(opener, index, backend, width, height, read_seconds,
+                   clock, stop, fourcc=None, cost=None):
+    """_measure on a capture of its own, asked for the mode before its
+    first frame - as open_capture() opens it for the driver - and released
+    after. None when it does not open, refuses `fourcc` (MSMF refuses MJPG:
+    measuring would repeat the plain mode), delivers nothing or fails."""
+    if stop.is_set():
+        return None
+    try:
+        cap = opener(index, backend)
+    except Exception:
+        return None
+    try:
+        if cap is None or not cap.isOpened():
+            return None
+        if fourcc:
+            import cv2
+            if not cap.set(cv2.CAP_PROP_FOURCC,
+                           cv2.VideoWriter_fourcc(*fourcc)):
+                return None
+        _set_mode(cap, width, height, REQUEST_FPS)
+        return _measure(cap, width, height, read_seconds, clock, stop,
+                        fourcc, cost, ask=False)
+    except Exception:
+        return None
+    finally:
+        _release(cap)
+
+
 def _probe_one(index, opener, read_seconds, clock, stop, out, cost=None):
     """Fill out["modes"] while measuring; always releases what it opened.
 
     First the camera's own mode (nothing asked), then every candidate in its
     own format, then - above 640x480, where its own format fell short of
     the full rate - the same with MJPG. In that order because a format once
-    set cannot be unset on an open capture. probe_cameras judges the modes
-    (judge_modes) once measuring is over."""
+    set cannot be unset on an open capture. On a FRESH_BACKENDS backend
+    every mode after the own one gets a capture of its own
+    (_measure_fresh). probe_cameras judges the modes (judge_modes) once
+    measuring is over."""
     for backend in default_backends():
         if stop.is_set():
             return
@@ -390,12 +436,24 @@ def _probe_one(index, opener, read_seconds, clock, stop, out, cost=None):
                     modes.append(m)
                 return m
             add(_measure(cap, 0, 0, read_seconds, clock, stop, None, cost))
+            fresh = backend in FRESH_BACKENDS
+            if fresh:
+                # One handle at a time: the next open must find it free.
+                _release(cap)
+                cap = None
+
+            def measure(w, h, fourcc=None):
+                if fresh:
+                    return _measure_fresh(opener, index, backend, w, h,
+                                          read_seconds, clock, stop, fourcc,
+                                          cost)
+                return _measure(cap, w, h, read_seconds, clock, stop,
+                                fourcc, cost)
             plain = {}
             for w, h in CANDIDATES:
                 if stop.is_set():
                     break
-                plain[(w, h)] = add(_measure(cap, w, h, read_seconds, clock,
-                                             stop, None, cost))
+                plain[(w, h)] = add(measure(w, h))
             for w, h in CANDIDATES:
                 if stop.is_set():
                     break
@@ -407,8 +465,7 @@ def _probe_one(index, opener, read_seconds, clock, stop, out, cost=None):
                         m is not None and m["fps"] >= FULL_RATE
                         and (m["width"], m["height"]) == (w, h)):
                     continue
-                add(_measure(cap, w, h, read_seconds, clock, stop, MJPG,
-                             cost))
+                add(measure(w, h, MJPG))
             if modes:
                 return
             # Opened but not one frame: Media Foundation does that with some
@@ -573,7 +630,9 @@ def _mode_line(m):
     return text
 
 
-STOP_GRACE_S = 1.0      # after timeout_s: time a told-to-stop probe gets
+STOP_GRACE_S = 5.0      # after timeout_s: time a told-to-stop probe gets -
+                        # one Media Foundation open and first frame, or a
+                        # camera that measured fine is dropped as stuck
 
 
 def probe_cameras(max_index=6, timeout_s=PROBE_TIMEOUT_S, opener=None,

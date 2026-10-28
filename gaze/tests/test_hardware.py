@@ -277,6 +277,50 @@ def test_probe_skips_a_camera_whose_open_never_returns():
         hang.set()
 
 
+class MsmfCam(FakeCam):
+    """Media Foundation as OpenCV 4.13 drives it: a size asked once frames
+    have flowed is never applied, and the next read() builds the new size
+    over the old buffer - with the width kept and the height grown that is
+    an access violation that ends the whole process (measured on a USB
+    webcam: 1280x720, then 1280x960). Recorded here instead of crashing. A
+    FOURCC is refused, as MSMF refuses MJPG."""
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.late_sets = []
+
+    def set(self, prop, value):
+        import cv2
+        if prop == cv2.CAP_PROP_FOURCC:
+            return False
+        if self.reads and prop in (cv2.CAP_PROP_FRAME_WIDTH,
+                                   cv2.CAP_PROP_FRAME_HEIGHT):
+            self.late_sets.append((prop, value))
+            return False
+        return super().set(prop, value)
+
+
+def test_msmf_mode_is_asked_before_the_first_frame(monkeypatch):
+    """The wizard vanished at "Kameralar aranıyor": the probe read the
+    camera's own mode, then asked the next size on that same MSMF capture.
+    Every MSMF mode is measured on a capture of its own, asked before its
+    first read - the way the driver opens it."""
+    monkeypatch.setattr(hw, "default_backends", lambda: ("msmf",))
+    clock = Clock()
+    modes = {(1280, 720): 30.0, (1280, 960): 30.0, (640, 480): 30.0}
+    op = Opener({0: lambda: MsmfCam(modes, clock)})
+    found = _probe(op, clock=clock, max_index=1, timeout_s=30)
+    cams = [c for _, _, c in op.made]
+    assert [c.late_sets for c in cams if c.late_sets] == []
+    assert len(found) == 1
+    got = {(m["width"], m["height"]) for m in found[0].modes}
+    assert {(1280, 720), (1280, 960), (640, 480)} <= got
+    assert (found[0].width, found[0].height) == (1280, 960)
+    # MSMF refused MJPG: no mode is recorded as measured with it.
+    assert all(m["fourcc"] == "" for m in found[0].modes)
+    assert all(c.released.is_set() for c in cams)
+
+
 def test_probe_no_camera_returns_empty():
     op = Opener({})
     assert hw.probe_cameras(max_index=4, timeout_s=2, opener=op) == []

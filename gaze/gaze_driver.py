@@ -382,7 +382,7 @@ def _resolve_machine(cfg, probe=None, say=print, now=None):
                 " (varsayilan kamera ayarlari kullaniliyor).")
         elif need:
             say("Kamera araniyor (kayitli kamera yok); her modu olculuyor -"
-                " yarim dakika kadar surebilir...")
+                " bir dakika kadar surebilir...")
             found = (probe or hardware.probe_cameras)(
                 **({} if index_auto else {"indices": [want_index]}))
             pick = None

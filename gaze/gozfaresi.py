@@ -48,5 +48,33 @@ def main(argv=None):
     return ui.main(argv)
 
 
+CRASH_LOG = "cokme.log"
+
+
+def crash_log():
+    """A native crash (a camera or GPU driver, a library under it) ends the
+    process with no Python traceback, and the windowed exe has no console:
+    the wizard simply vanished. faulthandler writes every thread's stack to
+    data_dir()/cokme.log instead (a caught OpenCV error writes nothing).
+    The file stays open for the life of the process; None when it cannot
+    be opened."""
+    try:
+        import faulthandler
+        import time
+        from eye_gaze import paths
+        d = paths.data_dir()
+        os.makedirs(d, exist_ok=True)
+        f = open(os.path.join(d, CRASH_LOG), "a", encoding="utf-8")
+        f.write("--- %s pid %d %s\n" % (
+            time.strftime("%Y-%m-%d %H:%M:%S"), os.getpid(),
+            " ".join(sys.argv[1:2]) or "baslatici"))
+        f.flush()
+        faulthandler.enable(f, all_threads=True)
+        return f
+    except Exception:
+        return None
+
+
 if __name__ == "__main__":
+    _crash_file = crash_log()
     raise SystemExit(main())

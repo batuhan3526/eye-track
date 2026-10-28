@@ -28,3 +28,6 @@ gaze/makine.json.tmp
 # (python gozfaresi.py) and changed by the wizard / settings window.
 gaze/config.yaml
 gaze/config.yaml.tmp
+
+# gozfaresi.py's native-crash log (faulthandler), source mode writes it here.
+cokme.log
