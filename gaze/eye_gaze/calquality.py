@@ -146,16 +146,20 @@ def advice(report, err, screen=None, shift=None, key="F9"):
     return out
 
 
-def summary(mapper, screen=None, feat=None, key="F9"):
+def summary(mapper, screen=None, feat=None, key="F9", coverage=None):
     """Everything the calibration result screen and printout show, for a
-    freshly fitted mapper. Never raises."""
+    freshly fitted mapper. coverage: (x %, y %) the live cursor reaches,
+    when the driver corrects the model's own (eye_gaze.reach); None = the
+    model's. Never raises."""
     err = getattr(mapper, "err_cv", None)
     rep = getattr(mapper, "selection", None)
-    axes = coverage = shift = None
+    live, axes, coverage, shift = coverage, None, None, None
     if isinstance(rep, dict):
         try:
             axes = tuple(int(round(rep[a]["rmse"])) for a in ("x", "y"))
             coverage = tuple(coverage_pct(rep[a].get("slope")) for a in ("x", "y"))
+            if live is not None:
+                coverage = tuple(live)
         except Exception:
             axes = coverage = None
         cs = getattr(mapper, "cal_samples", None)

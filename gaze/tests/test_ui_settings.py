@@ -30,7 +30,7 @@ def _v120_config(data_dir, extra=""):
     out = []
     for line in lines:
         key = line.split(":", 1)[0]
-        if key == sensitivity.KEY:
+        if key in (sensitivity.KEY, "edge_reach"):     # both new in 1.3.x
             continue
         if key in _V120:
             line = re.sub(r':\s*"auto"', ": " + _V120[key], line, count=1)
@@ -259,7 +259,8 @@ def test_a_value_outside_the_slider_s_range_is_shown_and_kept(root,
 # --- on/off and choices ----------------------------------------------------------
 
 @pytest.mark.parametrize("key", ["saccade_jump", "snap_to_targets",
-                                 "dwell_ring", "feedback_sounds"])
+                                 "dwell_ring", "feedback_sounds",
+                                 "edge_reach"])
 def test_each_switch_round_trips(root, data_dir, key):
     path = _write_config(data_dir)
     was = _read(path)[key]
@@ -570,3 +571,95 @@ def test_on_a_small_screen_the_wizard_lists_fill_the_page(root, data_dir,
         assert int(scroll.canvas.cget("height")) >= widgets.MIN_SCROLL
         assert page - 2 <= step.frame.winfo_reqheight() <= page, name
         assert w.body_scroll.bar.winfo_manager() == "", name
+
+
+# --- full reach of the edges (eye_gaze.reach) -------------------------------------
+
+
+def _without_line(path, key):
+    with open(path, encoding="utf-8") as f:
+        lines = [x for x in f.read().split("\n")
+                 if x.split(":", 1)[0] != key]
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    return path
+
+
+def test_edge_reach_shows_what_a_1_3_config_without_the_line_runs(root,
+                                                                 data_dir):
+    # a 1.3.2 install: cursor_sensitivity, no edge_reach line -> on
+    path = _without_line(_write_config(data_dir), "edge_reach")
+    before = _bytes(path)
+    s = make_settings(root, make_services(), FakeSup())
+    assert s._vars["edge_reach"].get() is True
+    s.controls["edge_reach"].invoke()            # off: written
+    s.controls["edge_reach"].invoke()            # on again: as it was
+    assert s.pending() == {}
+    assert s.save() is True and _bytes(path) == before
+    s.controls["edge_reach"].invoke()
+    assert _saved(s, path)["edge_reach"] is False
+
+
+def test_edge_reach_is_off_for_a_v120_config_until_a_level_is_chosen(
+        root, data_dir):
+    path = _v120_config(data_dir)
+    s = make_settings(root, make_services(), FakeSup())
+    assert s._vars["edge_reach"].get() is False
+    # choosing a level is choosing the 1.3.x cursor: the line-less setting
+    # then follows it, and the switch shows that
+    s.controls[sensitivity.KEY].check.invoke()       # Otomatik
+    assert s._vars["edge_reach"].get() is True
+    cfg = _saved(s, path)
+    assert "edge_reach" not in cfg
+    assert config.read_config(path, report=lambda m: None,
+                              effective=True)[0]["edge_reach"] is True
+
+
+# --- settings that defeat the cursor (eye_gaze.cursor_advice) ----------------------
+
+
+def test_a_crawling_top_speed_says_what_it_costs(root, data_dir):
+    _write_config(data_dir)
+    s = make_settings(root, make_services(), FakeSup())   # 2560 px screen
+    ms = s.controls["max_cursor_speed"]
+    ms.check.invoke()
+    ms.slider.move_to(200)
+    assert "6,4" in ms.note_var.get()
+    ms.slider.move_to(1000)                      # not the factory 1200
+    assert ms.note_var.get() == ""
+
+
+def test_a_wide_steady_zone_says_what_it_costs(root, data_dir):
+    _write_config(data_dir)
+    s = make_settings(root, make_services(), FakeSup())
+    dz = s.controls["deadzone"]
+    dz.check.invoke()
+    dz.slider.move_to(60)
+    assert "60 px" in dz.note_var.get()
+    dz.slider.move_to(25)
+    assert dz.note_var.get() == ""
+
+
+def test_a_far_snap_distance_says_what_it_costs_while_snapping_is_on(
+        root, data_dir):
+    _write_config(data_dir)                    # snap_to_targets: true
+    s = make_settings(root, make_services(), FakeSup())
+    s.controls["snap_radius"].move_to(300)
+    assert "300 px" in s.snap_note_var.get()
+    s.controls["snap_to_targets"].invoke()     # off: the distance is unused
+    assert s.snap_note_var.get() == ""
+    s.controls["snap_to_targets"].invoke()
+    s.controls["snap_radius"].move_to(120)
+    assert s.snap_note_var.get() == ""
+
+
+def test_a_file_that_already_crawls_is_flagged_on_opening(root, data_dir):
+    _write_config(data_dir, extra="")
+    path = os.path.join(str(data_dir), "config.yaml")
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    text = text.replace('max_cursor_speed: "auto"', "max_cursor_speed: 200")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+    s = make_settings(root, make_services(), FakeSup())
+    assert "6,4" in s.controls["max_cursor_speed"].note_var.get()

@@ -180,3 +180,15 @@ def test_summary_of_a_mapper():
     s = cq.summary(Old(), (2560, 1440))
     assert s.label == "IYI" and s.axes is None and s.coverage is None
     assert s.hints == []
+
+
+def test_summary_shows_the_reach_the_live_cursor_has():
+    # The live cursor undoes a measured shrink (eye_gaze.reach): the result
+    # screen must say what the cursor reaches, not what the plain model did.
+    class M:
+        err_cv = 186.0
+        selection = _report(err=186.0, y=(93.0, 0.95))
+        cal_samples = None
+    s = cq.summary(M(), (2560, 1440), key="F9", coverage=(100, 100))
+    assert s.coverage == (100, 100)
+    assert cq.summary(M(), (2560, 1440), key="F9").coverage == (95, 95)

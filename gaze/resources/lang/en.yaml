@@ -288,6 +288,7 @@ settings:
     snap_title: "Snap to targets"
     snap_radius: "Snap distance (targets this far from the gaze are snapped to)"
     saccade: "Jump: when the eyes jump far, the cursor goes there at once instead of gliding"
+    edge_reach: "Full reach of the edges: the cursor goes all the way to the screen's edges and corners (corrects the narrowing the calibration measured)"
   click:
     dwell_title: "Clicking by dwelling"
     dwell_seconds: "Dwell time"
@@ -588,3 +589,10 @@ stt:
     download_failed: "The dictation model could not be downloaded. Check the internet connection and try again."
     unknown_size: "This dictation model size is not known. Choose another size in Settings."
     ready: "Dictation is ready. You can speak now."
+# Settings that keep the cursor off the edges or off small corrections
+# (eye_gaze/cursor_advice.py): shown under the control in Settings, and by
+# the driver in gaze.log.
+cursor_advice:
+  slow: "At this speed the cursor takes {seconds} s to cross half the screen: the edges and far targets get hard to reach. If the cursor shakes, lower the sensitivity, not the speed."
+  deadzone: "Corrections smaller than {value} px are not possible: the cursor will not settle exactly where you look. If the cursor shakes, lower the sensitivity, not this zone."
+  snap: "The cursor is pulled to items up to {value} px away: on the desktop and in empty areas it is hard to put it where you want. 120 px is recommended."

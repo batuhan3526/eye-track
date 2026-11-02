@@ -78,6 +78,14 @@ def main(argv=None):
 
 
 CRASH_LOG = "cokme.log"
+# Lines faulthandler starts a dump with.
+_DUMP_MARKS = ("Windows fatal exception", "Fatal Python error")
+_TAIL_BYTES = 4 * 1024 * 1024    # how much of the log crash_log_end reads
+_crash_header = [None]
+
+
+def _role():
+    return " ".join(sys.argv[1:2]) or "baslatici"
 
 
 def crash_log():
@@ -85,25 +93,60 @@ def crash_log():
     process with no Python traceback, and the windowed exe has no console:
     the wizard simply vanished. faulthandler writes every thread's stack to
     data_dir()/cokme.log instead (a caught OpenCV error writes nothing).
-    The file stays open for the life of the process; None when it cannot
-    be opened."""
+    The header names the version: which install wrote a log is the first
+    question about it. The file stays open for the life of the process;
+    None when it cannot be opened."""
     try:
         import faulthandler
         import time
-        from eye_gaze import paths
+        from eye_gaze import __version__, paths
         d = paths.data_dir()
         os.makedirs(d, exist_ok=True)
         f = open(os.path.join(d, CRASH_LOG), "a", encoding="utf-8")
-        f.write("--- %s pid %d %s\n" % (
-            time.strftime("%Y-%m-%d %H:%M:%S"), os.getpid(),
-            " ".join(sys.argv[1:2]) or "baslatici"))
+        header = "--- %s pid %d %s (surum %s)" % (
+            time.strftime("%Y-%m-%d %H:%M:%S"), os.getpid(), _role(),
+            __version__)
+        f.write(header + "\n")
         f.flush()
+        _crash_header[0] = header
         faulthandler.enable(f, all_threads=True)
         return f
     except Exception:
         return None
 
 
+def crash_log_end(f, code):
+    """This process is ending normally (main() returned `code`). On Windows
+    faulthandler also writes exceptions that were HANDLED - COM raises some
+    of its errors that way (a tester's driver logged 0x80040155 and
+    0x80010108 and ran on for minutes). When a dump follows this process's
+    header, say under it that the process was not stopped by it; otherwise
+    write nothing. Never raises."""
+    header = _crash_header[0]
+    if f is None or header is None:
+        return
+    try:
+        import time
+        f.flush()
+        with open(f.name, "rb") as r:
+            r.seek(0, os.SEEK_END)
+            r.seek(max(0, r.tell() - _TAIL_BYTES))
+            text = r.read().decode("utf-8", "replace")
+        i = text.rfind(header)
+        if i < 0 or not any(m in text[i:] for m in _DUMP_MARKS):
+            return
+        f.write("--- %s pid %d %s kapandi (kod %s): yukaridaki 'Windows fatal"
+                " exception' kayitlari bu sureci DURDURMADI (Windows'un kendi"
+                " icinde yakalayip gectigi hatalar)\n"
+                % (time.strftime("%Y-%m-%d %H:%M:%S"), os.getpid(), _role(),
+                   code))
+        f.flush()
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
     _crash_file = crash_log()
-    raise SystemExit(main())
+    _code = main()
+    crash_log_end(_crash_file, _code)
+    raise SystemExit(_code)

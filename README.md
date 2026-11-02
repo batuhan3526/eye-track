@@ -6,6 +6,14 @@ Webcam ile göz kontrolü: bilgisayarın kamerası gözünüzün baktığı yeri
 
 > **macOS desteklenmez.** Program Windows 10/11 ve Linux içindir.
 
+## Sürüm 1.3.3'te neler değişti
+
+Bir test kullanıcısı 1.3.2'yi 2560x1440 ekranında kullandı: kurulum ve kalibrasyon sorunsuz geçti (hata 186 px, 1.2.0'da 439 px), ama imleç **ekranın en sağına ve en soluna gitmiyordu** ve **istenen yere zor oturuyordu**. Günlükler iki nedeni gösterdi; ikisi de düzeltildi.
+
+- **İmleç artık ekranın kenarlarına ve köşelerine ulaşır.** Kalibrasyon her seferinde imlecin ekranın ne kadarına ulaşabildiğini ölçüyor (sonuç ekranında "yatayda %93" gibi). Her tahmin modeli bakılan yeri biraz ortaya doğru çeker; bu kullanıcıda kenara bakınca imleç ~90 px kısa kalıyordu. Canlı imleç artık bu ölçülmüş daralmayı geri açar (en çok 1,25 kat; daha kötü bir kalibrasyon yeniden kalibrasyon ister) ve kenara çok yakın imleci kenara oturtur — kaydırma çubukları, görev çubuğu ve pencere kapatma düğmesi oradadır. Kullanıcının kendi kalibrasyon verisiyle ölçüldü: kenar hedeflerinde imleç kenara belirgin biçimde yaklaşır (sol kenarda açık 85 px'ten 18 px'e iner), genel hata değişmez (186 → 187 px). Ayarlar → İmleç → **Kenarlara tam ulaşım** (`edge_reach`). 1.3.x kurulumlarında kendiliğinden açıktır; 1.2.0'dan yükseltilen kurulumlarda (alışılmış his korunur) açıkça seçilir.
+- **İmleci zorlaştıran ayarlar artık söylenir.** Titreyen imleci sakinleştirmek için azami hız 200 px/sn'ye, sabitleme alanı 60 px'e, yapışma mesafesi 300 px'e çekilmişti. Bu değerlerle imleç ekranın yarısını 6,4 saniyede geçiyor, 60 px'ten küçük düzeltme yapamıyor ve masaüstünde en yakın simgeye çekiliyordu. Ayarlar penceresi böyle bir değerin altında ne pahasına olduğunu yazar; sürücü de `gaze.log`'a yazar. Titremeye karşı doğru ayar **hassasiyeti** düşürmektir.
+- **Günlükler sürümü söyler, sahte çökmeleri işaretler.** `cokme.log`'daki her kayıt ve `gaze.log`'daki her çalışma hangi sürümün yazdığını belirtir. Windows bazı hataları kendi içinde yakalayıp geçer, ama çökme günlüğü bunları da yazar (bu kullanıcıda iki tane: sürücü dakikalarca çalışmaya devam etti). Normal kapanan bir süreç artık bu kayıtların altına "bu süreci durdurmadı" diye not düşer.
+
 ## Sürüm 1.3.2'de neler değişti
 
 - **Kamera araması artık programı kapatamaz — kalıcı düzeltme.** 1.3.1'de de bir test kullanıcısında sihirbaz "Kameralar aranıyor" sırasında kapandı. `cokme.log` bu kez DirectShow'u gösterdi: Media Foundation o kamera numarasında görüntü veremeyince arama DirectShow'a geçiyor, kameranın kendi modunu okuduktan sonra aynı bağlantıda daha büyük bir çözünürlük (1920x1200) istiyordu ve kamera sürücüsü kendi iş parçacığında bellek hatasıyla çöktü. Böyle bir hatayı hiçbir program kodu yakalayamaz; çöken süreç ölür. Bu yüzden artık:
@@ -98,7 +106,7 @@ Hazır paketi kullanmak için Python, komut satırı ya da teknik bilgi gerekmez
 
 ## 3. Paketleri kendiniz derleme
 
-Paketler (Windows kurulum + taşınabilir zip, Linux AppImage + tar.gz, kaynak zip) bu depodan üç yolla derlenir. Sürüm numarası `gaze/eye_gaze/__init__.py` içindeki `__version__` değeridir (şu an 1.3.2). Derleme GPU gerektirmez.
+Paketler (Windows kurulum + taşınabilir zip, Linux AppImage + tar.gz, kaynak zip) bu depodan üç yolla derlenir. Sürüm numarası `gaze/eye_gaze/__init__.py` içindeki `__version__` değeridir (şu an 1.3.3). Derleme GPU gerektirmez.
 
 ### Yol 1: Kurulum gerektirmeden, GitHub Actions ile
 Bilgisayarınıza hiçbir şey kurmadan, tarayıcıdan.
@@ -192,6 +200,8 @@ Hazır paketler Docker/Xvfb, WSLg ve sahte kamera ile denendi; gerçek kullanım
 **Build it:** (1) no install: GitHub, Actions, "paketle", Run workflow, then download the artifacts (never yet run on GitHub's servers); (2) Windows: Python 3.11 + Inno Setup 6, then `powershell -NoProfile -ExecutionPolicy Bypass -File packaging\windows\derle.ps1`; (3) Linux: Docker, then `bash packaging/linux/derle.sh`. Output goes to `dist/surum-<version>/`. From source: `cd gaze && python gozfaresi.py`.
 
 **Licence:** GPL-3.0-or-later with a section-7 additional permission (see `LICENSE`, `packaging/UCUNCU-TARAF-LISANSLAR.txt`). The Turkish voice and the deep gaze model are non-commercial (CC BY-NC-SA 4.0), so the packages as shipped cannot be sold or used commercially.
+
+**New in 1.3.3:** the cursor reaches the screen edges and corners. A tester's 1.3.2 calibrated well on a 2560x1440 screen (186 px, 439 px with 1.2.0) but the cursor stopped ~90 px short of the far left and right: every calibration measures how much of the screen its predictions span (the "reach" on the result screen, 93% there), and the live cursor now stretches that measured shrink back (at most 1.25x) and lets a narrow band at each screen edge carry the cursor onto it. Measured on the tester's own samples: at the edge targets the gap closes (85 px to 18 px on the left), the overall error is unchanged (186 to 187 px). Settings > Cursor > "Full reach of the edges" (`edge_reach`): on for 1.3.x configs, off for configs upgraded from 1.2.0 until chosen. Cursor settings that defeat the cursor (a top speed of 200 px/s, a 60 px steady zone, a 300 px snap distance - what that tester had set to calm a shaky cursor) are now named under their control in Settings and in `gaze.log`. `cokme.log` and `gaze.log` name the version of every run, and a process that ends normally after Windows exceptions it survived (COM raises some that way) says so under them.
 
 **New in 1.3.2:** the camera search can no longer take the program down. In 1.3.1 a tester's wizard still vanished at "looking for cameras": with no Media Foundation picture for a camera number the search went on to DirectShow, read the camera's own mode, then asked that same capture for 1920x1200, and the camera driver faulted on its own streaming thread - nothing in a process survives that. The search now runs in a child process: a driver fault ends only the child, and the search goes on where it was, without the mode that faulted (a camera that faults three times is given up with the modes it did measure; each fault is written to `cokme.log`). The wizard's camera preview runs in a child too, so the launcher never opens a camera itself. DirectShow and V4L2 captures are no longer asked a larger mode once frames have flowed (largest first, as 1.2.0 did). Tried on real hardware: a USB webcam and a virtual DirectShow camera, with three real access violations injected while a camera was streaming.
 

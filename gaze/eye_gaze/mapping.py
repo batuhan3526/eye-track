@@ -118,6 +118,15 @@ class GazeMapper:
         return f
 
     @property
+    def calibrated_range(self):
+        """((x_lo, y_lo), (x_hi, y_hi)) of the screen points this was fitted
+        on, or None (not fitted, or a file from before it was stored)."""
+        if getattr(self, "_slo", None) is None or self._shi is None:
+            return None
+        return ((float(self._slo[0]), float(self._slo[1])),
+                (float(self._shi[0]), float(self._shi[1])))
+
+    @property
     def n_inputs(self):
         """Length of the RAW gaze vector this mapper was fitted for (2
         eye-only, 4 with head pose) - not the expanded feature count;

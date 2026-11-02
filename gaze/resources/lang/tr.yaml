@@ -295,6 +295,7 @@ settings:
     snap_title: "Hedefe yapışma"
     snap_radius: "Yapışma mesafesi (bakıştan bu kadar uzaktaki hedefe yapışır)"
     saccade: "Sıçrama: göz uzağa sıçrayınca imleç kaymadan hemen oraya geçer"
+    edge_reach: "Kenarlara tam ulaşım: imleç ekranın kenarlarına ve köşelerine kadar gider (kalibrasyonun ölçtüğü daralmayı düzeltir)"
   click:
     dwell_title: "Bekleyerek tıklama"
     dwell_seconds: "Bekleme süresi"
@@ -595,3 +596,10 @@ stt:
     download_failed: "Dikte modeli indirilemedi. İnternet bağlantısını denetleyip tekrar deneyin."
     unknown_size: "Bu dikte modeli boyutu tanınmıyor. Ayarlardan başka bir boyut seçin."
     ready: "Dikte hazır. Şimdi konuşabilirsiniz."
+# İmleci kenara ulaşamaz ya da ince düzeltme yapamaz hâle getiren ayarlar
+# (eye_gaze/cursor_advice.py): Ayarlar penceresi denetimin altında, sürücü
+# gaze.log'da gösterir.
+cursor_advice:
+  slow: "Bu hızla imleç ekranın yarısını {seconds} sn'de geçer: kenarlara ve uzaktaki hedeflere ulaşmak zorlaşır. İmleç titriyorsa hızı değil hassasiyeti düşürün."
+  deadzone: "{value} px'ten küçük düzeltmeler yapılamaz: imleç tam bakılan yere oturmaz. İmleç titriyorsa bu alanı değil hassasiyeti düşürün."
+  snap: "İmleç {value} px uzaktaki öğelere çekilir: masaüstünde ve boş alanlarda istenen yere gitmesi zorlaşır. 120 px önerilir."

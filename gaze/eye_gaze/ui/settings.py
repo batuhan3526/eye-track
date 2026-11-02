@@ -5,7 +5,9 @@
               the key is caught, then started again), conflicts shown live
   İmleç       cursor sensitivity 1-5 / Otomatik, deadzone and top speed
               (each follows the level or holds a number), target snapping
-              and its distance, saccade jump
+              and its distance, saccade jump, full reach of the edges; a
+              value that keeps the cursor off the edges or off small
+              corrections says so under its control (eye_gaze.cursor_advice)
   Tıklama     switch / dwell / blink, and their times and sizes; the
               closed-eye threshold (Otomatik or a number)
   Büyüteç     how much of the screen it enlarges, when it closes itself
@@ -43,6 +45,7 @@ from tkinter import ttk
 
 from eye_gaze import camera_modes
 from eye_gaze import config as _config
+from eye_gaze import cursor_advice, reach
 from eye_gaze import hardware, i18n, openness, pursuit, sensitivity
 from eye_gaze.actions_catalog import by_key
 from eye_gaze.i18n import t
@@ -338,9 +341,9 @@ class SettingsWindow:
         widgets.text(parent, "body", value=t(key), fg=widgets.DISABLED).pack(
             anchor="w", pady=(2, 0))
 
-    def _slider(self, parent, key, title, fmt=None):
+    def _slider(self, parent, key, title, fmt=None, after=None):
         """One number; the file's value, else the driver's own (FALLBACK /
-        DEFAULTS) - a 0 stays 0."""
+        DEFAULTS) - a 0 stays 0. after(): called after each change."""
         lo, hi, step, kind = SLIDERS[key]
         default = FALLBACK.get(key, _config.DEFAULTS.get(key, lo))
         v = self.values.get(key)
@@ -350,14 +353,18 @@ class SettingsWindow:
             return (o is None and _same_number(n, default)) \
                 or _same_number(o, n)
 
+        def changed(n):
+            self._put(key, n, same)
+            if after is not None:
+                after()
+
         c = controls.Slider(parent, title, lo, hi, step, value,
-                            on_change=lambda n: self._put(key, n, same),
-                            kind=kind, fmt=fmt)
+                            on_change=changed, kind=kind, fmt=fmt)
         c.pack(anchor="w", fill="x", pady=(12, 0))
         self.controls[key] = c
         return c
 
-    def _switch(self, parent, key, label, pady=(12, 0)):
+    def _switch(self, parent, key, label, pady=(12, 0), after=None):
         default = _config.DEFAULTS.get(key, False)
         var = tk.BooleanVar(parent, self.values.get(key, default) is True)
         self._vars[key] = var
@@ -365,6 +372,8 @@ class SettingsWindow:
         def chosen():
             self._put(key, bool(var.get()), lambda o, n: (
                 n == (default if o is None else o)))
+            if after is not None:
+                after()
         w = widgets.check(parent, label, var, command=chosen)
         w.pack(anchor="w", pady=pady)
         self.controls[key] = w
@@ -452,16 +461,51 @@ class SettingsWindow:
         self._heading(body, "settings.cursor.snap_title")
         ok, why = self.caps.get("snap", (True, ""))
         c = self._switch(body, "snap_to_targets", t("settings.advanced.snap"),
-                         pady=(6, 0))
+                         pady=(6, 0), after=self._refresh_cursor)
         if not ok:
             c.configure(state="disabled")
             widgets.text(body, "body", value=why, fg=widgets.DISABLED).pack(
                 anchor="w")
         self._slider(body, "snap_radius", t("settings.cursor.snap_radius"),
-                     fmt=_px)
+                     fmt=_px, after=self._refresh_cursor)
+        self.snap_note_var = tk.StringVar(body, "")
+        widgets.text(body, "warn", textvariable=self.snap_note_var).pack(
+            anchor="w")
         self._switch(body, "saccade_jump", t("settings.cursor.saccade"),
                      pady=(16, 0))
+        self._edge_reach_switch(body)
         self._refresh_cursor()
+
+    def _edge_line_less(self):
+        """What the driver runs with no edge_reach line (eye_gaze.reach):
+        on for a 1.3.x config (it has cursor_sensitivity), off for v1.2.0."""
+        return SENS in self.values
+
+    def _edge_reach_switch(self, body):
+        if reach.KEY in self.values:
+            on = self.values[reach.KEY] is True
+        else:
+            on = self._edge_line_less()
+        var = tk.BooleanVar(body, on)
+        self._vars[reach.KEY] = var
+
+        def chosen():
+            self._put(reach.KEY, bool(var.get()), lambda o, n: n == (
+                self._edge_line_less() if o is None else o))
+        w = widgets.check(body, t("settings.cursor.edge_reach"), var,
+                          command=chosen)
+        w.pack(anchor="w", pady=(12, 0))
+        self.controls[reach.KEY] = w
+        return w
+
+    def _screen_width(self):
+        """The primary screen's width in px, or None (cursor_advice then
+        assumes the reference screen)."""
+        try:
+            got = self.services.screens()
+            return float(got[0][2]) if got else None
+        except Exception:
+            return None
 
     def _sensitivity_changed(self, auto, n):
         c = self.controls[SENS]
@@ -474,6 +518,9 @@ class SettingsWindow:
                 (o is None and new == 1)
                 or (not _config.is_auto(o)
                     and sensitivity.level_of(o) == new)))
+        var = self._vars.get(reach.KEY)
+        if var is not None and reach.KEY not in self.values:
+            var.set(self._edge_line_less())
         self._refresh_cursor()
 
     def _filter_changed(self, key, auto, n):
@@ -492,11 +539,18 @@ class SettingsWindow:
         """The filter fields and the level's lines after any change."""
         eff = self._effective()
         lvl = self._level()
+        cautions = {k: t(m, **p) for k, m, p in cursor_advice.cautions(
+            eff, self._screen_width())}
+        note = getattr(self, "snap_note_var", None)
+        if note is not None:
+            note.set(cautions.get("snap_radius", ""))
         for key in ("deadzone", "max_cursor_speed"):
             c = self.controls.get(key)
             if c is None:
                 continue
-            if c.auto:
+            if key in cautions:
+                c.note_var.set(cautions[key])
+            elif c.auto:
                 c.show(eff[key])
                 c.note_var.set("")
             elif lvl not in (None, 1) and sensitivity.follows(

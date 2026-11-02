@@ -95,7 +95,7 @@ gaze_scroll scroll_zone scroll_speed
 blink_click blink_closed_threshold blink_hold_seconds
 dwell_click dwell_radius dwell_seconds dwell_repeat
 dwell_ring dwell_ring_px
-snap_to_targets snap_radius snap_max_target
+snap_to_targets snap_radius snap_max_target edge_reach
 multi_monitor zoom_key zoom_scale zoom_timeout osk_key
 tts_key tts_engine tts_voice tts_speaker_wav tts_speed tts_volume
 aac_key aac_dir aac_root aac_timeout aac_cache
@@ -149,7 +149,7 @@ per_eye_features suppress_keys ignore_injected_keys use_head_pose head_translati
 save_calibration gaze_scroll blink_click dwell_click dwell_repeat multi_monitor
 aac_cache stt_readback saccade_jump dwell_ring calibration_poly2
 calibration_refit implicit_correction feedback_sounds aac_scan
-snap_to_targets
+snap_to_targets edge_reach
 """.split())
 _TRUE_WORDS = frozenset("true yes on 1 evet acik açık".split())
 _FALSE_WORDS = frozenset("false no off 0 hayir hayır kapali kapalı".split())
@@ -444,6 +444,10 @@ def _read_into_defaults(path, announce=False, report=None, effective=False):
                 "DIKKAT: config.yaml GECERLI AYAR ICERMIYOR")
     if effective:
         sensitivity.resolve(cfg, user)
+        # edge_reach: on for a 1.3.x config without the line, off for a
+        # v1.2.0 one (eye_gaze.reach).
+        from eye_gaze import reach
+        reach.resolve(cfg, user)
     return cfg, None, None
 
 

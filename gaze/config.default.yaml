@@ -54,6 +54,10 @@ suppress_keys: true      # surucunun tuslari (Space, F2-F12, ScrLk) ONDEKI PROGR
                          # acilista KAPATILIR ve konsola uyari yazilir (oncelik: eski tuslar > alarm > tik menusu > konusma durdur)
 ignore_injected_keys: true  # ekran klavyesinin (OSK) / OptiKey'in GONDERDIGI tuslar surucu tusu SAYILMAZ, programa gider (OSK'de Space bosluk yazar, tiklama dongusu olmaz). Switch'iniz tuslari bir YAZILIMLA gonderiyorsa false yapin
 reach_margin: 0.25       # ekran kenarlarina ulasmak icin kalibrasyon araligi disina tasma payi (0=kapali, 0.25 onerilir)
+edge_reach: true         # KENARLARA TAM ULASIM: imlec ekranin kenarlarina ve koselerine kadar gider. Kalibrasyonun olctugu
+                         # daralmayi (sonuc ekraninda "yatayda %93" gibi) duzeltir ve kenara cok yakin imleci kenara oturtur
+                         # (kaydirma cubugu, gorev cubugu, pencere kapatma dugmesi). false = 1.3.2'deki gibi.
+                         # Bu satir HIC YOKSA: 1.3.x ayar dosyasinda acik, 1.2.0'dan kalan dosyada kapali (eski his korunur)
 use_head_pose: true      # bas-pozu (donme) telafisi (kafasi oynayabilen kullanici icin onemli). Sorun cikarsa false yapin
 head_translation: true   # kafa KAYMASI/mesafe telafisi (istemsiz kayan/sallanan kafa icin). Degistirince yeniden kalibrasyon gerekir
 gaze_median_seconds: "auto"  # canli medyan filtre suresi (sn; gozluk/titreme sicramalarini keser). Artirmak daha sakin ama daha gec

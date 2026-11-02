@@ -48,9 +48,11 @@ from eye_gaze.pursuit import PursuitPath, best_latency_fit, pursuit_pairs, layou
 from eye_gaze import cursor, actions
 from eye_gaze import caldata
 from eye_gaze import calquality
+from eye_gaze import cursor_advice
 from eye_gaze import modelsel
 from eye_gaze import openness
 from eye_gaze import physical
+from eye_gaze import reach
 from eye_gaze import sensitivity
 from eye_gaze import textfit
 from eye_gaze import timebase
@@ -103,8 +105,10 @@ def _setup_logging():
     except Exception:
         return
     import datetime
-    f.write("\n===== yeni calisma: %s =====\n"
-            % datetime.datetime.now().isoformat(timespec="seconds"))
+    from eye_gaze import __version__
+    f.write("\n===== yeni calisma: %s (surum %s) =====\n"
+            % (datetime.datetime.now().isoformat(timespec="seconds"),
+               __version__))
     f.flush()
     sys.stdout = _Tee(sys.stdout, f)
     sys.stderr = _Tee(sys.stderr, f)
@@ -883,7 +887,8 @@ def _collect_gaze(estimator, cap, hotkeys, samples, max_attempts=900, topmost_ti
 
 
 def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
-              poly2=False, passes=1, feat=None, recal_key="F9", closed_thr=None):
+              poly2=False, passes=1, feat=None, recal_key="F9", closed_thr=None,
+              live_reach=None):
     """Dots calibration. closed_thr: the ClosedEye gate (eye_gaze.openness)
     or a pixel-scale number; the person's open-eye openness is measured on
     the way and kept with the calibration."""
@@ -959,7 +964,8 @@ def calibrate(estimator, cap, sw, sh, positions, hotkeys, samples, reach_margin,
         _stamp_setup(mapper, sw, sh, cap)
         _print_cal_quality(err, mapper.err_cv, (sw, sh))
         _print_model(mapper)
-        _show_cal_result(win, sw, sh, hotkeys, mapper, feat, recal_key)
+        _show_cal_result(win, sw, sh, hotkeys, mapper, feat, recal_key,
+                         live_reach=live_reach)
         return mapper
     finally:
         cv2.destroyWindow(win)
@@ -1137,13 +1143,18 @@ def _cal_result_lines(q):
     return lines
 
 
-def _show_cal_result(win, sw, sh, hotkeys, mapper, feat=None, recal_key="F9"):
+def _show_cal_result(win, sw, sh, hotkeys, mapper, feat=None, recal_key="F9",
+                     live_reach=None):
     """After a calibration: per-axis error, reach and hints on the console,
     and everything (grade first) on the calibration window for a few seconds
     - the user cannot see the console. A KOTU grade says so in red, with the
     key to try again. Never raises."""
     try:
-        q = calquality.summary(mapper, (sw, sh), feat, key=str(recal_key).upper())
+        # The reach line says what the LIVE cursor reaches (eye_gaze.reach
+        # undoes the model's measured shrink), not what the plain model did.
+        cov = None if live_reach is None else live_reach.coverage(mapper)
+        q = calquality.summary(mapper, (sw, sh), feat, key=str(recal_key).upper(),
+                               coverage=cov)
         lines = _cal_result_lines(q)
     except Exception:
         return
@@ -1228,7 +1239,7 @@ _PURSUIT_MIN_EARLY = 15   # ... with fewer usable frames than this: stop
 
 def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
                       passes=1, speed=480.0, latency="auto", closed_thr=None,
-                      feat=None, layout="rows", recal_key="F9"):
+                      feat=None, layout="rows", recal_key="F9", live_reach=None):
     """Smooth-pursuit calibration: the user follows a gliding ball; every
     frame contributes a (gaze, ball position) pair. The user's eye lag is
     LEARNED from the data (latency='auto': several candidate lags are fitted
@@ -1335,7 +1346,8 @@ def calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2=False,
         _stamp_setup(mapper, sw, sh, cap)
         _print_cal_quality(err, mapper.err_cv, (sw, sh))
         _print_model(mapper)
-        _show_cal_result(win, sw, sh, hotkeys, mapper, feat, recal_key)
+        _show_cal_result(win, sw, sh, hotkeys, mapper, feat, recal_key,
+                         live_reach=live_reach)
         return mapper
     finally:
         cv2.destroyWindow(win)
@@ -3388,6 +3400,10 @@ def main():
     screen_scale = physical.detect((primary[2], primary[3]))
     print(physical.describe(screen_scale))
     cfg = physical.scaled_config(cfg, screen_scale.factor)
+    # Settings that keep the cursor off the edges or off small corrections
+    # (a tester's 200 px/s, 60 px, 300 px): said where gaze.log shows them.
+    for line in cursor_advice.log_lines(cfg, primary[2]):
+        print(line)
     _SCREEN_ORIGIN = (ox, oy)
     # cursor bounds: primary monitor, or the whole virtual desktop
     bx, by, bw, bh = _gaze_bounds(multi_mon, primary)
@@ -3497,15 +3513,22 @@ def main():
     clicker.on_fire = lambda kinds: feedback.event("click")
     print(f"  Ses geri bildirimi: {_onoff(feedback.enabled)}")
 
+    # Full reach of the screen edges (eye_gaze.reach): every live prediction
+    # undoes the shrink the calibration measured, and a narrow band at each
+    # screen edge carries the smoothed cursor onto it. Off for a v1.2.0
+    # config without the line (config.load_config resolves it).
+    edge_reach = reach.Reach(cfg.get("edge_reach", False))
+
     def run_calibration():
         if cal_mode.startswith("dot") or cal_mode.startswith("nokta"):
             return calibrate(source, cap, sw, sh, positions, hotkeys, cal_samples,
                              reach_margin, poly2, cal_passes, feat=feat_id,
-                             recal_key=recal_key, closed_thr=eyes)
+                             recal_key=recal_key, closed_thr=eyes,
+                             live_reach=edge_reach)
         return calibrate_pursuit(source, cap, sw, sh, hotkeys, reach_margin, poly2,
                                  cal_passes, pursuit_speed, pursuit_latency, eyes,
                                  feat=feat_id, layout=pursuit_layout,
-                                 recal_key=recal_key)
+                                 recal_key=recal_key, live_reach=edge_reach)
 
     n_inputs = base_inputs + (2 if deep is not None else 0)
     if cal_mode.startswith("dot") or cal_mode.startswith("nokta"):
@@ -3576,6 +3599,7 @@ def main():
         clicker.discard()
     eyes.use(mapper)
     print("  " + eyes.describe())
+    print("  " + edge_reach.describe(mapper, bw - 2 * margin, bh - 2 * margin))
 
     fx = OneEuroFilter(cfg["freq"], cfg["mincutoff"], cfg["beta"], cfg["dcutoff"])
     fy = OneEuroFilter(cfg["freq"], cfg["mincutoff"], cfg["beta"], cfg["dcutoff"])
@@ -3907,7 +3931,8 @@ def main():
                     hotkeys.calibrating = True
                     try:
                         off = measure_drift(source, cap, sw, sh, hotkeys,
-                                            max(10, cal_samples // 2), mapper)
+                                            max(10, cal_samples // 2),
+                                            edge_reach.view(mapper))
                     finally:
                         if hotkeys.end_calibration():
                             off = None
@@ -3978,10 +4003,11 @@ def main():
                     if source.openness > closed_thr:
                         hist.append(g)
                         if saccader is not None:   # never raises; off on a fault
-                            saccader.step(mapper.predict, g, drift, now, hist,
+                            saccader.step(edge_reach.view(mapper).predict, g,
+                                          drift, now, hist,
                                           (fx, fy, limiter, stabilizer))
                         feat = _component_median(list(hist))
-                        sx, sy = mapper.predict(feat)
+                        sx, sy = edge_reach.predict(mapper, feat)
                         # Calibration pixels are primary-monitor pixels;
                         # from here on everything is screen coordinates.
                         sx += ox + drift[0]
@@ -3991,6 +4017,9 @@ def main():
                         sy = min(max(sy, by + margin), by + bh - 1 - margin)
                         lx, ly = limiter.update(fx(sx, now), fy(sy, now), now)
                         lx, ly = stabilizer.update(lx, ly)
+                        lx, ly = edge_reach.edge(mapper, lx, ly, (
+                            bx + margin, by + margin,
+                            bx + bw - 1 - margin, by + bh - 1 - margin))
                         raw_gaze = (lx, ly)
                         if snapper is not None:   # never raises
                             # Our own fullscreen layers are not Windows
